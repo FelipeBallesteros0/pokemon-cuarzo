@@ -3,16 +3,20 @@
 #include "field_camera.h"
 #include "field_effect.h"
 #include "field_effect_helpers.h"
+#include "field_player_avatar.h"
 #include "field_weather.h"
 #include "fieldmap.h"
 #include "gpu_regs.h"
 #include "metatile_behavior.h"
 #include "palette.h"
+#include "pokemon.h"
 #include "sound.h"
 #include "sprite.h"
+#include "surfable_pokemon.h"
 #include "trig.h"
 #include "constants/event_objects.h"
 #include "constants/field_effects.h"
+#include "constants/species.h"
 #include "constants/rgb.h"
 #include "constants/songs.h"
 
@@ -40,6 +44,7 @@ static void SynchronizeSurfPosition(struct ObjectEvent *, struct Sprite *);
 static void UpdateBobbingEffect(struct ObjectEvent *, struct Sprite *, struct Sprite *);
 static void SpriteCB_UnderwaterSurfBlob(struct Sprite *);
 static u32 ShowDisguiseFieldEffect(u8, u8, u8);
+static u16 GetSurfUserGraphicsId(u8 partyIndex);
 u32 FldEff_Shadow(void);
 
 // Data used by all the field effects that share UpdateJumpImpactEffect
@@ -1193,22 +1198,81 @@ static void UpdateAshFieldEffect_End(struct Sprite *sprite)
 u32 FldEff_SurfBlob(void)
 {
     u8 spriteId;
+    bool32 useSurfMonSprite = FALSE;
 
     SetSpritePosToOffsetMapCoords((s16 *)&gFieldEffectArguments[0], (s16 *)&gFieldEffectArguments[1], 8, 8);
-    spriteId = CreateSpriteAtEnd(gFieldEffectObjectTemplatePointers[FLDEFFOBJ_SURF_BLOB], gFieldEffectArguments[0], gFieldEffectArguments[1], 150);
+    // If this surf blob was spawned by the player's Surf field move, use the
+    // actual Surf user OW sprite instead of the default blob graphic.
+    if (gFieldEffectArguments[2] == gPlayerAvatar.objectEventId && gFieldEffectArguments[3] < PARTY_SIZE)
+    {
+        if (TryCreateSurfablePokemonSprite(gFieldEffectArguments[3], gFieldEffectArguments[2], gFieldEffectArguments[0], gFieldEffectArguments[1], 150, &spriteId))
+        {
+            useSurfMonSprite = TRUE;
+        }
+        else
+        {
+            u16 graphicsId = GetSurfUserGraphicsId(gFieldEffectArguments[3]);
+            if (graphicsId != 0)
+            {
+                spriteId = CreateObjectGraphicsSprite(graphicsId, UpdateSurfBlobFieldEffect, gFieldEffectArguments[0], gFieldEffectArguments[1], 150);
+                useSurfMonSprite = (spriteId != MAX_SPRITES);
+            }
+            else
+            {
+                spriteId = MAX_SPRITES;
+            }
+        }
+    }
+    else
+    {
+        spriteId = MAX_SPRITES;
+    }
+
+    if (spriteId == MAX_SPRITES)
+        spriteId = CreateSpriteAtEnd(gFieldEffectObjectTemplatePointers[FLDEFFOBJ_SURF_BLOB], gFieldEffectArguments[0], gFieldEffectArguments[1], 150);
+
     if (spriteId != MAX_SPRITES)
     {
         struct Sprite *sprite = &gSprites[spriteId];
         sprite->coordOffsetEnabled = TRUE;
         sprite->sPlayerObjId = gFieldEffectArguments[2];
-        // Can use either gender's palette, so try to use the one that should be loaded
-        sprite->oam.paletteNum = LoadPlayerObjectEventPalette(gSaveBlock2Ptr->playerGender);
+        if (!useSurfMonSprite)
+        {
+            // Can use either gender's palette, so try to use the one that should be loaded
+            sprite->oam.paletteNum = LoadPlayerObjectEventPalette(gSaveBlock2Ptr->playerGender);
+        }
         sprite->sVelocity = -1;
         sprite->sPrevX = -1;
         sprite->sPrevY = -1;
     }
     FieldEffectActiveListRemove(FLDEFF_SURF_BLOB);
     return spriteId;
+}
+
+static u16 GetSurfUserGraphicsId(u8 partyIndex)
+{
+    struct Pokemon *mon;
+    u16 species;
+    bool32 shiny;
+    bool32 female;
+
+    if (partyIndex >= PARTY_SIZE)
+        return 0;
+
+    mon = &gPlayerParty[partyIndex];
+    species = GetMonData(mon, MON_DATA_SPECIES);
+    if (species == SPECIES_NONE || species == SPECIES_EGG)
+        return 0;
+
+    shiny = IsMonShiny(mon) ? OBJ_EVENT_MON_SHINY : 0;
+    female = GetMonGender(mon) == MON_FEMALE ? OBJ_EVENT_MON_FEMALE : 0;
+
+    if (species == SPECIES_UNOWN)
+        species = GetUnownSpeciesId(GetMonData(mon, MON_DATA_PERSONALITY));
+    else
+        species = GetOverworldWeatherSpecies(species);
+
+    return species + OBJ_EVENT_MON + shiny + female;
 }
 
 
@@ -1248,10 +1312,15 @@ void UpdateSurfBlobFieldEffect(struct Sprite *sprite)
 {
     struct ObjectEvent *playerObj = &gObjectEvents[sprite->sPlayerObjId];
     struct Sprite *playerSprite = &gSprites[playerObj->spriteId];
+    u8 playerSubpriority = playerSprite->subpriority;
     SynchronizeSurfAnim(playerObj, sprite);
     SynchronizeSurfPosition(playerObj, sprite);
     UpdateBobbingEffect(playerObj, playerSprite, sprite);
     sprite->oam.priority = playerSprite->oam.priority;
+    if (playerObj->movementDirection == DIR_SOUTH)
+        sprite->subpriority = (playerSubpriority == 0) ? 0 : (playerSubpriority - 1);
+    else
+        sprite->subpriority = (playerSubpriority == 255) ? 255 : (playerSubpriority + 1);
 }
 
 static void SynchronizeSurfAnim(struct ObjectEvent *playerObj, struct Sprite *sprite)
