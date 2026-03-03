@@ -409,6 +409,9 @@ extern const u8 EventScript_UseDig[];
 extern const u8 EventScript_UseCutGrass[];
 extern const u8 EventScript_UseDefog[];
 extern const u8 EventScript_UseHaze[];
+extern const u8 EventScript_UseSunnyDay[];
+extern const u8 EventScript_UseRainDance[];
+extern const u8 EventScript_UseHail[];
 
 //player pc
 extern const u8 LittlerootTown_BrendansHouse_2F_EventScript_TurnOffPlayerPC[];

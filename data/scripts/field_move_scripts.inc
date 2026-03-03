@@ -461,6 +461,60 @@ EventScript_UseHaze::
 	releaseall
 	end
 
+EventScript_UseSunnyDay::
+	lockall
+	copyvar VAR_0x8008, VAR_RESULT
+	bufferpartymonnick STR_VAR_1, VAR_RESULT
+	buffermovename STR_VAR_2, MOVE_SUNNY_DAY
+	msgbox Text_MonUsedFieldMove, MSGBOX_DEFAULT
+	closemessage
+	isfollowerfieldmoveuser VAR_0x8004
+	setfieldeffectargument 3, VAR_0x8004 @ skip pose if so
+	setflag FLAG_SAFE_FOLLOWER_MOVEMENT
+	call_if_eq VAR_0x8004, TRUE, EventScript_FollowerFieldMove
+	waitmovement 0
+	setfieldeffectargument 0, VAR_0x8008
+	dofieldeffect FLDEFF_SUNNY_DAY
+	waitstate
+	releaseall
+	end
+
+EventScript_UseRainDance::
+	lockall
+	copyvar VAR_0x8008, VAR_RESULT
+	bufferpartymonnick STR_VAR_1, VAR_RESULT
+	buffermovename STR_VAR_2, MOVE_RAIN_DANCE
+	msgbox Text_MonUsedFieldMove, MSGBOX_DEFAULT
+	closemessage
+	isfollowerfieldmoveuser VAR_0x8004
+	setfieldeffectargument 3, VAR_0x8004 @ skip pose if so
+	setflag FLAG_SAFE_FOLLOWER_MOVEMENT
+	call_if_eq VAR_0x8004, TRUE, EventScript_FollowerFieldMove
+	waitmovement 0
+	setfieldeffectargument 0, VAR_0x8008
+	dofieldeffect FLDEFF_RAIN_DANCE
+	waitstate
+	releaseall
+	end
+
+EventScript_UseHail::
+	lockall
+	copyvar VAR_0x8008, VAR_RESULT
+	bufferpartymonnick STR_VAR_1, VAR_RESULT
+	buffermovename STR_VAR_2, MOVE_HAIL
+	msgbox Text_MonUsedFieldMove, MSGBOX_DEFAULT
+	closemessage
+	isfollowerfieldmoveuser VAR_0x8004
+	setfieldeffectargument 3, VAR_0x8004 @ skip pose if so
+	setflag FLAG_SAFE_FOLLOWER_MOVEMENT
+	call_if_eq VAR_0x8004, TRUE, EventScript_FollowerFieldMove
+	waitmovement 0
+	setfieldeffectargument 0, VAR_0x8008
+	dofieldeffect FLDEFF_HAIL
+	waitstate
+	releaseall
+	end
+
 EventScript_UseRockClimb::
 	lockall
 	checkfieldmove FIELD_MOVE_ROCK_CLIMB

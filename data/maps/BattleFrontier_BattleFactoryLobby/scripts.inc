@@ -165,6 +165,7 @@ BattleFrontier_BattleFactoryLobby_EventScript_RechargeableRepelGiver_GiveAll::
 	call BattleFrontier_BattleFactoryLobby_EventScript_GiveBerryPouchIfNeeded
 	call BattleFrontier_BattleFactoryLobby_EventScript_GiveBerriesIfNeeded
 	call BattleFrontier_BattleFactoryLobby_EventScript_GiveBouncePonytaIfNeeded
+	call BattleFrontier_BattleFactoryLobby_EventScript_GiveWeatherCastformIfNeeded
 	call BattleFrontier_BattleFactoryLobby_EventScript_GiveMilkDrinkAndSoftBoiledMonsIfNeeded
 	call BattleFrontier_BattleFactoryLobby_EventScript_GivePokeblockCaseIfNeeded
 	call BattleFrontier_BattleFactoryLobby_EventScript_EnablePokemonCenterLinkFeatures
@@ -186,6 +187,7 @@ BattleFrontier_BattleFactoryLobby_EventScript_RechargeableRepelGiver_After::
 	call BattleFrontier_BattleFactoryLobby_EventScript_GiveBerryPouchIfNeeded
 	call BattleFrontier_BattleFactoryLobby_EventScript_GiveBerriesIfNeeded
 	call BattleFrontier_BattleFactoryLobby_EventScript_GiveBouncePonytaIfNeeded
+	call BattleFrontier_BattleFactoryLobby_EventScript_GiveWeatherCastformIfNeeded
 	call BattleFrontier_BattleFactoryLobby_EventScript_GiveMilkDrinkAndSoftBoiledMonsIfNeeded
 	call BattleFrontier_BattleFactoryLobby_EventScript_GivePokeblockCaseIfNeeded
 	call BattleFrontier_BattleFactoryLobby_EventScript_EnablePokemonCenterLinkFeatures
@@ -348,6 +350,65 @@ BattleFrontier_BattleFactoryLobby_EventScript_GiveBouncePonyta_SetMoveSlot4::
 BattleFrontier_BattleFactoryLobby_EventScript_GiveBouncePonyta_SetMoveSlot5::
 	setmonmove 5, 0, MOVE_BOUNCE
 	setflag FLAG_RECEIVED_BOUNCE_PONYTA
+	return
+
+BattleFrontier_BattleFactoryLobby_EventScript_GiveWeatherCastformIfNeeded::
+	checkflag FLAG_RECEIVED_WEATHER_CASTFORM
+	goto_if_set FLAG_RECEIVED_WEATHER_CASTFORM, BattleFrontier_BattleFactoryLobby_EventScript_GiveWeatherCastformIfNeeded_Done
+	specialvar VAR_TEMP_3, CalculatePlayerPartyCount
+	goto_if_eq VAR_TEMP_3, PARTY_SIZE, BattleFrontier_BattleFactoryLobby_EventScript_NoRoomForSurfMon
+	givemon SPECIES_CASTFORM, WEATHER_GIFT_LEVEL
+	goto_if_ne VAR_RESULT, MON_GIVEN_TO_PARTY, BattleFrontier_BattleFactoryLobby_EventScript_NoRoomForSurfMon
+	switch VAR_TEMP_3
+	case 0, BattleFrontier_BattleFactoryLobby_EventScript_GiveWeatherCastform_SetMoveSlot0
+	case 1, BattleFrontier_BattleFactoryLobby_EventScript_GiveWeatherCastform_SetMoveSlot1
+	case 2, BattleFrontier_BattleFactoryLobby_EventScript_GiveWeatherCastform_SetMoveSlot2
+	case 3, BattleFrontier_BattleFactoryLobby_EventScript_GiveWeatherCastform_SetMoveSlot3
+	case 4, BattleFrontier_BattleFactoryLobby_EventScript_GiveWeatherCastform_SetMoveSlot4
+	case 5, BattleFrontier_BattleFactoryLobby_EventScript_GiveWeatherCastform_SetMoveSlot5
+BattleFrontier_BattleFactoryLobby_EventScript_GiveWeatherCastformIfNeeded_Done::
+	return
+
+BattleFrontier_BattleFactoryLobby_EventScript_GiveWeatherCastform_SetMoveSlot0::
+	setmonmove 0, 0, MOVE_SUNNY_DAY
+	setmonmove 0, 1, MOVE_RAIN_DANCE
+	setmonmove 0, 2, MOVE_HAIL
+	setflag FLAG_RECEIVED_WEATHER_CASTFORM
+	return
+
+BattleFrontier_BattleFactoryLobby_EventScript_GiveWeatherCastform_SetMoveSlot1::
+	setmonmove 1, 0, MOVE_SUNNY_DAY
+	setmonmove 1, 1, MOVE_RAIN_DANCE
+	setmonmove 1, 2, MOVE_HAIL
+	setflag FLAG_RECEIVED_WEATHER_CASTFORM
+	return
+
+BattleFrontier_BattleFactoryLobby_EventScript_GiveWeatherCastform_SetMoveSlot2::
+	setmonmove 2, 0, MOVE_SUNNY_DAY
+	setmonmove 2, 1, MOVE_RAIN_DANCE
+	setmonmove 2, 2, MOVE_HAIL
+	setflag FLAG_RECEIVED_WEATHER_CASTFORM
+	return
+
+BattleFrontier_BattleFactoryLobby_EventScript_GiveWeatherCastform_SetMoveSlot3::
+	setmonmove 3, 0, MOVE_SUNNY_DAY
+	setmonmove 3, 1, MOVE_RAIN_DANCE
+	setmonmove 3, 2, MOVE_HAIL
+	setflag FLAG_RECEIVED_WEATHER_CASTFORM
+	return
+
+BattleFrontier_BattleFactoryLobby_EventScript_GiveWeatherCastform_SetMoveSlot4::
+	setmonmove 4, 0, MOVE_SUNNY_DAY
+	setmonmove 4, 1, MOVE_RAIN_DANCE
+	setmonmove 4, 2, MOVE_HAIL
+	setflag FLAG_RECEIVED_WEATHER_CASTFORM
+	return
+
+BattleFrontier_BattleFactoryLobby_EventScript_GiveWeatherCastform_SetMoveSlot5::
+	setmonmove 5, 0, MOVE_SUNNY_DAY
+	setmonmove 5, 1, MOVE_RAIN_DANCE
+	setmonmove 5, 2, MOVE_HAIL
+	setflag FLAG_RECEIVED_WEATHER_CASTFORM
 	return
 
 BattleFrontier_BattleFactoryLobby_EventScript_GiveMilkDrinkAndSoftBoiledMonsIfNeeded::

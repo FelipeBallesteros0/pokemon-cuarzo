@@ -59,6 +59,18 @@ bool8 FldEff_Defog(void);
 bool32 SetUpFieldMove_Haze(void);
 bool8 FldEff_Haze(void);
 
+// sunny day
+bool32 SetUpFieldMove_SunnyDay(void);
+bool8 FldEff_SunnyDay(void);
+
+// rain dance
+bool32 SetUpFieldMove_RainDance(void);
+bool8 FldEff_RainDance(void);
+
+// hail
+bool32 SetUpFieldMove_Hail(void);
+bool8 FldEff_Hail(void);
+
 // bounce
 bool32 SetUpFieldMove_Bounce(void);
 

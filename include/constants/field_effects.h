@@ -81,6 +81,9 @@
 #define FLDEFF_ROCK_CLIMB_DUST           76
 #define FLDEFF_ORAS_DOWSE                77
 #define FLDEFF_HAZE                      78
+#define FLDEFF_SUNNY_DAY                 79
+#define FLDEFF_RAIN_DANCE                80
+#define FLDEFF_HAIL                      81
 
 #define FLDEFFOBJ_SHADOW_S              0
 #define FLDEFFOBJ_SHADOW_M              1

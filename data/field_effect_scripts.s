@@ -85,6 +85,9 @@ gFieldEffectScriptPointers::
 	.4byte gFieldEffectScript_RockClimbDust             @ FLDEFF_ROCK_CLIMB_DUST
 	.4byte gFieldEffectScript_ORASDowse                 @ FLDEFF_ORAS_DOWSE
 	.4byte gFieldEffectScript_Haze                      @ FLDEFF_HAZE
+	.4byte gFieldEffectScript_SunnyDay                  @ FLDEFF_SUNNY_DAY
+	.4byte gFieldEffectScript_RainDance                 @ FLDEFF_RAIN_DANCE
+	.4byte gFieldEffectScript_Hail                      @ FLDEFF_HAIL
 
 gFieldEffectScript_ExclamationMarkIcon1::
 	field_eff_callnative FldEff_ExclamationMarkIcon
@@ -403,4 +406,16 @@ gFieldEffectScript_ORASDowse::
 
 gFieldEffectScript_Haze::
 	field_eff_callnative FldEff_Haze
+	field_eff_end
+
+gFieldEffectScript_SunnyDay::
+	field_eff_callnative FldEff_SunnyDay
+	field_eff_end
+
+gFieldEffectScript_RainDance::
+	field_eff_callnative FldEff_RainDance
+	field_eff_end
+
+gFieldEffectScript_Hail::
+	field_eff_callnative FldEff_Hail
 	field_eff_end

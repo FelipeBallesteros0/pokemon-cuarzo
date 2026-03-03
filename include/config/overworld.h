@@ -12,6 +12,9 @@
 #define OW_WHITEOUT_CUTSCENE            GEN_LATEST // In Gen4+, whiting out shows an additional message and post whiteout event script cutscene with a healing NPC. (While this change was also in FRLG, for the sake of simplicity, setting this to GEN_3 will result in RSE behavior.)
 #define OW_DEFOG_FIELD_MOVE             TRUE       // If enabled, Defog can be used as a Field Move as seen in DPPt.
 #define OW_HAZE_FIELD_MOVE              TRUE       // If enabled, Haze can be used as a Field Move to summon fog.
+#define OW_SUNNY_DAY_FIELD_MOVE         TRUE       // If enabled, Sunny Day can be used as a Field Move to summon drought.
+#define OW_RAIN_DANCE_FIELD_MOVE        TRUE       // If enabled, Rain Dance can be used as a Field Move to summon rain.
+#define OW_HAIL_FIELD_MOVE              TRUE       // If enabled, Hail can be used as a Field Move to summon snow.
 #define OW_BOUNCE_FIELD_MOVE            TRUE       // If enabled, Bounce can be used as a Field Move in scripted jump spots.
 #define OW_ROCK_CLIMB_FIELD_MOVE        FALSE      // If enabled, Rock Climb can be used as a Field Move as seen in DPPt.
 
