@@ -515,6 +515,24 @@ EventScript_UseHail::
 	releaseall
 	end
 
+EventScript_UseSandstorm::
+	lockall
+	copyvar VAR_0x8008, VAR_RESULT
+	bufferpartymonnick STR_VAR_1, VAR_RESULT
+	buffermovename STR_VAR_2, MOVE_SANDSTORM
+	msgbox Text_MonUsedFieldMove, MSGBOX_DEFAULT
+	closemessage
+	isfollowerfieldmoveuser VAR_0x8004
+	setfieldeffectargument 3, VAR_0x8004 @ skip pose if so
+	setflag FLAG_SAFE_FOLLOWER_MOVEMENT
+	call_if_eq VAR_0x8004, TRUE, EventScript_FollowerFieldMove
+	waitmovement 0
+	setfieldeffectargument 0, VAR_0x8008
+	dofieldeffect FLDEFF_SANDSTORM
+	waitstate
+	releaseall
+	end
+
 EventScript_UseRockClimb::
 	lockall
 	checkfieldmove FIELD_MOVE_ROCK_CLIMB

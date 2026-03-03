@@ -91,6 +91,7 @@ gFieldEffectScriptPointers::
 	.4byte gFieldEffectScript_SunnyDay                  @ FLDEFF_SUNNY_DAY
 	.4byte gFieldEffectScript_RainDance                 @ FLDEFF_RAIN_DANCE
 	.4byte gFieldEffectScript_Hail                      @ FLDEFF_HAIL
+	.4byte gFieldEffectScript_Sandstorm                 @ FLDEFF_SANDSTORM
 
 gFieldEffectScript_ExclamationMarkIcon1::
 	field_eff_callnative FldEff_ExclamationMarkIcon
@@ -434,4 +435,8 @@ gFieldEffectScript_RainDance::
 
 gFieldEffectScript_Hail::
 	field_eff_callnative FldEff_Hail
+	field_eff_end
+
+gFieldEffectScript_Sandstorm::
+	field_eff_callnative FldEff_Sandstorm
 	field_eff_end
