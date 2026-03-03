@@ -171,6 +171,15 @@ int ProcessPlayerFieldInput(struct FieldInput *input)
     GetPlayerPosition(&position);
     metatileBehavior = MapGridGetMetatileBehaviorAt(position.x, position.y);
 
+    // Bounce flow: respawn follower right before the first movement input after landing.
+    // This makes the follower emerge on that first step, not the second one.
+    if (FlagGet(FLAG_TEMP_BOUNCE_FOLLOWER_RESPAWN) && input->heldDirection)
+    {
+        FlagClear(FLAG_TEMP_BOUNCE_FOLLOWER_RESPAWN);
+        FlagClear(FLAG_TEMP_HIDE_FOLLOWER);
+        UpdateFollowingPokemon();
+    }
+
     if (CheckForTrainersWantingBattle() == TRUE)
         return TRUE;
 
