@@ -1,0 +1,167 @@
+TestIsland_MapScripts::
+	.byte 0
+
+TestIsland_EventScript_BounceRock::
+	lockall
+	specialvar VAR_TEMP_4, Special_GetFirstBounceMonIndex
+	goto_if_eq VAR_TEMP_4, PARTY_SIZE, TestIsland_EventScript_BounceRock_Cant
+	msgbox TestIsland_Text_BouncePrompt, MSGBOX_YESNO
+	goto_if_eq VAR_RESULT, NO, TestIsland_EventScript_BounceRock_End
+	getplayerxy VAR_TEMP_2, VAR_TEMP_3
+	goto_if_eq VAR_TEMP_2, 28, TestIsland_EventScript_BounceRock_LeftFromWest_CheckY
+	goto_if_eq VAR_TEMP_2, 30, TestIsland_EventScript_BounceRock_LeftFromEast_CheckY
+	goto_if_eq VAR_TEMP_2, 29, TestIsland_EventScript_BounceRock_LeftFromVertical_CheckY
+	goto_if_eq VAR_TEMP_2, 36, TestIsland_EventScript_BounceRock_RightFromEast_CheckY
+	goto_if_eq VAR_TEMP_2, 34, TestIsland_EventScript_BounceRock_RightFromWest_CheckY
+	goto_if_eq VAR_TEMP_2, 35, TestIsland_EventScript_BounceRock_RightFromVertical_CheckY
+	goto TestIsland_EventScript_BounceRock_Cant
+
+TestIsland_EventScript_BounceRock_Prepare:
+	hidefollower 1
+	setfieldeffectargument 0, VAR_TEMP_4
+	dofieldeffect FLDEFF_FIELD_MOVE_SHOW_MON_INIT
+	waitfieldeffect FLDEFF_FIELD_MOVE_SHOW_MON
+	return
+
+TestIsland_EventScript_BounceRock_Finish:
+	waitmovement 0
+	resetobjectsubpriority LOCALID_PLAYER, MAP_TEST_ISLAND
+	updatefollowingmon
+	releaseall
+	end
+
+TestIsland_EventScript_BounceRock_LeftFromWest_CheckY:
+	goto_if_ne VAR_TEMP_3, 23, TestIsland_EventScript_BounceRock_Cant
+	call TestIsland_EventScript_BounceRock_Prepare
+	setobjectsubpriority LOCALID_PLAYER, MAP_TEST_ISLAND, 3
+	applymovement OBJ_EVENT_ID_PLAYER, TestIsland_Movement_BounceRight
+	goto TestIsland_EventScript_BounceRock_Finish
+
+TestIsland_EventScript_BounceRock_LeftFromEast_CheckY:
+	goto_if_ne VAR_TEMP_3, 23, TestIsland_EventScript_BounceRock_Cant
+	call TestIsland_EventScript_BounceRock_Prepare
+	setobjectsubpriority LOCALID_PLAYER, MAP_TEST_ISLAND, 3
+	applymovement OBJ_EVENT_ID_PLAYER, TestIsland_Movement_BounceRight_FromEast
+	goto TestIsland_EventScript_BounceRock_Finish
+
+TestIsland_EventScript_BounceRock_LeftFromVertical_CheckY:
+	goto_if_eq VAR_TEMP_3, 22, TestIsland_EventScript_BounceRock_LeftFromNorth
+	goto_if_eq VAR_TEMP_3, 24, TestIsland_EventScript_BounceRock_LeftFromSouth
+	goto TestIsland_EventScript_BounceRock_Cant
+
+TestIsland_EventScript_BounceRock_LeftFromNorth:
+	call TestIsland_EventScript_BounceRock_Prepare
+	setobjectsubpriority LOCALID_PLAYER, MAP_TEST_ISLAND, 3
+	applymovement OBJ_EVENT_ID_PLAYER, TestIsland_Movement_BounceRight_FromNorth
+	goto TestIsland_EventScript_BounceRock_Finish
+
+TestIsland_EventScript_BounceRock_LeftFromSouth:
+	call TestIsland_EventScript_BounceRock_Prepare
+	setobjectsubpriority LOCALID_PLAYER, MAP_TEST_ISLAND, 3
+	applymovement OBJ_EVENT_ID_PLAYER, TestIsland_Movement_BounceRight_FromSouth
+	goto TestIsland_EventScript_BounceRock_Finish
+
+TestIsland_EventScript_BounceRock_RightFromEast_CheckY:
+	goto_if_ne VAR_TEMP_3, 23, TestIsland_EventScript_BounceRock_Cant
+	call TestIsland_EventScript_BounceRock_Prepare
+	setobjectsubpriority LOCALID_PLAYER, MAP_TEST_ISLAND, 3
+	applymovement OBJ_EVENT_ID_PLAYER, TestIsland_Movement_BounceLeft
+	goto TestIsland_EventScript_BounceRock_Finish
+
+TestIsland_EventScript_BounceRock_RightFromWest_CheckY:
+	goto_if_ne VAR_TEMP_3, 23, TestIsland_EventScript_BounceRock_Cant
+	call TestIsland_EventScript_BounceRock_Prepare
+	setobjectsubpriority LOCALID_PLAYER, MAP_TEST_ISLAND, 3
+	applymovement OBJ_EVENT_ID_PLAYER, TestIsland_Movement_BounceLeft_FromWest
+	goto TestIsland_EventScript_BounceRock_Finish
+
+TestIsland_EventScript_BounceRock_RightFromVertical_CheckY:
+	goto_if_eq VAR_TEMP_3, 22, TestIsland_EventScript_BounceRock_RightFromNorth
+	goto_if_eq VAR_TEMP_3, 24, TestIsland_EventScript_BounceRock_RightFromSouth
+	goto TestIsland_EventScript_BounceRock_Cant
+
+TestIsland_EventScript_BounceRock_RightFromNorth:
+	call TestIsland_EventScript_BounceRock_Prepare
+	setobjectsubpriority LOCALID_PLAYER, MAP_TEST_ISLAND, 3
+	applymovement OBJ_EVENT_ID_PLAYER, TestIsland_Movement_BounceLeft_FromNorth
+	goto TestIsland_EventScript_BounceRock_Finish
+
+TestIsland_EventScript_BounceRock_RightFromSouth:
+	call TestIsland_EventScript_BounceRock_Prepare
+	setobjectsubpriority LOCALID_PLAYER, MAP_TEST_ISLAND, 3
+	applymovement OBJ_EVENT_ID_PLAYER, TestIsland_Movement_BounceLeft_FromSouth
+	goto TestIsland_EventScript_BounceRock_Finish
+
+TestIsland_EventScript_BounceRock_Cant:
+	msgbox TestIsland_Text_BounceCant, MSGBOX_DEFAULT
+	releaseall
+	end
+
+TestIsland_EventScript_BounceRock_End:
+	closemessage
+	releaseall
+	end
+
+TestIsland_Movement_BounceRight:
+	jump_special_right
+	delay_4
+	jump_long_right
+	jump_special_right
+	step_end
+
+TestIsland_Movement_BounceLeft:
+	jump_special_left
+	delay_4
+	jump_long_left
+	jump_special_left
+	step_end
+
+TestIsland_Movement_BounceRight_FromEast:
+	jump_special_left
+	delay_4
+	jump_long_right
+	jump_special_right
+	step_end
+
+TestIsland_Movement_BounceRight_FromNorth:
+	jump_special_down
+	delay_4
+	jump_long_right
+	jump_special_right
+	step_end
+
+TestIsland_Movement_BounceRight_FromSouth:
+	jump_special_up
+	delay_4
+	jump_long_right
+	jump_special_right
+	step_end
+
+TestIsland_Movement_BounceLeft_FromWest:
+	jump_special_right
+	delay_4
+	jump_long_left
+	jump_special_left
+	step_end
+
+TestIsland_Movement_BounceLeft_FromNorth:
+	jump_special_down
+	delay_4
+	jump_long_left
+	jump_special_left
+	step_end
+
+TestIsland_Movement_BounceLeft_FromSouth:
+	jump_special_up
+	delay_4
+	jump_long_left
+	jump_special_left
+	step_end
+
+TestIsland_Text_BouncePrompt:
+	.string "una roca alta, un pokemon podria saltar\n"
+	.string "al otro lado, usar Rebote?$"
+
+TestIsland_Text_BounceCant:
+	.string "una roca alta, un pokemon podria saltar\n"
+	.string "al otro lado.$"

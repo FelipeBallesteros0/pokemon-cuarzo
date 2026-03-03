@@ -1,0 +1,76 @@
+{
+  "id": "MAP_TEST_ISLAND",
+  "name": "TestIsland",
+  "layout": "LAYOUT_TEST_ISLAND",
+  "music": "MUS_ROUTE101",
+  "region_map_section": "MAPSEC_ROUTE_101",
+  "requires_flash": false,
+  "weather": "WEATHER_NONE",
+  "map_type": "MAP_TYPE_ROUTE",
+  "allow_cycling": true,
+  "allow_escaping": false,
+  "allow_running": true,
+  "show_map_name": true,
+  "battle_scene": "MAP_BATTLE_SCENE_NORMAL",
+  "connections": null,
+  "object_events": [
+    {
+      "graphics_id": "OBJ_EVENT_GFX_PUSHABLE_BOULDER",
+      "x": 29,
+      "y": 23,
+      "elevation": 3,
+      "movement_type": "MOVEMENT_TYPE_LOOK_AROUND",
+      "movement_range_x": 0,
+      "movement_range_y": 0,
+      "trainer_type": "TRAINER_TYPE_NONE",
+      "trainer_sight_or_berry_tree_id": "0",
+      "script": "TestIsland_EventScript_BounceRock",
+      "flag": "FLAG_TEMP_11"
+    },
+    {
+      "graphics_id": "OBJ_EVENT_GFX_PUSHABLE_BOULDER",
+      "x": 35,
+      "y": 23,
+      "elevation": 3,
+      "movement_type": "MOVEMENT_TYPE_LOOK_AROUND",
+      "movement_range_x": 0,
+      "movement_range_y": 0,
+      "trainer_type": "TRAINER_TYPE_NONE",
+      "trainer_sight_or_berry_tree_id": "0",
+      "script": "TestIsland_EventScript_BounceRock",
+      "flag": "FLAG_TEMP_12"
+    }
+  ],
+  "warp_events": [
+    {
+      "x": 42,
+      "y": 32,
+      "elevation": 3,
+      "dest_map": "MAP_BATTLE_FRONTIER_BATTLE_FACTORY_LOBBY",
+      "dest_warp_id": "0"
+    },
+    {
+      "x": 43,
+      "y": 32,
+      "elevation": 3,
+      "dest_map": "MAP_BATTLE_FRONTIER_BATTLE_FACTORY_LOBBY",
+      "dest_warp_id": "1"
+    },
+    {
+      "x": 68,
+      "y": 28,
+      "elevation": 3,
+      "dest_map": "MAP_BATTLE_FRONTIER_POKEMON_CENTER_1F",
+      "dest_warp_id": "0"
+    },
+    {
+      "x": 69,
+      "y": 28,
+      "elevation": 3,
+      "dest_map": "MAP_BATTLE_FRONTIER_POKEMON_CENTER_1F",
+      "dest_warp_id": "1"
+    }
+  ],
+  "coord_events": [],
+  "bg_events": []
+}
