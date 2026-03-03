@@ -87,6 +87,10 @@ gFieldEffectScriptPointers::
 	.4byte gFldEffScript_SmileyFaceIcon    		        @ FLDEFF_SMILEY_FACE_ICON
 	.4byte gFieldEffectScript_HallOfFameRecordFrlg      @ FLDEFF_HALL_OF_FAME_RECORD_FRLG
 	.4byte gFldEffScript_PhotoFlash      		        @ FLDEFF_PHOTO_FLASH
+	.4byte gFieldEffectScript_Haze                      @ FLDEFF_HAZE
+	.4byte gFieldEffectScript_SunnyDay                  @ FLDEFF_SUNNY_DAY
+	.4byte gFieldEffectScript_RainDance                 @ FLDEFF_RAIN_DANCE
+	.4byte gFieldEffectScript_Hail                      @ FLDEFF_HAIL
 
 gFieldEffectScript_ExclamationMarkIcon1::
 	field_eff_callnative FldEff_ExclamationMarkIcon
@@ -414,4 +418,20 @@ gFieldEffectScript_HallOfFameRecordFrlg::
 
 gFldEffScript_PhotoFlash::
 	field_eff_callnative FldEff_PhotoFlash
+	field_eff_end
+
+gFieldEffectScript_Haze::
+	field_eff_callnative FldEff_Haze
+	field_eff_end
+
+gFieldEffectScript_SunnyDay::
+	field_eff_callnative FldEff_SunnyDay
+	field_eff_end
+
+gFieldEffectScript_RainDance::
+	field_eff_callnative FldEff_RainDance
+	field_eff_end
+
+gFieldEffectScript_Hail::
+	field_eff_callnative FldEff_Hail
 	field_eff_end
