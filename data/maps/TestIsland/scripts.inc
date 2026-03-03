@@ -18,6 +18,8 @@ TestIsland_EventScript_BounceRock::
 
 TestIsland_EventScript_BounceRock_Prepare:
 	hidefollower 1
+	setflag FLAG_TEMP_HIDE_FOLLOWER
+	updatefollowingmon
 	setfieldeffectargument 0, VAR_TEMP_4
 	dofieldeffect FLDEFF_FIELD_MOVE_SHOW_MON_INIT
 	waitfieldeffect FLDEFF_FIELD_MOVE_SHOW_MON
@@ -26,7 +28,7 @@ TestIsland_EventScript_BounceRock_Prepare:
 TestIsland_EventScript_BounceRock_Finish:
 	waitmovement 0
 	resetobjectsubpriority LOCALID_PLAYER, MAP_TEST_ISLAND
-	updatefollowingmon
+	setflag FLAG_TEMP_BOUNCE_FOLLOWER_RESPAWN
 	releaseall
 	end
 
