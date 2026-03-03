@@ -17,6 +17,8 @@ Este documento resume los cambios personalizados implementados en este fork sobr
 - Clima de niebla personalizado con variantes visuales y ajuste de intensidad.
 - Integracion de `Despejar` fuera de combate para limpiar la niebla personalizada.
 - Integracion de `Niebla/Haze` fuera de combate para aplicar niebla en mapa.
+- `Danza Lluvia` fuera de combate ajustado para aplicar `lluvia` (`WEATHER_RAIN`) en vez de `diluvio`.
+- Integracion de `Granizo` fuera de combate aplicando `nieve` (`WEATHER_SNOW`) en overworld.
 - Efectos de transicion (`fade`) al activar/desactivar niebla.
 - Ajustes de capas y prioridad para jugador, seguidor, edificios y niebla.
 - Correcciones para evitar que menus UI queden debajo/encima de capas climaticas incorrectas.
@@ -26,6 +28,9 @@ Este documento resume los cambios personalizados implementados en este fork sobr
 
 - `Despejar (Defog)` fuera de combate.
 - `Niebla (Haze)` fuera de combate (efecto inverso de Defog).
+- `Dia Soleado (Sunny Day)` fuera de combate para aplicar `sequia`.
+- `Danza Lluvia (Rain Dance)` fuera de combate para aplicar `lluvia`.
+- `Granizo (Hail)` fuera de combate para aplicar `nieve`.
 - `Rebote (Bounce)` fuera de combate para salto entre puntos de mapa definidos por rocas altas.
 
 ## Sistema de objetos y UI de bayas
@@ -42,6 +47,7 @@ Este documento resume los cambios personalizados implementados en este fork sobr
 - Correcciones para evitar desincronizaciones de movimiento del seguidor.
 - Ajustes de ocultar/mostrar seguidor durante secuencias especiales (ej. Rebote).
 - NPC de clima extendido para pruebas (entrega de Pokemon con movimientos de campo y utilidades de progreso).
+- NPC de clima actualizado para entregar `Castform` de prueba con `Dia Soleado`, `Danza Lluvia` y `Granizo`.
 
 ## Calidad de vida y contenido adicional
 
