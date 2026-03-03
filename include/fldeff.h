@@ -71,6 +71,10 @@ bool8 FldEff_RainDance(void);
 bool32 SetUpFieldMove_Hail(void);
 bool8 FldEff_Hail(void);
 
+// sandstorm
+bool32 SetUpFieldMove_Sandstorm(void);
+bool8 FldEff_Sandstorm(void);
+
 // bounce
 bool32 SetUpFieldMove_Bounce(void);
 

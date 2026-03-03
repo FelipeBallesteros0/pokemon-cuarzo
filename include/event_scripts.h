@@ -412,6 +412,7 @@ extern const u8 EventScript_UseHaze[];
 extern const u8 EventScript_UseSunnyDay[];
 extern const u8 EventScript_UseRainDance[];
 extern const u8 EventScript_UseHail[];
+extern const u8 EventScript_UseSandstorm[];
 
 //player pc
 extern const u8 LittlerootTown_BrendansHouse_2F_EventScript_TurnOffPlayerPC[];

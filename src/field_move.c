@@ -120,6 +120,13 @@ static bool32 IsFieldMoveUnlocked_Hail(void)
 }
 #endif
 
+#if OW_SANDSTORM_FIELD_MOVE == TRUE
+static bool32 IsFieldMoveUnlocked_Sandstorm(void)
+{
+    return TRUE;
+}
+#endif
+
 #if OW_BOUNCE_FIELD_MOVE == TRUE
 static bool32 IsFieldMoveUnlocked_Bounce(void)
 {
@@ -291,6 +298,15 @@ const struct FieldMoveInfo gFieldMoveInfo[FIELD_MOVES_COUNT] =
         .fieldMoveFunc = SetUpFieldMove_Hail,
         .isUnlockedFunc = IsFieldMoveUnlocked_Hail,
         .moveID = MOVE_HAIL,
+        .partyMsgID = PARTY_MSG_CANT_USE_HERE,
+    },
+#endif
+#if OW_SANDSTORM_FIELD_MOVE == TRUE
+    [FIELD_MOVE_SANDSTORM] =
+    {
+        .fieldMoveFunc = SetUpFieldMove_Sandstorm,
+        .isUnlockedFunc = IsFieldMoveUnlocked_Sandstorm,
+        .moveID = MOVE_SANDSTORM,
         .partyMsgID = PARTY_MSG_CANT_USE_HERE,
     },
 #endif

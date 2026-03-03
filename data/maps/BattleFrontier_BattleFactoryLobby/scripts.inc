@@ -373,6 +373,7 @@ BattleFrontier_BattleFactoryLobby_EventScript_GiveWeatherCastform_SetMoveSlot0::
 	setmonmove 0, 0, MOVE_SUNNY_DAY
 	setmonmove 0, 1, MOVE_RAIN_DANCE
 	setmonmove 0, 2, MOVE_HAIL
+	setmonmove 0, 3, MOVE_SANDSTORM
 	setflag FLAG_RECEIVED_WEATHER_CASTFORM
 	return
 
@@ -380,6 +381,7 @@ BattleFrontier_BattleFactoryLobby_EventScript_GiveWeatherCastform_SetMoveSlot1::
 	setmonmove 1, 0, MOVE_SUNNY_DAY
 	setmonmove 1, 1, MOVE_RAIN_DANCE
 	setmonmove 1, 2, MOVE_HAIL
+	setmonmove 1, 3, MOVE_SANDSTORM
 	setflag FLAG_RECEIVED_WEATHER_CASTFORM
 	return
 
@@ -387,6 +389,7 @@ BattleFrontier_BattleFactoryLobby_EventScript_GiveWeatherCastform_SetMoveSlot2::
 	setmonmove 2, 0, MOVE_SUNNY_DAY
 	setmonmove 2, 1, MOVE_RAIN_DANCE
 	setmonmove 2, 2, MOVE_HAIL
+	setmonmove 2, 3, MOVE_SANDSTORM
 	setflag FLAG_RECEIVED_WEATHER_CASTFORM
 	return
 
@@ -394,6 +397,7 @@ BattleFrontier_BattleFactoryLobby_EventScript_GiveWeatherCastform_SetMoveSlot3::
 	setmonmove 3, 0, MOVE_SUNNY_DAY
 	setmonmove 3, 1, MOVE_RAIN_DANCE
 	setmonmove 3, 2, MOVE_HAIL
+	setmonmove 3, 3, MOVE_SANDSTORM
 	setflag FLAG_RECEIVED_WEATHER_CASTFORM
 	return
 
@@ -401,6 +405,7 @@ BattleFrontier_BattleFactoryLobby_EventScript_GiveWeatherCastform_SetMoveSlot4::
 	setmonmove 4, 0, MOVE_SUNNY_DAY
 	setmonmove 4, 1, MOVE_RAIN_DANCE
 	setmonmove 4, 2, MOVE_HAIL
+	setmonmove 4, 3, MOVE_SANDSTORM
 	setflag FLAG_RECEIVED_WEATHER_CASTFORM
 	return
 
@@ -408,6 +413,7 @@ BattleFrontier_BattleFactoryLobby_EventScript_GiveWeatherCastform_SetMoveSlot5::
 	setmonmove 5, 0, MOVE_SUNNY_DAY
 	setmonmove 5, 1, MOVE_RAIN_DANCE
 	setmonmove 5, 2, MOVE_HAIL
+	setmonmove 5, 3, MOVE_SANDSTORM
 	setflag FLAG_RECEIVED_WEATHER_CASTFORM
 	return
 

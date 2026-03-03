@@ -84,6 +84,7 @@
 #define FLDEFF_SUNNY_DAY                 79
 #define FLDEFF_RAIN_DANCE                80
 #define FLDEFF_HAIL                      81
+#define FLDEFF_SANDSTORM                 82
 
 #define FLDEFFOBJ_SHADOW_S              0
 #define FLDEFFOBJ_SHADOW_M              1
