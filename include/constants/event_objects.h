@@ -266,6 +266,7 @@
 #define OBJ_EVENT_GFX_OW_MON                     240
 #define OBJ_EVENT_GFX_LIGHT_SPRITE               241
 #define OBJ_EVENT_GFX_APRICORN_TREE              242
+#define OBJ_EVENT_GFX_HIGH_BOULDER               243
 
 // FRLG objects
 #define OBJ_EVENT_GFX_RED_NORMAL                 243
@@ -568,6 +569,8 @@
 #define OBJ_EVENT_PAL_TAG_METEORITE               0x1131
 #define OBJ_EVENT_PAL_TAG_SEAGALLOP               0x1132
 #define OBJ_EVENT_PAL_TAG_SS_ANNE                 0x1133
+#define OBJ_EVENT_PAL_TAG_PUSHABLE_BOULDER        0x1134
+#define OBJ_EVENT_PAL_TAG_HIGH_BOULDER            0x1135
 
 #if OW_FOLLOWERS_POKEBALLS
 // Vanilla
