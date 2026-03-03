@@ -26,11 +26,6 @@ Este documento resume los cambios personalizados implementados en este fork sobr
 
 - `Despejar (Defog)` fuera de combate.
 - `Niebla (Haze)` fuera de combate (efecto inverso de Defog).
-- `Licuado (Milk Drink)` fuera de combate:
-  - Resta 20% de PS maximos del usuario.
-  - Transfiere ese valor absoluto a otro Pokemon del equipo.
-  - Validaciones para evitar uso en estados invalidos.
-- Soporte para `Soft-Boiled` en el mismo flujo de curacion de campo.
 - `Rebote (Bounce)` fuera de combate para salto entre puntos de mapa definidos por rocas altas.
 
 ## Sistema de objetos y UI de bayas
