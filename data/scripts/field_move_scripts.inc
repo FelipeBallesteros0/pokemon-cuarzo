@@ -107,6 +107,10 @@ EventScript_FollowerFieldMove:
 EventScript_FollowerFieldMoveEnd:
 	return
 
+EventScript_WaitFollowerFieldMove:
+	waitmovement 0
+	return
+
 EventScript_FollowerSwap:
 	switch VAR_0x8005
 	case DIR_NORTH, EventScript_FollowerMoveNorth
@@ -436,7 +440,7 @@ EventScript_UseDefog::
 	setfieldeffectargument 3, VAR_0x8004 @ skip pose if so
 	setflag FLAG_SAFE_FOLLOWER_MOVEMENT
 	call_if_eq VAR_0x8004, TRUE, EventScript_FollowerFieldMove
-	waitmovement 0
+	call_if_eq VAR_0x8004, TRUE, EventScript_WaitFollowerFieldMove
 	setfieldeffectargument 0, VAR_0x8008
 	dofieldeffect FLDEFF_DEFOG
 	waitstate
@@ -454,7 +458,7 @@ EventScript_UseHaze::
 	setfieldeffectargument 3, VAR_0x8004 @ skip pose if so
 	setflag FLAG_SAFE_FOLLOWER_MOVEMENT
 	call_if_eq VAR_0x8004, TRUE, EventScript_FollowerFieldMove
-	waitmovement 0
+	call_if_eq VAR_0x8004, TRUE, EventScript_WaitFollowerFieldMove
 	setfieldeffectargument 0, VAR_0x8008
 	dofieldeffect FLDEFF_HAZE
 	waitstate
@@ -472,7 +476,7 @@ EventScript_UseSunnyDay::
 	setfieldeffectargument 3, VAR_0x8004 @ skip pose if so
 	setflag FLAG_SAFE_FOLLOWER_MOVEMENT
 	call_if_eq VAR_0x8004, TRUE, EventScript_FollowerFieldMove
-	waitmovement 0
+	call_if_eq VAR_0x8004, TRUE, EventScript_WaitFollowerFieldMove
 	setfieldeffectargument 0, VAR_0x8008
 	dofieldeffect FLDEFF_SUNNY_DAY
 	waitstate
@@ -490,7 +494,7 @@ EventScript_UseRainDance::
 	setfieldeffectargument 3, VAR_0x8004 @ skip pose if so
 	setflag FLAG_SAFE_FOLLOWER_MOVEMENT
 	call_if_eq VAR_0x8004, TRUE, EventScript_FollowerFieldMove
-	waitmovement 0
+	call_if_eq VAR_0x8004, TRUE, EventScript_WaitFollowerFieldMove
 	setfieldeffectargument 0, VAR_0x8008
 	dofieldeffect FLDEFF_RAIN_DANCE
 	waitstate
@@ -508,7 +512,7 @@ EventScript_UseHail::
 	setfieldeffectargument 3, VAR_0x8004 @ skip pose if so
 	setflag FLAG_SAFE_FOLLOWER_MOVEMENT
 	call_if_eq VAR_0x8004, TRUE, EventScript_FollowerFieldMove
-	waitmovement 0
+	call_if_eq VAR_0x8004, TRUE, EventScript_WaitFollowerFieldMove
 	setfieldeffectargument 0, VAR_0x8008
 	dofieldeffect FLDEFF_HAIL
 	waitstate
@@ -526,7 +530,7 @@ EventScript_UseSandstorm::
 	setfieldeffectargument 3, VAR_0x8004 @ skip pose if so
 	setflag FLAG_SAFE_FOLLOWER_MOVEMENT
 	call_if_eq VAR_0x8004, TRUE, EventScript_FollowerFieldMove
-	waitmovement 0
+	call_if_eq VAR_0x8004, TRUE, EventScript_WaitFollowerFieldMove
 	setfieldeffectargument 0, VAR_0x8008
 	dofieldeffect FLDEFF_SANDSTORM
 	waitstate
