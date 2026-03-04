@@ -1996,6 +1996,14 @@ void CB2_ContinueSavedGame(void)
     DoTimeBasedEvents();
     DynamicWeather_InitForCurrentMap();
     UpdateMiscOverworldStates();
+    if (OW_FOLLOWERS_ENABLED && !FlagGet(B_FLAG_FOLLOWERS_DISABLED))
+    {
+        // On continue, keep follower in pokeball until the first step.
+        // This avoids bad follower position restored directly from save object data.
+        FlagSet(FLAG_TEMP_HIDE_FOLLOWER);
+        FlagSet(FLAG_FOLLOWER_RESPAWN_AFTER_LOAD);
+        FlagSet(FLAG_TEMP_BOUNCE_FOLLOWER_RESPAWN);
+    }
     if (gMapHeader.mapLayoutId == LAYOUT_BATTLE_FRONTIER_BATTLE_PYRAMID_FLOOR)
         InitBattlePyramidMap(TRUE);
     else if (trainerHillMapId != 0)
