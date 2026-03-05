@@ -1,5 +1,4 @@
 #include "global.h"
-#include "dynamic_weather.h"
 #include "event_data.h"
 #include "event_scripts.h"
 #include "field_effect.h"

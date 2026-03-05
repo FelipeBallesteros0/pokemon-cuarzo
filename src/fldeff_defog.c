@@ -1,7 +1,6 @@
 #include "global.h"
 #include "event_data.h"
 #include "event_scripts.h"
-#include "dynamic_weather.h"
 #include "field_effect.h"
 #include "field_weather.h"
 #include "fldeff.h"

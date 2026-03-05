@@ -73,6 +73,7 @@
 #include "constants/party_menu.h"
 #include "constants/battle_frontier.h"
 #include "constants/weather.h"
+#include "constants/vars.h"
 #include "constants/metatile_labels.h"
 #include "constants/rgb.h"
 #include "palette.h"
@@ -1623,6 +1624,61 @@ void SetRoute123Weather(void)
 {
     if (IsMapTypeOutdoors(GetLastUsedWarpMapType()) != TRUE)
         SetSavedWeather(WEATHER_ROUTE123_CYCLE);
+}
+
+void Special_ApplyDynamicWeather(void)
+{
+    u16 weather = VarGet(VAR_DYNAMIC_WEATHER_OVERRIDE);
+
+    if (weather == 0xFFFF || weather >= WEATHER_COUNT)
+        return;
+
+    SetWeather(weather);
+    DoCurrentWeather();
+}
+
+void Special_EnsureWeatherGiftMonMoves(void)
+{
+    u8 i;
+    u8 partyCount = CalculatePlayerPartyCount();
+
+    for (i = 0; i < partyCount; i++)
+    {
+        u16 species = GetMonData(&gPlayerParty[i], MON_DATA_SPECIES, NULL);
+
+        if (species == SPECIES_WEEZING_GALAR)
+        {
+            if (!MonKnowsMove(&gPlayerParty[i], MOVE_DEFOG))
+                SetMonMoveSlot(&gPlayerParty[i], MOVE_DEFOG, 0);
+            if (!MonKnowsMove(&gPlayerParty[i], MOVE_HAZE))
+                SetMonMoveSlot(&gPlayerParty[i], MOVE_HAZE, 1);
+        }
+        else if (species == SPECIES_MILTANK)
+        {
+            if (!MonKnowsMove(&gPlayerParty[i], MOVE_MILK_DRINK))
+                SetMonMoveSlot(&gPlayerParty[i], MOVE_MILK_DRINK, 0);
+        }
+        else if (species == SPECIES_CHANSEY)
+        {
+            if (!MonKnowsMove(&gPlayerParty[i], MOVE_SOFT_BOILED))
+                SetMonMoveSlot(&gPlayerParty[i], MOVE_SOFT_BOILED, 0);
+        }
+    }
+}
+
+u16 Special_GetFirstBounceMonIndex(void)
+{
+    u8 i;
+    u8 partyCount = CalculatePlayerPartyCount();
+
+    for (i = 0; i < partyCount; i++)
+    {
+        if (!GetMonData(&gPlayerParty[i], MON_DATA_IS_EGG, NULL)
+         && MonKnowsMove(&gPlayerParty[i], MOVE_BOUNCE))
+            return i;
+    }
+
+    return PARTY_SIZE;
 }
 
 u8 GetLeadMonIndex(void)

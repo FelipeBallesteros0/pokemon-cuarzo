@@ -1146,4 +1146,10 @@ enum EffectItem
     EFFECT_ITEM_USE_POKE_FLUTE,
 };
 
+// Compatibility aliases used by custom scripts from older branch revisions.
+#define ITEM_REPELENTE_RECARGABLE ITEM_MAX_REPEL
+#define ITEM_CARGA_DE_REPELENTE   ITEM_REPEL
+#define ITEM_BICICLETA_ELECTRICA  ITEM_MACH_BIKE
+#define ITEM_BATERIA_DE_BICICLETA ITEM_BICYCLE
+
 #endif  // GUARD_CONSTANTS_ITEMS_H

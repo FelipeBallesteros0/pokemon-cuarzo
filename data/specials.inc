@@ -343,6 +343,7 @@ gSpecials::
 	def_special BattleSetup_StartLatiBattle
 	def_special SetRoute119Weather
 	def_special SetRoute123Weather
+	def_special Special_ApplyDynamicWeather
 	def_special GetContestMultiplayerId
 	def_special ScriptGetPartyMonSpecies
 	def_special IsSelectedMonEgg
@@ -577,6 +578,8 @@ gSpecials::
 	def_special SetWalkingIntoSignVars
 	def_special StartOldManTutorialBattle
 	def_special DaisyMassageServices
+	def_special Special_EnsureWeatherGiftMonMoves
+	def_special Special_GetFirstBounceMonIndex
 	def_special GetLeadMonFriendship
 	def_special OpenMuseumFossilPic
 	def_special CloseMuseumFossilPic
