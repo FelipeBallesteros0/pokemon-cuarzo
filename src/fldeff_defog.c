@@ -59,7 +59,6 @@ bool8 FldEff_Defog(void)
 static void FieldMove_Defog(void)
 {
     PlaySE12WithPanning(SE_M_SOLAR_BEAM, SOUND_PAN_ATTACKER);
-    SetWeatherScreenFadeOut();
     FieldEffectActiveListRemove(FLDEFF_DEFOG);
 
     // Force clear weather like the other overworld weather moves.
@@ -83,13 +82,7 @@ static void EndDefogTask(u8 taskId)
     if (gTasks[taskId].tFrameCount != 120)
         return;
 
-    // Reset weather state machine/palettes explicitly so custom fog modes
-    // (palette-only/hybrid) are properly cleared after Defog.
     SetWeatherPalStateIdle();
-    SetCurrentAndNextWeather(WEATHER_NONE);
-    ApplyWeatherColorMapIfIdle(0);
-    Weather_SetBlendCoeffs(8, BASE_SHADOW_INTENSITY);
-    UpdateShadowColor(RGB_BLACK);
 
     DestroyTask(taskId);
     ScriptContext_Enable();
