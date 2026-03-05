@@ -27,11 +27,10 @@ bool32 SetUpFieldMove_Defog(void)
 {
     u16 weatherOverride = VarGet(VAR_DYNAMIC_WEATHER_OVERRIDE);
 
-    if (gWeather.currWeather != WEATHER_FOG_HORIZONTAL
-     && gWeather.currWeather != WEATHER_FOG_DIAGONAL
-     && weatherOverride != WEATHER_FOG_HORIZONTAL
-     && weatherOverride != WEATHER_FOG_DIAGONAL
-     && weatherOverride != WEATHER_FOG)
+    // Defog as an overworld weather move: set clear weather (Despejado).
+    // Don't allow use if weather is already clear and override is already clear.
+    if ((gWeather.currWeather == WEATHER_NONE || gWeather.currWeather == WEATHER_SUNNY_CLOUDS)
+     && (weatherOverride == WEATHER_NONE || weatherOverride == WEATHER_SUNNY_CLOUDS))
         return FALSE;
 
     gSpecialVar_Result = GetCursorSelectionMonId();
@@ -59,25 +58,16 @@ bool8 FldEff_Defog(void)
 
 static void FieldMove_Defog(void)
 {
-    u16 weatherOverride = VarGet(VAR_DYNAMIC_WEATHER_OVERRIDE);
-
     PlaySE12WithPanning(SE_M_SOLAR_BEAM, SOUND_PAN_ATTACKER);
     SetWeatherScreenFadeOut();
     FieldEffectActiveListRemove(FLDEFF_DEFOG);
 
-    // If fog is forced by dynamic weather override (e.g. weather NPC),
-    // clear the override too so Defog can actually disperse it.
-    if (weatherOverride == WEATHER_FOG_HORIZONTAL
-     || weatherOverride == WEATHER_FOG_DIAGONAL
-     || weatherOverride == WEATHER_FOG)
-    {
-        VarSet(VAR_DYNAMIC_WEATHER_OVERRIDE, WEATHER_NONE);
-        DynamicWeather_ApplyOverride();
-    }
-    else
-    {
-        SetWeather(WEATHER_NONE);
-    }
+    // Force clear weather like the other overworld weather moves.
+    VarSet(VAR_DYNAMIC_WEATHER_OVERRIDE, WEATHER_NONE);
+    VarSet(VAR_DYNAMIC_WEATHER, WEATHER_NONE);
+    VarSet(VAR_DYNAMIC_WEATHER_TIMER, 1);
+    VarSet(VAR_DYNAMIC_WEATHER_MAPSEC, gMapHeader.regionMapSectionId);
+    SetWeather(WEATHER_NONE);
 
     u32 taskId = CreateTask(EndDefogTask, 0);
     gTasks[taskId].tFrameCount = 0;
