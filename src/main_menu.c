@@ -228,7 +228,7 @@ static void MainMenu_FormatSavegamePlayer(void);
 static void MainMenu_FormatSavegamePokedex(void);
 static void MainMenu_FormatSavegameTime(void);
 static void MainMenu_FormatSavegameBadges(void);
-static void CustomMenu_RebuildBgWithCustomButtons(void);
+static void CustomMenu_RebuildBgWithCustomButtons(u8 menuType, u8 selectedMenuItem);
 static void NewGameBirchSpeech_CreateDialogueWindowBorder(u8, u8, u8, u8, u8, u8);
 
 // .rodata
@@ -416,6 +416,7 @@ static const u32 sCustomMainMenuBgTiles[] = INCBIN_U32("graphics/ui_main_menu/sc
 static const u32 sCustomMainMenuBgTilemap[] = INCBIN_U32("graphics/ui_main_menu/scroll_tiles.bin");
 static const u16 sCustomMainMenuBgPal[] = INCBIN_U16("graphics/ui_main_menu/scroll_tiles.gbapal");
 static const u16 sCustomMainMenuLargeButtonPal[] = INCBIN_U16("graphics/ui_main_menu/main_bg_grande.gbapal");
+static const u16 sCustomMainMenuLargeButtonHighlightPal[] = INCBIN_U16("graphics/ui_main_menu/main_bg_grande_highlight.gbapal");
 static const u32 sCustomMainMenuLargeButtonTiles[] = INCBIN_U32("graphics/ui_main_menu/main_bg_grande.4bpp");
 static const u32 sCustomMainMenuSmallButtonTiles[] = INCBIN_U32("graphics/ui_main_menu/main_bg_pequeno.4bpp");
 static EWRAM_DATA u16 sCustomMainMenuBgTilemapBuffer[0x400];
@@ -558,6 +559,7 @@ enum
 #define CUSTOM_BUTTON_LARGE_X       1
 #define CUSTOM_BUTTON_LARGE_Y       0
 #define CUSTOM_BUTTON_SMALL_BASE    (CUSTOM_BUTTON_LARGE_BASE + (sizeof(sCustomMainMenuLargeButtonTiles) / TILE_SIZE_4BPP))
+#define CUSTOM_BUTTON_HL_PAL_SLOT   3
 #define CUSTOM_BUTTON_SMALL_WIDTH   14
 #define CUSTOM_BUTTON_SMALL_HEIGHT  3
 #define CUSTOM_BUTTON_SMALL_TL_X    1
@@ -570,10 +572,53 @@ enum
 #define CUSTOM_BUTTON_SMALL_BR_Y    16
 #define CUSTOM_BUTTON_BG_Y_OFFSET   (-0x700)
 
-static void CustomMenu_DrawButtonStamp(u8 baseX, u8 baseY, u8 width, u8 height, u16 baseTile)
+enum CustomMenuButtonId
+{
+    CUSTOM_BTN_CONTINUE,
+    CUSTOM_BTN_NEW_GAME,
+    CUSTOM_BTN_OPTIONS,
+    CUSTOM_BTN_MYSTERY_GIFT,
+    CUSTOM_BTN_MYSTERY_EVENTS,
+    CUSTOM_BTN_NONE,
+};
+
+static u8 CustomMenu_GetHighlightedButton(u8 menuType, u8 selectedMenuItem)
+{
+    switch (menuType)
+    {
+    case HAS_NO_SAVED_GAME:
+    default:
+        return (selectedMenuItem == 1) ? CUSTOM_BTN_OPTIONS : CUSTOM_BTN_NEW_GAME;
+    case HAS_SAVED_GAME:
+        if (selectedMenuItem == 0)
+            return CUSTOM_BTN_CONTINUE;
+        return (selectedMenuItem == 2) ? CUSTOM_BTN_OPTIONS : CUSTOM_BTN_NEW_GAME;
+    case HAS_MYSTERY_GIFT:
+        if (selectedMenuItem == 0)
+            return CUSTOM_BTN_CONTINUE;
+        if (selectedMenuItem == 1)
+            return CUSTOM_BTN_NEW_GAME;
+        if (selectedMenuItem == 2)
+            return CUSTOM_BTN_MYSTERY_GIFT;
+        return CUSTOM_BTN_OPTIONS;
+    case HAS_MYSTERY_EVENTS:
+        if (selectedMenuItem == 0)
+            return CUSTOM_BTN_CONTINUE;
+        if (selectedMenuItem == 1)
+            return CUSTOM_BTN_NEW_GAME;
+        if (selectedMenuItem == 2)
+            return CUSTOM_BTN_MYSTERY_GIFT;
+        if (selectedMenuItem == 3)
+            return CUSTOM_BTN_MYSTERY_EVENTS;
+        return CUSTOM_BTN_OPTIONS;
+    }
+}
+
+static void CustomMenu_DrawButtonStamp(u8 baseX, u8 baseY, u8 width, u8 height, u16 baseTile, bool8 highlighted)
 {
     u8 y;
     u8 x;
+    u8 palNum = highlighted ? CUSTOM_BUTTON_HL_PAL_SLOT : CUSTOM_BUTTON_PAL_SLOT;
 
     for (y = 0; y < height; y++)
     {
@@ -581,30 +626,39 @@ static void CustomMenu_DrawButtonStamp(u8 baseX, u8 baseY, u8 width, u8 height, 
         {
             u16 tile = baseTile + y * width + x;
             sCustomMainMenuBgTilemapBuffer[(baseY + y) * 32 + (baseX + x)] =
-                (tile & 0x03FF) | (CUSTOM_BUTTON_PAL_SLOT << 12);
+                (tile & 0x03FF) | (palNum << 12);
         }
     }
 }
 
-static void CustomMenu_RebuildBgWithCustomButtons(void)
+static void CustomMenu_RebuildBgWithCustomButtons(u8 menuType, u8 selectedMenuItem)
 {
+    u8 highlighted = CustomMenu_GetHighlightedButton(menuType, selectedMenuItem);
+
     CpuFill16(0, sCustomMainMenuBgTilemapBuffer, sizeof(sCustomMainMenuBgTilemapBuffer));
 
     CustomMenu_DrawButtonStamp(CUSTOM_BUTTON_LARGE_X, CUSTOM_BUTTON_LARGE_Y,
                                CUSTOM_BUTTON_LARGE_WIDTH, CUSTOM_BUTTON_LARGE_HEIGHT,
-                               CUSTOM_BUTTON_LARGE_BASE);
+                               CUSTOM_BUTTON_LARGE_BASE,
+                               highlighted == CUSTOM_BTN_CONTINUE);
     CustomMenu_DrawButtonStamp(CUSTOM_BUTTON_SMALL_TL_X, CUSTOM_BUTTON_SMALL_TL_Y,
                                CUSTOM_BUTTON_SMALL_WIDTH, CUSTOM_BUTTON_SMALL_HEIGHT,
-                               CUSTOM_BUTTON_SMALL_BASE);
+                               CUSTOM_BUTTON_SMALL_BASE,
+                               highlighted == CUSTOM_BTN_NEW_GAME);
     CustomMenu_DrawButtonStamp(CUSTOM_BUTTON_SMALL_TR_X, CUSTOM_BUTTON_SMALL_TR_Y,
                                CUSTOM_BUTTON_SMALL_WIDTH, CUSTOM_BUTTON_SMALL_HEIGHT,
-                               CUSTOM_BUTTON_SMALL_BASE);
+                               CUSTOM_BUTTON_SMALL_BASE,
+                               highlighted == CUSTOM_BTN_OPTIONS);
     CustomMenu_DrawButtonStamp(CUSTOM_BUTTON_SMALL_BL_X, CUSTOM_BUTTON_SMALL_BL_Y,
                                CUSTOM_BUTTON_SMALL_WIDTH, CUSTOM_BUTTON_SMALL_HEIGHT,
-                               CUSTOM_BUTTON_SMALL_BASE);
+                               CUSTOM_BUTTON_SMALL_BASE,
+                               highlighted == CUSTOM_BTN_MYSTERY_GIFT);
     CustomMenu_DrawButtonStamp(CUSTOM_BUTTON_SMALL_BR_X, CUSTOM_BUTTON_SMALL_BR_Y,
                                CUSTOM_BUTTON_SMALL_WIDTH, CUSTOM_BUTTON_SMALL_HEIGHT,
-                               CUSTOM_BUTTON_SMALL_BASE);
+                               CUSTOM_BUTTON_SMALL_BASE,
+                               highlighted == CUSTOM_BTN_MYSTERY_EVENTS);
+
+    LoadBgTilemap(1, sCustomMainMenuBgTilemapBuffer, sizeof(sCustomMainMenuBgTilemapBuffer), 0);
 }
 
 static void CB2_MainMenu(void)
@@ -663,6 +717,7 @@ static u32 InitMainMenu(bool8 returningFromOptionsMenu)
     // BG color 0 cannot be transparent on tile BGs; avoid visible magenta key color.
     LoadPalette(&sCustomMainMenuBgPal[1], BG_PLTT_ID(1), PLTT_SIZEOF(1));
     LoadPalette(sCustomMainMenuLargeButtonPal, BG_PLTT_ID(CUSTOM_BUTTON_PAL_SLOT), sizeof(sCustomMainMenuLargeButtonPal));
+    LoadPalette(sCustomMainMenuLargeButtonHighlightPal, BG_PLTT_ID(CUSTOM_BUTTON_HL_PAL_SLOT), sizeof(sCustomMainMenuLargeButtonHighlightPal));
     LoadPalette(sMainMenuTextPal, BG_PLTT_ID(15), PLTT_SIZE_4BPP);
     ScanlineEffect_Stop();
     ResetTasks();
@@ -680,8 +735,7 @@ static u32 InitMainMenu(bool8 returningFromOptionsMenu)
     LoadBgTilemap(2, sCustomMainMenuBgTilemap, sizeof(sCustomMainMenuBgTilemap), 0);
     LoadBgTiles(1, sCustomMainMenuLargeButtonTiles, sizeof(sCustomMainMenuLargeButtonTiles), CUSTOM_BUTTON_LARGE_BASE);
     LoadBgTiles(1, sCustomMainMenuSmallButtonTiles, sizeof(sCustomMainMenuSmallButtonTiles), CUSTOM_BUTTON_SMALL_BASE);
-    CustomMenu_RebuildBgWithCustomButtons();
-    LoadBgTilemap(1, sCustomMainMenuBgTilemapBuffer, sizeof(sCustomMainMenuBgTilemapBuffer), 0);
+    CustomMenu_RebuildBgWithCustomButtons(HAS_NO_SAVED_GAME, 0);
     ChangeBgX(0, 0, BG_COORD_SET);
     ChangeBgY(0, 0, BG_COORD_SET);
     ChangeBgX(1, 0, BG_COORD_SET);
@@ -694,6 +748,8 @@ static u32 InitMainMenu(bool8 returningFromOptionsMenu)
 
     SetGpuReg(REG_OFFSET_WIN0H, 0);
     SetGpuReg(REG_OFFSET_WIN0V, 0);
+    SetGpuReg(REG_OFFSET_WIN1H, 0);
+    SetGpuReg(REG_OFFSET_WIN1V, 0);
     SetGpuReg(REG_OFFSET_WININ, 0);
     SetGpuReg(REG_OFFSET_WINOUT, 0);
     SetGpuReg(REG_OFFSET_BLDCNT, 0);
@@ -703,8 +759,8 @@ static u32 InitMainMenu(bool8 returningFromOptionsMenu)
     EnableInterrupts(1);
     SetVBlankCallback(VBlankCB_MainMenu);
     SetMainCallback2(CB2_MainMenu);
-    SetGpuReg(REG_OFFSET_DISPCNT, DISPCNT_WIN0_ON | DISPCNT_OBJ_ON | DISPCNT_OBJ_1D_MAP);
-    ShowBg(0);
+    SetGpuReg(REG_OFFSET_DISPCNT, DISPCNT_OBJ_ON | DISPCNT_OBJ_1D_MAP);
+    HideBg(0);
     ShowBg(1);
     ShowBg(2);
     CreateTask(Task_MainMenuCheckSaveFile, 0);
@@ -729,9 +785,9 @@ static void Task_MainMenuCheckSaveFile(u8 taskId)
     {
         SetGpuReg(REG_OFFSET_WIN0H, 0);
         SetGpuReg(REG_OFFSET_WIN0V, 0);
-        SetGpuReg(REG_OFFSET_WININ, WININ_WIN0_BG0 | WININ_WIN0_BG1 | WININ_WIN0_BG2 | WININ_WIN0_OBJ);
-        SetGpuReg(REG_OFFSET_WINOUT, WINOUT_WIN01_BG0 | WINOUT_WIN01_BG1 | WINOUT_WIN01_BG2 | WINOUT_WIN01_OBJ | WINOUT_WIN01_CLR);
-        SetGpuReg(REG_OFFSET_BLDCNT, BLDCNT_EFFECT_DARKEN | BLDCNT_TGT1_BG0 | BLDCNT_TGT1_BG1 | BLDCNT_TGT1_BG2);
+        SetGpuReg(REG_OFFSET_WININ, 0);
+        SetGpuReg(REG_OFFSET_WINOUT, 0);
+        SetGpuReg(REG_OFFSET_BLDCNT, 0);
         SetGpuReg(REG_OFFSET_BLDALPHA, 0);
         SetGpuReg(REG_OFFSET_BLDY, 7);
 
@@ -807,9 +863,9 @@ static void Task_MainMenuCheckBattery(u8 taskId)
     {
         SetGpuReg(REG_OFFSET_WIN0H, 0);
         SetGpuReg(REG_OFFSET_WIN0V, 0);
-        SetGpuReg(REG_OFFSET_WININ, WININ_WIN0_BG0 | WININ_WIN0_BG1 | WININ_WIN0_BG2 | WININ_WIN0_OBJ);
-        SetGpuReg(REG_OFFSET_WINOUT, WINOUT_WIN01_BG0 | WINOUT_WIN01_BG1 | WINOUT_WIN01_BG2 | WINOUT_WIN01_OBJ | WINOUT_WIN01_CLR);
-        SetGpuReg(REG_OFFSET_BLDCNT, BLDCNT_EFFECT_DARKEN | BLDCNT_TGT1_BG0 | BLDCNT_TGT1_BG1 | BLDCNT_TGT1_BG2);
+        SetGpuReg(REG_OFFSET_WININ, 0);
+        SetGpuReg(REG_OFFSET_WINOUT, 0);
+        SetGpuReg(REG_OFFSET_BLDCNT, 0);
         SetGpuReg(REG_OFFSET_BLDALPHA, 0);
         SetGpuReg(REG_OFFSET_BLDY, 7);
 
@@ -845,9 +901,9 @@ static void Task_DisplayMainMenu(u8 taskId)
     {
         SetGpuReg(REG_OFFSET_WIN0H, 0);
         SetGpuReg(REG_OFFSET_WIN0V, 0);
-        SetGpuReg(REG_OFFSET_WININ, WININ_WIN0_BG0 | WININ_WIN0_BG1 | WININ_WIN0_BG2 | WININ_WIN0_OBJ);
-        SetGpuReg(REG_OFFSET_WINOUT, WINOUT_WIN01_BG0 | WINOUT_WIN01_BG1 | WINOUT_WIN01_BG2 | WINOUT_WIN01_OBJ | WINOUT_WIN01_CLR);
-        SetGpuReg(REG_OFFSET_BLDCNT, BLDCNT_EFFECT_DARKEN | BLDCNT_TGT1_BG0 | BLDCNT_TGT1_BG1 | BLDCNT_TGT1_BG2);
+        SetGpuReg(REG_OFFSET_WININ, 0);
+        SetGpuReg(REG_OFFSET_WINOUT, 0);
+        SetGpuReg(REG_OFFSET_BLDCNT, 0);
         SetGpuReg(REG_OFFSET_BLDALPHA, 0);
         SetGpuReg(REG_OFFSET_BLDY, 7);
 
@@ -879,6 +935,7 @@ static void Task_DisplayMainMenu(u8 taskId)
         // Keep BG0 enabled for composition, but clear vanilla menu tiles/text.
         FillBgTilemapBufferRect_Palette0(0, 0, 0, 0, 32, 32);
         CopyBgTilemapBufferToVram(0);
+        CustomMenu_RebuildBgWithCustomButtons(gTasks[taskId].tMenuType, gTasks[taskId].tCurrItem);
         gTasks[taskId].func = Task_HighlightSelectedMainMenuItem;
         return;
 
@@ -1260,87 +1317,9 @@ static void Task_DisplayMainMenuInvalidActionError(u8 taskId)
 
 static void HighlightSelectedMainMenuItem(u8 menuType, u8 selectedMenuItem, s16 isScrolled)
 {
-    SetGpuReg(REG_OFFSET_WIN0H, MENU_WIN_HCOORDS);
-
-    switch (menuType)
-    {
-        case HAS_NO_SAVED_GAME:
-        default:
-            switch (selectedMenuItem)
-            {
-                case 0:
-                default:
-                    SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(0));
-                    break;
-                case 1:
-                    SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(1));
-                    break;
-            }
-            break;
-        case HAS_SAVED_GAME:
-            switch (selectedMenuItem)
-            {
-                case 0:
-                default:
-                    SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(2));
-                    break;
-                case 1:
-                    SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(3));
-                    break;
-                case 2:
-                    SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(4));
-                    break;
-            }
-            break;
-        case HAS_MYSTERY_GIFT:
-            switch (selectedMenuItem)
-            {
-                case 0:
-                default:
-                    SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(2));
-                    break;
-                case 1:
-                    SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(3));
-                    break;
-                case 2:
-                    SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(4));
-                    break;
-                case 3:
-                    SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(5));
-                    break;
-            }
-            break;
-        case HAS_MYSTERY_EVENTS:
-            switch (selectedMenuItem)
-            {
-                case 0:
-                default:
-                    SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(2));
-                    break;
-                case 1:
-                    if (isScrolled)
-                        SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(3) - MENU_SCROLL_SHIFT);
-                    else
-                        SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(3));
-                    break;
-                case 2:
-                    if (isScrolled)
-                        SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(4) - MENU_SCROLL_SHIFT);
-                    else
-                        SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(4));
-                    break;
-                case 3:
-                    if (isScrolled)
-                        SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(5) - MENU_SCROLL_SHIFT);
-                    else
-                        SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(5));
-                    break;
-                case 4:
-                    SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(6) - MENU_SCROLL_SHIFT);
-                    break;
-            }
-            break;
-    }
+    (void)isScrolled;
+    // Highlight is rendered by swapping to masked highlight tiles, not window rectangles.
+    CustomMenu_RebuildBgWithCustomButtons(menuType, selectedMenuItem);
 }
 
 #define tPlayerSpriteId data[2]
