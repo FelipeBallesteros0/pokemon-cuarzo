@@ -677,8 +677,12 @@ static void CustomMenu_RebuildBgWithCustomButtons(u8 menuType, u8 selectedMenuIt
 static void CustomMenu_DrawPrimaryLabels(u8 menuType, u8 selectedMenuItem)
 {
     const struct MapHeader *saveMapHeader;
+    u8 playTimeStr[16];
+    u8 *playTimePtr;
     u8 continueTextWidth;
+    u8 continueLocationWidth;
     u8 continueLocationX;
+    u8 continueTimeX;
     bool8 highlightContinue = FALSE;
     bool8 highlightNewGame = FALSE;
     bool8 highlightOptions = FALSE;
@@ -733,9 +737,16 @@ static void CustomMenu_DrawPrimaryLabels(u8 menuType, u8 selectedMenuItem)
         saveMapHeader = Overworld_GetMapHeaderByGroupAndId(gSaveBlock1Ptr->location.mapGroup, gSaveBlock1Ptr->location.mapNum);
         GetMapName(gStringVar4, saveMapHeader->regionMapSectionId, 0);
         continueTextWidth = GetStringWidth(FONT_NORMAL, gText_MainMenuContinue, 0);
+        continueLocationWidth = GetStringWidth(FONT_NORMAL, gStringVar4, 0);
         continueLocationX = 3 + continueTextWidth + 8;
+        continueTimeX = continueLocationX + continueLocationWidth + 34;
+        playTimePtr = ConvertIntToDecimalStringN(playTimeStr, gSaveBlock2Ptr->playTimeHours, STR_CONV_MODE_LEFT_ALIGN, 3);
+        *playTimePtr++ = CHAR_COLON;
+        ConvertIntToDecimalStringN(playTimePtr, gSaveBlock2Ptr->playTimeMinutes, STR_CONV_MODE_LEADING_ZEROS, 2);
         AddTextPrinterParameterized3(2, FONT_NORMAL, 3, 0, continueTextColor, 0, gText_MainMenuContinue);
         AddTextPrinterParameterized3(2, FONT_NORMAL, continueLocationX, 0, continueTextColor, 0, gStringVar4);
+        if (continueTimeX < MENU_WIDTH * 8)
+            AddTextPrinterParameterized3(2, FONT_NORMAL, continueTimeX, 0, continueTextColor, 0, playTimeStr);
         PutWindowTilemap(2);
         CopyWindowToVram(2, COPYWIN_GFX);
     }
