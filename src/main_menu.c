@@ -707,8 +707,8 @@ static void CustomMenu_DrawPrimaryLabels(u8 menuType, u8 selectedMenuItem)
     FillWindowPixelBuffer(0, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
     FillWindowPixelBuffer(1, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
     AddTextPrinterParameterized3(0, FONT_NORMAL,
-                                 GetStringCenterAlignXOffset(FONT_NORMAL, gText_MainMenuNewGame, 14 * 8),
-                                 5, newGameTextColor, TEXT_SKIP_DRAW, gText_MainMenuNewGame);
+                                 GetStringCenterAlignXOffset(FONT_NORMAL, gText_MainMenuNewGame, 14 * 8) - 7,
+                                 7, newGameTextColor, TEXT_SKIP_DRAW, gText_MainMenuNewGame);
     AddTextPrinterParameterized3(1, FONT_NORMAL,
                                  GetStringCenterAlignXOffset(FONT_NORMAL, gText_MainMenuOption, 14 * 8),
                                  5, optionsTextColor, TEXT_SKIP_DRAW, gText_MainMenuOption);
