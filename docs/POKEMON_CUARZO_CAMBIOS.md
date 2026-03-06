@@ -60,3 +60,12 @@ Este documento resume los cambios personalizados implementados en este fork sobr
 
 - Algunos cambios de este fork fueron pensados para pruebas rapidas en mapa de desarrollo (NPC de clima, entregas y desbloqueos).  
 - Si se desea una version "produccion", se recomienda separar estas ayudas de debug en scripts opcionales.
+
+## Creditos
+
+- Nuevo menu principal con mugshot:
+  - Basado en la guia de pret wiki: `New Main Menu UI With Mugshot by Archie and Mudskip`.
+  - Trabajo original de `Archie` y `Mudskip`.
+  - Referencia tecnica usada para port a este fork: branch `main_menu` de `TeamAquasHideout/pokeemerald`.
+- Surf con sprite del Pokemon surfista:
+  - Basado en el trabajo de `Slawter666` en `pokeemerald` branch `surfable`.
