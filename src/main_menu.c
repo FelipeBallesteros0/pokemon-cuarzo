@@ -228,6 +228,7 @@ static void MainMenu_FormatSavegamePlayer(void);
 static void MainMenu_FormatSavegamePokedex(void);
 static void MainMenu_FormatSavegameTime(void);
 static void MainMenu_FormatSavegameBadges(void);
+static void CustomMenu_RebuildBgWithLargeButton(void);
 static void NewGameBirchSpeech_CreateDialogueWindowBorder(u8, u8, u8, u8, u8, u8);
 
 // .rodata
@@ -410,9 +411,13 @@ static const struct WindowTemplate sNewGameBirchSpeechTextWindows[] =
 
 static const u16 sMainMenuBgPal[] = INCBIN_U16("graphics/interface/main_menu_bg.gbapal");
 static const u16 sMainMenuTextPal[] = INCBIN_U16("graphics/interface/main_menu_text.gbapal");
+static const u32 sBlankTransparentTile[] = {0, 0, 0, 0, 0, 0, 0, 0};
 static const u32 sCustomMainMenuBgTiles[] = INCBIN_U32("graphics/ui_main_menu/scroll_tiles.4bpp");
 static const u32 sCustomMainMenuBgTilemap[] = INCBIN_U32("graphics/ui_main_menu/scroll_tiles.bin");
 static const u16 sCustomMainMenuBgPal[] = INCBIN_U16("graphics/ui_main_menu/scroll_tiles.gbapal");
+static const u16 sCustomMainMenuLargeButtonPal[] = INCBIN_U16("graphics/ui_main_menu/main_bg_grande.gbapal");
+static const u32 sCustomMainMenuLargeButtonTiles[] = INCBIN_U32("graphics/ui_main_menu/main_bg_grande.4bpp");
+static EWRAM_DATA u16 sCustomMainMenuBgTilemapBuffer[0x400];
 
 static const u8 sTextColor_Headers[] = {TEXT_DYNAMIC_COLOR_1, TEXT_DYNAMIC_COLOR_2, TEXT_DYNAMIC_COLOR_3};
 static const u8 sTextColor_MenuInfo[] = {TEXT_DYNAMIC_COLOR_1, TEXT_COLOR_WHITE, TEXT_DYNAMIC_COLOR_3};
@@ -431,6 +436,15 @@ static const struct BgTemplate sMainMenuBgTemplates[] = {
         .bg = 1,
         .charBaseIndex = 0,
         .mapBaseIndex = 7,
+        .screenSize = 0,
+        .paletteMode = 0,
+        .priority = 2,
+        .baseTile = 0
+    },
+    {
+        .bg = 2,
+        .charBaseIndex = 1,
+        .mapBaseIndex = 29,
         .screenSize = 0,
         .paletteMode = 0,
         .priority = 3,
@@ -536,6 +550,30 @@ enum
 
 #define MAIN_MENU_BORDER_TILE   0x1D5
 #define BIRCH_DLG_BASE_TILE_NUM 0xFC
+#define CUSTOM_BUTTON_PAL_SLOT      2
+#define CUSTOM_BUTTON_LARGE_BASE    0x20
+#define CUSTOM_BUTTON_LARGE_WIDTH   29
+#define CUSTOM_BUTTON_LARGE_HEIGHT  12
+#define CUSTOM_BUTTON_LARGE_X       1
+#define CUSTOM_BUTTON_LARGE_Y       0
+#define CUSTOM_BUTTON_BG_Y_OFFSET   (-0x700)
+
+static void CustomMenu_RebuildBgWithLargeButton(void)
+{
+    u8 y;
+    u8 x;
+    CpuFill16(0, sCustomMainMenuBgTilemapBuffer, sizeof(sCustomMainMenuBgTilemapBuffer));
+
+    for (y = 0; y < CUSTOM_BUTTON_LARGE_HEIGHT; y++)
+    {
+        for (x = 0; x < CUSTOM_BUTTON_LARGE_WIDTH; x++)
+        {
+            u16 tile = CUSTOM_BUTTON_LARGE_BASE + y * CUSTOM_BUTTON_LARGE_WIDTH + x;
+            sCustomMainMenuBgTilemapBuffer[(CUSTOM_BUTTON_LARGE_Y + y) * 32 + (CUSTOM_BUTTON_LARGE_X + x)] =
+                (tile & 0x03FF) | (CUSTOM_BUTTON_PAL_SLOT << 12);
+        }
+    }
+}
 
 static void CB2_MainMenu(void)
 {
@@ -548,7 +586,7 @@ static void CB2_MainMenu(void)
 static void VBlankCB_MainMenu(void)
 {
     // Scroll custom background slowly (8.8 fixed-point) for continuous loop effect.
-    ChangeBgY(1, 128, BG_COORD_SUB);
+    ChangeBgY(2, 128, BG_COORD_SUB);
     LoadOam();
     ProcessSpriteCopyRequests();
     TransferPlttBuffer();
@@ -584,9 +622,15 @@ static u32 InitMainMenu(bool8 returningFromOptionsMenu)
     DmaFill16(3, 0, (void *)(PLTT + 2), PLTT_SIZE - 2);
 
     ResetPaletteFade();
+    // Ensure palette 0 color 0 is deterministic (BG0 clear tile uses this color).
+    {
+        u16 black = RGB_BLACK;
+        LoadPalette(&black, BG_PLTT_ID(0), PLTT_SIZEOF(1));
+    }
     LoadPalette(sCustomMainMenuBgPal, BG_PLTT_ID(1), PLTT_SIZE_4BPP);
     // BG color 0 cannot be transparent on tile BGs; avoid visible magenta key color.
     LoadPalette(&sCustomMainMenuBgPal[1], BG_PLTT_ID(1), PLTT_SIZEOF(1));
+    LoadPalette(sCustomMainMenuLargeButtonPal, BG_PLTT_ID(CUSTOM_BUTTON_PAL_SLOT), sizeof(sCustomMainMenuLargeButtonPal));
     LoadPalette(sMainMenuTextPal, BG_PLTT_ID(15), PLTT_SIZE_4BPP);
     ScanlineEffect_Stop();
     ResetTasks();
@@ -598,12 +642,19 @@ static u32 InitMainMenu(bool8 returningFromOptionsMenu)
         BeginNormalPaletteFade(PALETTES_ALL, 0, 0x10, 0, RGB_WHITEALPHA); // fade to white
     ResetBgsAndClearDma3BusyFlags(0);
     InitBgsFromTemplates(0, sMainMenuBgTemplates, ARRAY_COUNT(sMainMenuBgTemplates));
-    LoadBgTiles(1, sCustomMainMenuBgTiles, sizeof(sCustomMainMenuBgTiles), 0);
-    LoadBgTilemap(1, sCustomMainMenuBgTilemap, sizeof(sCustomMainMenuBgTilemap), 0);
+    // Ensure tile 0 on BG0 is truly empty/transparent to avoid garbage checker tiles.
+    LoadBgTiles(0, sBlankTransparentTile, sizeof(sBlankTransparentTile), 0);
+    LoadBgTiles(2, sCustomMainMenuBgTiles, sizeof(sCustomMainMenuBgTiles), 0);
+    LoadBgTilemap(2, sCustomMainMenuBgTilemap, sizeof(sCustomMainMenuBgTilemap), 0);
+    LoadBgTiles(1, sCustomMainMenuLargeButtonTiles, sizeof(sCustomMainMenuLargeButtonTiles), CUSTOM_BUTTON_LARGE_BASE);
+    CustomMenu_RebuildBgWithLargeButton();
+    LoadBgTilemap(1, sCustomMainMenuBgTilemapBuffer, sizeof(sCustomMainMenuBgTilemapBuffer), 0);
     ChangeBgX(0, 0, BG_COORD_SET);
     ChangeBgY(0, 0, BG_COORD_SET);
     ChangeBgX(1, 0, BG_COORD_SET);
-    ChangeBgY(1, 0, BG_COORD_SET);
+    ChangeBgY(1, CUSTOM_BUTTON_BG_Y_OFFSET, BG_COORD_SET);
+    ChangeBgX(2, 0, BG_COORD_SET);
+    ChangeBgY(2, 0, BG_COORD_SET);
     InitWindows(sWindowTemplates_MainMenu);
     DeactivateAllTextPrinters();
     LoadMainMenuWindowFrameTiles(0, MAIN_MENU_BORDER_TILE);
@@ -622,6 +673,7 @@ static u32 InitMainMenu(bool8 returningFromOptionsMenu)
     SetGpuReg(REG_OFFSET_DISPCNT, DISPCNT_WIN0_ON | DISPCNT_OBJ_ON | DISPCNT_OBJ_1D_MAP);
     ShowBg(0);
     ShowBg(1);
+    ShowBg(2);
     CreateTask(Task_MainMenuCheckSaveFile, 0);
 
     return 0;
@@ -644,9 +696,9 @@ static void Task_MainMenuCheckSaveFile(u8 taskId)
     {
         SetGpuReg(REG_OFFSET_WIN0H, 0);
         SetGpuReg(REG_OFFSET_WIN0V, 0);
-        SetGpuReg(REG_OFFSET_WININ, WININ_WIN0_BG0 | WININ_WIN0_BG1 | WININ_WIN0_OBJ);
-        SetGpuReg(REG_OFFSET_WINOUT, WINOUT_WIN01_BG0 | WINOUT_WIN01_BG1 | WINOUT_WIN01_OBJ | WINOUT_WIN01_CLR);
-        SetGpuReg(REG_OFFSET_BLDCNT, BLDCNT_EFFECT_DARKEN | BLDCNT_TGT1_BG0 | BLDCNT_TGT1_BG1);
+        SetGpuReg(REG_OFFSET_WININ, WININ_WIN0_BG0 | WININ_WIN0_BG1 | WININ_WIN0_BG2 | WININ_WIN0_OBJ);
+        SetGpuReg(REG_OFFSET_WINOUT, WINOUT_WIN01_BG0 | WINOUT_WIN01_BG1 | WINOUT_WIN01_BG2 | WINOUT_WIN01_OBJ | WINOUT_WIN01_CLR);
+        SetGpuReg(REG_OFFSET_BLDCNT, BLDCNT_EFFECT_DARKEN | BLDCNT_TGT1_BG0 | BLDCNT_TGT1_BG1 | BLDCNT_TGT1_BG2);
         SetGpuReg(REG_OFFSET_BLDALPHA, 0);
         SetGpuReg(REG_OFFSET_BLDY, 7);
 
@@ -722,9 +774,9 @@ static void Task_MainMenuCheckBattery(u8 taskId)
     {
         SetGpuReg(REG_OFFSET_WIN0H, 0);
         SetGpuReg(REG_OFFSET_WIN0V, 0);
-        SetGpuReg(REG_OFFSET_WININ, WININ_WIN0_BG0 | WININ_WIN0_BG1 | WININ_WIN0_OBJ);
-        SetGpuReg(REG_OFFSET_WINOUT, WINOUT_WIN01_BG0 | WINOUT_WIN01_BG1 | WINOUT_WIN01_OBJ | WINOUT_WIN01_CLR);
-        SetGpuReg(REG_OFFSET_BLDCNT, BLDCNT_EFFECT_DARKEN | BLDCNT_TGT1_BG0 | BLDCNT_TGT1_BG1);
+        SetGpuReg(REG_OFFSET_WININ, WININ_WIN0_BG0 | WININ_WIN0_BG1 | WININ_WIN0_BG2 | WININ_WIN0_OBJ);
+        SetGpuReg(REG_OFFSET_WINOUT, WINOUT_WIN01_BG0 | WINOUT_WIN01_BG1 | WINOUT_WIN01_BG2 | WINOUT_WIN01_OBJ | WINOUT_WIN01_CLR);
+        SetGpuReg(REG_OFFSET_BLDCNT, BLDCNT_EFFECT_DARKEN | BLDCNT_TGT1_BG0 | BLDCNT_TGT1_BG1 | BLDCNT_TGT1_BG2);
         SetGpuReg(REG_OFFSET_BLDALPHA, 0);
         SetGpuReg(REG_OFFSET_BLDY, 7);
 
@@ -760,9 +812,9 @@ static void Task_DisplayMainMenu(u8 taskId)
     {
         SetGpuReg(REG_OFFSET_WIN0H, 0);
         SetGpuReg(REG_OFFSET_WIN0V, 0);
-        SetGpuReg(REG_OFFSET_WININ, WININ_WIN0_BG0 | WININ_WIN0_BG1 | WININ_WIN0_OBJ);
-        SetGpuReg(REG_OFFSET_WINOUT, WINOUT_WIN01_BG0 | WINOUT_WIN01_BG1 | WINOUT_WIN01_OBJ | WINOUT_WIN01_CLR);
-        SetGpuReg(REG_OFFSET_BLDCNT, BLDCNT_EFFECT_DARKEN | BLDCNT_TGT1_BG0 | BLDCNT_TGT1_BG1);
+        SetGpuReg(REG_OFFSET_WININ, WININ_WIN0_BG0 | WININ_WIN0_BG1 | WININ_WIN0_BG2 | WININ_WIN0_OBJ);
+        SetGpuReg(REG_OFFSET_WINOUT, WINOUT_WIN01_BG0 | WINOUT_WIN01_BG1 | WINOUT_WIN01_BG2 | WINOUT_WIN01_OBJ | WINOUT_WIN01_CLR);
+        SetGpuReg(REG_OFFSET_BLDCNT, BLDCNT_EFFECT_DARKEN | BLDCNT_TGT1_BG0 | BLDCNT_TGT1_BG1 | BLDCNT_TGT1_BG2);
         SetGpuReg(REG_OFFSET_BLDALPHA, 0);
         SetGpuReg(REG_OFFSET_BLDY, 7);
 
@@ -791,25 +843,29 @@ static void Task_DisplayMainMenu(u8 taskId)
             LoadPalette(&palette, BG_PLTT_ID(15) + 1, PLTT_SIZEOF(1));
         }
 
+        // Keep BG0 enabled for composition, but clear vanilla menu tiles/text.
+        FillBgTilemapBufferRect_Palette0(0, 0, 0, 0, 32, 32);
+        CopyBgTilemapBufferToVram(0);
+        gTasks[taskId].func = Task_HighlightSelectedMainMenuItem;
+        return;
+
         switch (gTasks[taskId].tMenuType)
         {
             case HAS_NO_SAVED_GAME:
             default:
-                FillWindowPixelBuffer(0, PIXEL_FILL(0xA));
-                FillWindowPixelBuffer(1, PIXEL_FILL(0xA));
+                FillWindowPixelBuffer(0, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
+                FillWindowPixelBuffer(1, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
                 AddTextPrinterParameterized3(0, FONT_NORMAL, 0, 1, sTextColor_Headers, TEXT_SKIP_DRAW, gText_MainMenuNewGame);
                 AddTextPrinterParameterized3(1, FONT_NORMAL, 0, 1, sTextColor_Headers, TEXT_SKIP_DRAW, gText_MainMenuOption);
                 PutWindowTilemap(0);
                 PutWindowTilemap(1);
                 CopyWindowToVram(0, COPYWIN_GFX);
                 CopyWindowToVram(1, COPYWIN_GFX);
-                DrawMainMenuWindowBorder(&sWindowTemplates_MainMenu[0], MAIN_MENU_BORDER_TILE);
-                DrawMainMenuWindowBorder(&sWindowTemplates_MainMenu[1], MAIN_MENU_BORDER_TILE);
                 break;
             case HAS_SAVED_GAME:
-                FillWindowPixelBuffer(2, PIXEL_FILL(0xA));
-                FillWindowPixelBuffer(3, PIXEL_FILL(0xA));
-                FillWindowPixelBuffer(4, PIXEL_FILL(0xA));
+                FillWindowPixelBuffer(2, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
+                FillWindowPixelBuffer(3, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
+                FillWindowPixelBuffer(4, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
                 AddTextPrinterParameterized3(2, FONT_NORMAL, 0, 1, sTextColor_Headers, TEXT_SKIP_DRAW, gText_MainMenuContinue);
                 AddTextPrinterParameterized3(3, FONT_NORMAL, 0, 1, sTextColor_Headers, TEXT_SKIP_DRAW, gText_MainMenuNewGame);
                 AddTextPrinterParameterized3(4, FONT_NORMAL, 0, 1, sTextColor_Headers, TEXT_SKIP_DRAW, gText_MainMenuOption);
@@ -820,15 +876,12 @@ static void Task_DisplayMainMenu(u8 taskId)
                 CopyWindowToVram(2, COPYWIN_GFX);
                 CopyWindowToVram(3, COPYWIN_GFX);
                 CopyWindowToVram(4, COPYWIN_GFX);
-                DrawMainMenuWindowBorder(&sWindowTemplates_MainMenu[2], MAIN_MENU_BORDER_TILE);
-                DrawMainMenuWindowBorder(&sWindowTemplates_MainMenu[3], MAIN_MENU_BORDER_TILE);
-                DrawMainMenuWindowBorder(&sWindowTemplates_MainMenu[4], MAIN_MENU_BORDER_TILE);
                 break;
             case HAS_MYSTERY_GIFT:
-                FillWindowPixelBuffer(2, PIXEL_FILL(0xA));
-                FillWindowPixelBuffer(3, PIXEL_FILL(0xA));
-                FillWindowPixelBuffer(4, PIXEL_FILL(0xA));
-                FillWindowPixelBuffer(5, PIXEL_FILL(0xA));
+                FillWindowPixelBuffer(2, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
+                FillWindowPixelBuffer(3, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
+                FillWindowPixelBuffer(4, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
+                FillWindowPixelBuffer(5, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
                 AddTextPrinterParameterized3(2, FONT_NORMAL, 0, 1, sTextColor_Headers, TEXT_SKIP_DRAW, gText_MainMenuContinue);
                 AddTextPrinterParameterized3(3, FONT_NORMAL, 0, 1, sTextColor_Headers, TEXT_SKIP_DRAW, gText_MainMenuNewGame);
                 AddTextPrinterParameterized3(4, FONT_NORMAL, 0, 1, sTextColor_Headers, TEXT_SKIP_DRAW, gText_MainMenuMysteryGift);
@@ -842,17 +895,13 @@ static void Task_DisplayMainMenu(u8 taskId)
                 CopyWindowToVram(3, COPYWIN_GFX);
                 CopyWindowToVram(4, COPYWIN_GFX);
                 CopyWindowToVram(5, COPYWIN_GFX);
-                DrawMainMenuWindowBorder(&sWindowTemplates_MainMenu[2], MAIN_MENU_BORDER_TILE);
-                DrawMainMenuWindowBorder(&sWindowTemplates_MainMenu[3], MAIN_MENU_BORDER_TILE);
-                DrawMainMenuWindowBorder(&sWindowTemplates_MainMenu[4], MAIN_MENU_BORDER_TILE);
-                DrawMainMenuWindowBorder(&sWindowTemplates_MainMenu[5], MAIN_MENU_BORDER_TILE);
                 break;
             case HAS_MYSTERY_EVENTS:
-                FillWindowPixelBuffer(2, PIXEL_FILL(0xA));
-                FillWindowPixelBuffer(3, PIXEL_FILL(0xA));
-                FillWindowPixelBuffer(4, PIXEL_FILL(0xA));
-                FillWindowPixelBuffer(5, PIXEL_FILL(0xA));
-                FillWindowPixelBuffer(6, PIXEL_FILL(0xA));
+                FillWindowPixelBuffer(2, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
+                FillWindowPixelBuffer(3, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
+                FillWindowPixelBuffer(4, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
+                FillWindowPixelBuffer(5, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
+                FillWindowPixelBuffer(6, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
                 AddTextPrinterParameterized3(2, FONT_NORMAL, 0, 1, sTextColor_Headers, TEXT_SKIP_DRAW, gText_MainMenuContinue);
                 AddTextPrinterParameterized3(3, FONT_NORMAL, 0, 1, sTextColor_Headers, TEXT_SKIP_DRAW, gText_MainMenuNewGame);
                 AddTextPrinterParameterized3(4, FONT_NORMAL, 0, 1, sTextColor_Headers, TEXT_SKIP_DRAW, gText_MainMenuMysteryGift2);
@@ -869,11 +918,6 @@ static void Task_DisplayMainMenu(u8 taskId)
                 CopyWindowToVram(4, COPYWIN_GFX);
                 CopyWindowToVram(5, COPYWIN_GFX);
                 CopyWindowToVram(6, COPYWIN_GFX);
-                DrawMainMenuWindowBorder(&sWindowTemplates_MainMenu[2], MAIN_MENU_BORDER_TILE);
-                DrawMainMenuWindowBorder(&sWindowTemplates_MainMenu[3], MAIN_MENU_BORDER_TILE);
-                DrawMainMenuWindowBorder(&sWindowTemplates_MainMenu[4], MAIN_MENU_BORDER_TILE);
-                DrawMainMenuWindowBorder(&sWindowTemplates_MainMenu[5], MAIN_MENU_BORDER_TILE);
-                DrawMainMenuWindowBorder(&sWindowTemplates_MainMenu[6], MAIN_MENU_BORDER_TILE);
                 tScrollArrowTaskId = AddScrollIndicatorArrowPair(&sScrollArrowsTemplate_MainMenu, &sCurrItemAndOptionMenuCheck);
                 gTasks[tScrollArrowTaskId].func = Task_ScrollIndicatorArrowPairOnMainMenu;
                 if (sCurrItemAndOptionMenuCheck == 4)
@@ -1066,7 +1110,7 @@ static void Task_HandleMainMenuAPressed(u8 taskId)
                 break;
         }
         ChangeBgY(0, 0, BG_COORD_SET);
-        ChangeBgY(1, 0, BG_COORD_SET);
+        ChangeBgY(1, CUSTOM_BUTTON_BG_Y_OFFSET, BG_COORD_SET);
         switch (action)
         {
             case ACTION_NEW_GAME:
