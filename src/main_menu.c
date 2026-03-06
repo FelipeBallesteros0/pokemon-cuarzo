@@ -229,6 +229,7 @@ static void MainMenu_FormatSavegamePokedex(void);
 static void MainMenu_FormatSavegameTime(void);
 static void MainMenu_FormatSavegameBadges(void);
 static void CustomMenu_RebuildBgWithCustomButtons(u8 menuType, u8 selectedMenuItem);
+static void CustomMenu_DrawPrimaryLabels(u8 menuType, u8 selectedMenuItem);
 static void NewGameBirchSpeech_CreateDialogueWindowBorder(u8, u8, u8, u8, u8, u8);
 
 // .rodata
@@ -295,23 +296,23 @@ static const struct WindowTemplate sWindowTemplates_MainMenu[] =
     // No saved game
     // NEW GAME
     {
-        .bg = 0,
-        .tilemapLeft = MENU_LEFT,
-        .tilemapTop = MENU_TOP_WIN0,
-        .width = MENU_WIDTH,
-        .height = MENU_HEIGHT_WIN0,
+        .bg = 0,          // custom top-left small button label
+        .tilemapLeft = 1,
+        .tilemapTop = 12,
+        .width = 14,
+        .height = 3,
         .paletteNum = 15,
         .baseBlock = 1
     },
     // OPTIONS
     {
-        .bg = 0,
-        .tilemapLeft = MENU_LEFT,
-        .tilemapTop = MENU_TOP_WIN1,
-        .width = MENU_WIDTH,
-        .height = MENU_HEIGHT_WIN1,
+        .bg = 0,          // custom top-right small button label
+        .tilemapLeft = 16,
+        .tilemapTop = 12,
+        .width = 14,
+        .height = 3,
         .paletteNum = 15,
-        .baseBlock = 0x35
+        .baseBlock = 43
     },
     // Has saved game
     // CONTINUE
@@ -423,6 +424,8 @@ static EWRAM_DATA u16 sCustomMainMenuBgTilemapBuffer[0x400];
 
 static const u8 sTextColor_Headers[] = {TEXT_DYNAMIC_COLOR_1, TEXT_DYNAMIC_COLOR_2, TEXT_DYNAMIC_COLOR_3};
 static const u8 sTextColor_MenuInfo[] = {TEXT_DYNAMIC_COLOR_1, TEXT_COLOR_WHITE, TEXT_DYNAMIC_COLOR_3};
+static const u8 sTextColor_MenuButtonNormal[] = {TEXT_COLOR_TRANSPARENT, TEXT_DYNAMIC_COLOR_1, TEXT_DYNAMIC_COLOR_2};
+static const u8 sTextColor_MenuButtonHighlight[] = {TEXT_COLOR_TRANSPARENT, TEXT_DYNAMIC_COLOR_1, TEXT_DYNAMIC_COLOR_2};
 
 static const struct BgTemplate sMainMenuBgTemplates[] = {
     {
@@ -670,6 +673,51 @@ static void CustomMenu_RebuildBgWithCustomButtons(u8 menuType, u8 selectedMenuIt
     LoadBgTilemap(1, sCustomMainMenuBgTilemapBuffer, sizeof(sCustomMainMenuBgTilemapBuffer), 0);
 }
 
+static void CustomMenu_DrawPrimaryLabels(u8 menuType, u8 selectedMenuItem)
+{
+    bool8 highlightNewGame = FALSE;
+    bool8 highlightOptions = FALSE;
+    const u8 *newGameTextColor;
+    const u8 *optionsTextColor;
+
+    switch (menuType)
+    {
+    case HAS_NO_SAVED_GAME:
+    default:
+        highlightNewGame = (selectedMenuItem == 0);
+        highlightOptions = (selectedMenuItem == 1);
+        break;
+    case HAS_SAVED_GAME:
+        highlightNewGame = (selectedMenuItem == 1);
+        highlightOptions = (selectedMenuItem == 2);
+        break;
+    case HAS_MYSTERY_GIFT:
+        highlightNewGame = (selectedMenuItem == 1);
+        highlightOptions = (selectedMenuItem == 3);
+        break;
+    case HAS_MYSTERY_EVENTS:
+        highlightNewGame = (selectedMenuItem == 1);
+        highlightOptions = (selectedMenuItem == 4);
+        break;
+    }
+
+    newGameTextColor = highlightNewGame ? sTextColor_MenuButtonHighlight : sTextColor_MenuButtonNormal;
+    optionsTextColor = highlightOptions ? sTextColor_MenuButtonHighlight : sTextColor_MenuButtonNormal;
+
+    FillWindowPixelBuffer(0, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
+    FillWindowPixelBuffer(1, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
+    AddTextPrinterParameterized3(0, FONT_NORMAL,
+                                 GetStringCenterAlignXOffset(FONT_NORMAL, gText_MainMenuNewGame, 14 * 8),
+                                 5, newGameTextColor, TEXT_SKIP_DRAW, gText_MainMenuNewGame);
+    AddTextPrinterParameterized3(1, FONT_NORMAL,
+                                 GetStringCenterAlignXOffset(FONT_NORMAL, gText_MainMenuOption, 14 * 8),
+                                 5, optionsTextColor, TEXT_SKIP_DRAW, gText_MainMenuOption);
+    PutWindowTilemap(0);
+    PutWindowTilemap(1);
+    CopyWindowToVram(0, COPYWIN_GFX);
+    CopyWindowToVram(1, COPYWIN_GFX);
+}
+
 static void CB2_MainMenu(void)
 {
     RunTasks();
@@ -781,7 +829,7 @@ static u32 InitMainMenu(bool8 returningFromOptionsMenu)
     SetVBlankCallback(VBlankCB_MainMenu);
     SetMainCallback2(CB2_MainMenu);
     SetGpuReg(REG_OFFSET_DISPCNT, DISPCNT_OBJ_ON | DISPCNT_OBJ_1D_MAP);
-    HideBg(0);
+    ShowBg(0);
     ShowBg(1);
     ShowBg(2);
     CreateTask(Task_MainMenuCheckSaveFile, 0);
@@ -933,13 +981,13 @@ static void Task_DisplayMainMenu(u8 taskId)
         palette = RGB_BLACK;
         LoadPalette(&palette, BG_PLTT_ID(15) + 14, PLTT_SIZEOF(1));
 
-        palette = RGB_WHITE;
+        palette = RGB(7, 7, 7); // #383838
         LoadPalette(&palette, BG_PLTT_ID(15) + 10, PLTT_SIZEOF(1));
 
-        palette = RGB(12, 12, 12);
+        palette = RGB(27, 27, 27); // #D8D8D8
         LoadPalette(&palette, BG_PLTT_ID(15) + 11, PLTT_SIZEOF(1));
 
-        palette = RGB(26, 26, 25);
+        palette = RGB(27, 27, 27);
         LoadPalette(&palette, BG_PLTT_ID(15) + 12, PLTT_SIZEOF(1));
 
         // Note: If there is no save file, the save block is zeroed out,
@@ -958,6 +1006,7 @@ static void Task_DisplayMainMenu(u8 taskId)
         // Keep BG0 enabled for composition, but clear vanilla menu tiles/text.
         FillBgTilemapBufferRect_Palette0(0, 0, 0, 0, 32, 32);
         CopyBgTilemapBufferToVram(0);
+        CustomMenu_DrawPrimaryLabels(gTasks[taskId].tMenuType, gTasks[taskId].tCurrItem);
         CustomMenu_RebuildBgWithCustomButtons(gTasks[taskId].tMenuType, gTasks[taskId].tCurrItem);
         gTasks[taskId].func = Task_HighlightSelectedMainMenuItem;
         return;
@@ -1478,6 +1527,7 @@ static void HighlightSelectedMainMenuItem(u8 menuType, u8 selectedMenuItem, s16 
     (void)isScrolled;
     // Highlight is rendered by swapping to masked highlight tiles, not window rectangles.
     CustomMenu_RebuildBgWithCustomButtons(menuType, selectedMenuItem);
+    CustomMenu_DrawPrimaryLabels(menuType, selectedMenuItem);
 }
 
 #define tPlayerSpriteId data[2]
