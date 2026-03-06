@@ -1057,29 +1057,196 @@ static bool8 HandleMainMenuInput(u8 taskId)
         SetGpuReg(REG_OFFSET_WIN0V, WIN_RANGE(0, DISPLAY_HEIGHT));
         gTasks[taskId].func = Task_HandleMainMenuBPressed;
     }
-    else if ((JOY_NEW(DPAD_UP)) && tCurrItem > 0)
+    else if (JOY_NEW(DPAD_UP | DPAD_DOWN | DPAD_LEFT | DPAD_RIGHT))
     {
-        if (tMenuType == HAS_MYSTERY_EVENTS && tIsScrolled == TRUE && tCurrItem == 1)
+        u8 next = tCurrItem;
+        bool8 moved = FALSE;
+
+        switch (tMenuType)
         {
-            ChangeBgY(0, 0x2000, BG_COORD_SUB);
-            ChangeBgY(1, 0x2000, BG_COORD_SUB);
-            gTasks[tScrollArrowTaskId].tArrowTaskIsScrolled = tIsScrolled = FALSE;
+        case HAS_NO_SAVED_GAME:
+        default:
+            if (JOY_NEW(DPAD_LEFT) || JOY_NEW(DPAD_RIGHT) || JOY_NEW(DPAD_UP) || JOY_NEW(DPAD_DOWN))
+            {
+                next = (tCurrItem == 0) ? 1 : 0; // New Game <-> Options
+                moved = TRUE;
+            }
+            break;
+        case HAS_SAVED_GAME:
+            if (tCurrItem == 0)
+            {
+                if (JOY_NEW(DPAD_DOWN))
+                {
+                    next = 1;
+                    moved = TRUE;
+                }
+            }
+            else if (tCurrItem == 1) // New Game
+            {
+                if (JOY_NEW(DPAD_UP))
+                {
+                    next = 0;
+                    moved = TRUE;
+                }
+                else if (JOY_NEW(DPAD_RIGHT))
+                {
+                    next = 2;
+                    moved = TRUE;
+                }
+            }
+            else if (tCurrItem == 2) // Options
+            {
+                if (JOY_NEW(DPAD_UP))
+                {
+                    next = 0;
+                    moved = TRUE;
+                }
+                else if (JOY_NEW(DPAD_LEFT))
+                {
+                    next = 1;
+                    moved = TRUE;
+                }
+            }
+            break;
+        case HAS_MYSTERY_GIFT:
+            if (tCurrItem == 0) // Continue
+            {
+                if (JOY_NEW(DPAD_DOWN))
+                {
+                    next = 1;
+                    moved = TRUE;
+                }
+            }
+            else if (tCurrItem == 1) // New Game (top-left)
+            {
+                if (JOY_NEW(DPAD_UP))
+                {
+                    next = 0;
+                    moved = TRUE;
+                }
+                else if (JOY_NEW(DPAD_RIGHT))
+                {
+                    next = 3;
+                    moved = TRUE;
+                }
+                else if (JOY_NEW(DPAD_DOWN))
+                {
+                    next = 2;
+                    moved = TRUE;
+                }
+            }
+            else if (tCurrItem == 2) // Mystery Gift (bottom-left)
+            {
+                if (JOY_NEW(DPAD_UP))
+                {
+                    next = 1;
+                    moved = TRUE;
+                }
+                else if (JOY_NEW(DPAD_RIGHT))
+                {
+                    next = 3; // nearest valid button at right
+                    moved = TRUE;
+                }
+            }
+            else if (tCurrItem == 3) // Options (top-right)
+            {
+                if (JOY_NEW(DPAD_LEFT))
+                {
+                    next = 1;
+                    moved = TRUE;
+                }
+                else if (JOY_NEW(DPAD_DOWN))
+                {
+                    next = 2; // nearest valid button at bottom-left
+                    moved = TRUE;
+                }
+                else if (JOY_NEW(DPAD_UP))
+                {
+                    next = 0;
+                    moved = TRUE;
+                }
+            }
+            break;
+        case HAS_MYSTERY_EVENTS:
+            if (tCurrItem == 0) // Continue
+            {
+                if (JOY_NEW(DPAD_DOWN))
+                {
+                    next = 1;
+                    moved = TRUE;
+                }
+            }
+            else if (tCurrItem == 1) // New Game (top-left)
+            {
+                if (JOY_NEW(DPAD_UP))
+                {
+                    next = 0;
+                    moved = TRUE;
+                }
+                else if (JOY_NEW(DPAD_RIGHT))
+                {
+                    next = 4; // Options (top-right)
+                    moved = TRUE;
+                }
+                else if (JOY_NEW(DPAD_DOWN))
+                {
+                    next = 2; // Mystery Gift
+                    moved = TRUE;
+                }
+            }
+            else if (tCurrItem == 2) // Mystery Gift (bottom-left)
+            {
+                if (JOY_NEW(DPAD_UP))
+                {
+                    next = 1;
+                    moved = TRUE;
+                }
+                else if (JOY_NEW(DPAD_RIGHT))
+                {
+                    next = 3; // Mystery Events
+                    moved = TRUE;
+                }
+            }
+            else if (tCurrItem == 3) // Mystery Events (bottom-right)
+            {
+                if (JOY_NEW(DPAD_LEFT))
+                {
+                    next = 2;
+                    moved = TRUE;
+                }
+                else if (JOY_NEW(DPAD_UP))
+                {
+                    next = 4; // Options
+                    moved = TRUE;
+                }
+            }
+            else if (tCurrItem == 4) // Options (top-right)
+            {
+                if (JOY_NEW(DPAD_LEFT))
+                {
+                    next = 1;
+                    moved = TRUE;
+                }
+                else if (JOY_NEW(DPAD_DOWN))
+                {
+                    next = 3;
+                    moved = TRUE;
+                }
+                else if (JOY_NEW(DPAD_UP))
+                {
+                    next = 0;
+                    moved = TRUE;
+                }
+            }
+            break;
         }
-        tCurrItem--;
-        sCurrItemAndOptionMenuCheck = tCurrItem;
-        return TRUE;
-    }
-    else if ((JOY_NEW(DPAD_DOWN)) && tCurrItem < tItemCount - 1)
-    {
-        if (tMenuType == HAS_MYSTERY_EVENTS && tCurrItem == 3 && tIsScrolled == FALSE)
+
+        if (moved && next != tCurrItem)
         {
-            ChangeBgY(0, 0x2000, BG_COORD_ADD);
-            ChangeBgY(1, 0x2000, BG_COORD_ADD);
-            gTasks[tScrollArrowTaskId].tArrowTaskIsScrolled = tIsScrolled = TRUE;
+            tCurrItem = next;
+            sCurrItemAndOptionMenuCheck = tCurrItem;
+            return TRUE;
         }
-        tCurrItem++;
-        sCurrItemAndOptionMenuCheck = tCurrItem;
-        return TRUE;
     }
     return FALSE;
 }
