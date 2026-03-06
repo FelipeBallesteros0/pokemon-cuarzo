@@ -336,7 +336,7 @@ static const struct WindowTemplate sWindowTemplates_MainMenu[] =
     // NEW GAME
     {
         .bg = 0,
-        .tilemapLeft = 10,   // custom continue info block (right side of mugshot)
+        .tilemapLeft = 9,   // custom continue info block (right side of mugshot)
         .tilemapTop = 3,
         .width = 17,
         .height = 8,
@@ -838,7 +838,7 @@ static void CustomMenu_DrawPrimaryLabels(u8 menuType, u8 selectedMenuItem)
             AddTextPrinterParameterized3(2, FONT_NORMAL, continueTimeX, 0, continueTextColor, 0, playTimeStr);
 
         // Stats at the right side of the mugshot (dedicated taller window to avoid clipping).
-        AddTextPrinterParameterized3(3, FONT_NORMAL, 0, 0, continueTextColor, 0, gSaveBlock2Ptr->playerName);
+        AddTextPrinterParameterized3(3, FONT_NORMAL, 4, 0, continueTextColor, 0, gSaveBlock2Ptr->playerName);
 
         if (FlagGet(FLAG_SYS_POKEDEX_GET))
         {
@@ -849,7 +849,7 @@ static void CustomMenu_DrawPrimaryLabels(u8 menuType, u8 selectedMenuItem)
             ConvertIntToDecimalStringN(numberBuffer, dexCount, STR_CONV_MODE_LEFT_ALIGN, 4);
             StringCopy(dexStr, gText_MainMenuStatPokedex);
             StringAppend(dexStr, numberBuffer);
-            AddTextPrinterParameterized3(3, FONT_NORMAL, 0, 16, continueTextColor, 0, dexStr);
+            AddTextPrinterParameterized3(3, FONT_NORMAL, 4, 16, continueTextColor, 0, dexStr);
         }
 
         for (i = FLAG_BADGE01_GET; i < FLAG_BADGE01_GET + NUM_BADGES; i++)
@@ -862,7 +862,7 @@ static void CustomMenu_DrawPrimaryLabels(u8 menuType, u8 selectedMenuItem)
             ConvertIntToDecimalStringN(numberBuffer, badgeCount, STR_CONV_MODE_LEFT_ALIGN, 2);
             StringCopy(badgeStr, gText_MainMenuStatBadges);
             StringAppend(badgeStr, numberBuffer);
-            AddTextPrinterParameterized3(3, FONT_NORMAL, 0, 32, continueTextColor, 0, badgeStr);
+            AddTextPrinterParameterized3(3, FONT_NORMAL, 4, 32, continueTextColor, 0, badgeStr);
         }
 
         PutWindowTilemap(2);
