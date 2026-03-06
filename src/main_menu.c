@@ -710,8 +710,8 @@ static void CustomMenu_DrawPrimaryLabels(u8 menuType, u8 selectedMenuItem)
                                  GetStringCenterAlignXOffset(FONT_NORMAL, gText_MainMenuNewGame, 14 * 8) - 7,
                                  7, newGameTextColor, TEXT_SKIP_DRAW, gText_MainMenuNewGame);
     AddTextPrinterParameterized3(1, FONT_NORMAL,
-                                 GetStringCenterAlignXOffset(FONT_NORMAL, gText_MainMenuOption, 14 * 8),
-                                 5, optionsTextColor, TEXT_SKIP_DRAW, gText_MainMenuOption);
+                                 GetStringCenterAlignXOffset(FONT_NORMAL, gText_MainMenuOption, 14 * 8) - 21,
+                                 7, optionsTextColor, TEXT_SKIP_DRAW, gText_MainMenuOption);
     PutWindowTilemap(0);
     PutWindowTilemap(1);
     CopyWindowToVram(0, COPYWIN_GFX);
