@@ -25,6 +25,7 @@
 #include "pokedex.h"
 #include "pokemon.h"
 #include "random.h"
+#include "region_map.h"
 #include "rtc.h"
 #include "save.h"
 #include "scanline_effect.h"
@@ -675,6 +676,9 @@ static void CustomMenu_RebuildBgWithCustomButtons(u8 menuType, u8 selectedMenuIt
 
 static void CustomMenu_DrawPrimaryLabels(u8 menuType, u8 selectedMenuItem)
 {
+    const struct MapHeader *saveMapHeader;
+    u8 continueTextWidth;
+    u8 continueLocationX;
     bool8 highlightContinue = FALSE;
     bool8 highlightNewGame = FALSE;
     bool8 highlightOptions = FALSE;
@@ -726,7 +730,12 @@ static void CustomMenu_DrawPrimaryLabels(u8 menuType, u8 selectedMenuItem)
     FillWindowPixelBuffer(6, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
     if (menuType >= HAS_SAVED_GAME)
     {
+        saveMapHeader = Overworld_GetMapHeaderByGroupAndId(gSaveBlock1Ptr->location.mapGroup, gSaveBlock1Ptr->location.mapNum);
+        GetMapName(gStringVar4, saveMapHeader->regionMapSectionId, 0);
+        continueTextWidth = GetStringWidth(FONT_NORMAL, gText_MainMenuContinue, 0);
+        continueLocationX = 3 + continueTextWidth + 8;
         AddTextPrinterParameterized3(2, FONT_NORMAL, 3, 0, continueTextColor, 0, gText_MainMenuContinue);
+        AddTextPrinterParameterized3(2, FONT_NORMAL, continueLocationX, 0, continueTextColor, 0, gStringVar4);
         PutWindowTilemap(2);
         CopyWindowToVram(2, COPYWIN_GFX);
     }
