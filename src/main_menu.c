@@ -231,6 +231,8 @@ static void MainMenu_FormatSavegameTime(void);
 static void MainMenu_FormatSavegameBadges(void);
 static void CustomMenu_RebuildBgWithCustomButtons(u8 menuType, u8 selectedMenuItem);
 static void CustomMenu_DrawPrimaryLabels(u8 menuType, u8 selectedMenuItem);
+static void CustomMenu_CreateContinueMugshot(void);
+static void CustomMenu_DestroyContinueMugshot(void);
 static void NewGameBirchSpeech_CreateDialogueWindowBorder(u8, u8, u8, u8, u8, u8);
 
 // .rodata
@@ -421,7 +423,42 @@ static const u16 sCustomMainMenuLargeButtonPal[] = INCBIN_U16("graphics/ui_main_
 static const u16 sCustomMainMenuLargeButtonHighlightPal[] = INCBIN_U16("graphics/ui_main_menu/main_bg_grande_highlight.gbapal");
 static const u32 sCustomMainMenuLargeButtonTiles[] = INCBIN_U32("graphics/ui_main_menu/main_bg_grande.4bpp");
 static const u32 sCustomMainMenuSmallButtonTiles[] = INCBIN_U32("graphics/ui_main_menu/main_bg_pequeno.4bpp");
+static const u16 sCustomBrendanMugshotPal[] = INCBIN_U16("graphics/ui_main_menu/brendan_mugshot.gbapal");
+static const u16 sCustomMayMugshotPal[] = INCBIN_U16("graphics/ui_main_menu/may_mugshot.gbapal");
+static const u32 sCustomBrendanMugshotGfx[] = INCBIN_U32("graphics/ui_main_menu/brendan_mugshot.4bpp");
+static const u32 sCustomMayMugshotGfx[] = INCBIN_U32("graphics/ui_main_menu/may_mugshot.4bpp");
 static EWRAM_DATA u16 sCustomMainMenuBgTilemapBuffer[0x400];
+static u8 sCustomContinueMugshotSpriteId;
+
+#define TAG_CONTINUE_MUGSHOT 0xA612
+static const struct OamData sCustomContinueMugshotOamData =
+{
+    .shape = SPRITE_SHAPE(64x64),
+    .size = SPRITE_SIZE(64x64),
+    .priority = 0,
+};
+
+static const union AnimCmd sCustomContinueMugshotAnim[] =
+{
+    ANIMCMD_FRAME(0, 1),
+    ANIMCMD_END,
+};
+
+static const union AnimCmd *const sCustomContinueMugshotAnimTable[] =
+{
+    sCustomContinueMugshotAnim,
+};
+
+static const struct SpriteTemplate sCustomContinueMugshotSpriteTemplate =
+{
+    .tileTag = TAG_CONTINUE_MUGSHOT,
+    .paletteTag = TAG_CONTINUE_MUGSHOT,
+    .oam = &sCustomContinueMugshotOamData,
+    .anims = sCustomContinueMugshotAnimTable,
+    .images = NULL,
+    .affineAnims = gDummySpriteAffineAnimTable,
+    .callback = SpriteCallbackDummy,
+};
 
 static const u8 sTextColor_Headers[] = {TEXT_DYNAMIC_COLOR_1, TEXT_DYNAMIC_COLOR_2, TEXT_DYNAMIC_COLOR_3};
 static const u8 sTextColor_MenuInfo[] = {TEXT_DYNAMIC_COLOR_1, TEXT_COLOR_WHITE, TEXT_DYNAMIC_COLOR_3};
@@ -782,6 +819,60 @@ static void CustomMenu_DrawPrimaryLabels(u8 menuType, u8 selectedMenuItem)
     CopyBgTilemapBufferToVram(0);
 }
 
+static void CustomMenu_CreateContinueMugshot(void)
+{
+    struct SpriteSheet spriteSheet;
+    struct SpritePalette spritePalette;
+
+    if (sCustomContinueMugshotSpriteId != SPRITE_NONE)
+        return;
+
+    FreeSpriteTilesByTag(TAG_CONTINUE_MUGSHOT);
+    FreeSpritePaletteByTag(TAG_CONTINUE_MUGSHOT);
+
+    if (gSaveBlock2Ptr->playerGender == MALE)
+    {
+        spriteSheet.data = sCustomBrendanMugshotGfx;
+        spritePalette.data = sCustomBrendanMugshotPal;
+    }
+    else
+    {
+        spriteSheet.data = sCustomMayMugshotGfx;
+        spritePalette.data = sCustomMayMugshotPal;
+    }
+    spriteSheet.size = 64 * 64 / 2;
+    spriteSheet.tag = TAG_CONTINUE_MUGSHOT;
+    spritePalette.tag = TAG_CONTINUE_MUGSHOT;
+
+    if (LoadSpriteSheet(&spriteSheet) == 0xFF)
+        return;
+    if (LoadSpritePalette(&spritePalette) == 0xFF)
+        return;
+
+    sCustomContinueMugshotSpriteId = CreateSprite(&sCustomContinueMugshotSpriteTemplate, 48, 56, 0);
+    if (sCustomContinueMugshotSpriteId == MAX_SPRITES)
+    {
+        sCustomContinueMugshotSpriteId = SPRITE_NONE;
+        FreeSpriteTilesByTag(TAG_CONTINUE_MUGSHOT);
+        FreeSpritePaletteByTag(TAG_CONTINUE_MUGSHOT);
+        return;
+    }
+
+    gSprites[sCustomContinueMugshotSpriteId].invisible = FALSE;
+    StartSpriteAnim(&gSprites[sCustomContinueMugshotSpriteId], 0);
+}
+
+static void CustomMenu_DestroyContinueMugshot(void)
+{
+    if (sCustomContinueMugshotSpriteId != SPRITE_NONE)
+    {
+        DestroySprite(&gSprites[sCustomContinueMugshotSpriteId]);
+        sCustomContinueMugshotSpriteId = SPRITE_NONE;
+    }
+    FreeSpriteTilesByTag(TAG_CONTINUE_MUGSHOT);
+    FreeSpritePaletteByTag(TAG_CONTINUE_MUGSHOT);
+}
+
 static void CB2_MainMenu(void)
 {
     RunTasks();
@@ -865,6 +956,7 @@ static u32 InitMainMenu(bool8 returningFromOptionsMenu)
     ResetTasks();
     ResetSpriteData();
     FreeAllSpritePalettes();
+    sCustomContinueMugshotSpriteId = SPRITE_NONE;
     if (returningFromOptionsMenu)
         BeginNormalPaletteFade(PALETTES_ALL, 0, 0x10, 0, RGB_BLACK); // fade to black
     else
@@ -887,6 +979,10 @@ static u32 InitMainMenu(bool8 returningFromOptionsMenu)
     if (initialCurrItem > initialMenuType + 1)
         initialCurrItem = 0;
     CustomMenu_RebuildBgWithCustomButtons(initialMenuType, initialCurrItem);
+    if (initialMenuType >= HAS_SAVED_GAME)
+        CustomMenu_CreateContinueMugshot();
+    else
+        CustomMenu_DestroyContinueMugshot();
     ChangeBgX(0, 0, BG_COORD_SET);
     ChangeBgY(0, 0, BG_COORD_SET);
     ChangeBgX(1, 0, BG_COORD_SET);
@@ -1494,6 +1590,7 @@ static void Task_HandleMainMenuAPressed(u8 taskId)
         }
         ChangeBgY(0, 0, BG_COORD_SET);
         ChangeBgY(1, CUSTOM_BUTTON_BG_Y_OFFSET, BG_COORD_SET);
+        CustomMenu_DestroyContinueMugshot();
         switch (action)
         {
             case ACTION_NEW_GAME:
@@ -1553,6 +1650,7 @@ static void Task_HandleMainMenuBPressed(u8 taskId)
     {
         if (gTasks[taskId].tMenuType == HAS_MYSTERY_EVENTS)
             RemoveScrollIndicatorArrowPair(gTasks[taskId].tScrollArrowTaskId);
+        CustomMenu_DestroyContinueMugshot();
         sCurrItemAndOptionMenuCheck = 0;
         FreeAllWindowBuffers();
         SetMainCallback2(CB2_InitTitleScreen);
