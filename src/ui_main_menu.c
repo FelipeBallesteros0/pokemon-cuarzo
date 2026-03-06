@@ -100,9 +100,6 @@ enum
 static EWRAM_DATA struct MainMenuResources *sMainMenuDataPtr = NULL;
 static EWRAM_DATA u8 *sBg1TilemapBuffer = NULL;
 static EWRAM_DATA u8 *sBg2TilemapBuffer = NULL;
-static EWRAM_DATA struct MainMenuResources sMainMenuData;
-static EWRAM_DATA u8 sBg1TilemapBufferRaw[0x800];
-static EWRAM_DATA u8 sBg2TilemapBufferRaw[0x800];
 static EWRAM_DATA u8 sSelectedOption = {0};
 static EWRAM_DATA u8 menuType = {0};
 
@@ -346,9 +343,20 @@ void Task_OpenMainMenu(u8 taskId)
     s16 *data = gTasks[taskId].data;
     if (!gPaletteFade.active)
     {   
-        menuType = data[0];
-        if (menuType > HAS_MYSTERY_EVENTS)
-            menuType = HAS_NO_SAVED_GAME;
+        switch (data[0]) // This data[0] comes from the main_menu.c Task_DisplayMainMenu, 
+        {                //  where the UI is initialized by swapping a task func with this one 
+            case HAS_NO_SAVED_GAME:
+            default:
+                SetMainCallback2(CB2_NewGameBirchSpeech_FromNewMainMenu);
+                DestroyTask(taskId);
+                return;
+            case HAS_SAVED_GAME:       
+            case HAS_MYSTERY_GIFT:
+            case HAS_MYSTERY_EVENTS:
+                menuType = data[0];
+                break;
+        }
+        CleanupOverworldWindowsAndTilemaps();
         MainMenu_Init(CB2_InitTitleScreen); // if need to bail go to title screen
         DestroyTask(taskId);
     }
@@ -360,14 +368,15 @@ void Task_OpenMainMenu(u8 taskId)
 void MainMenu_Init(MainCallback callback)
 {
     u32 i = 0;
-    gMain.state = 0;
-    sMainMenuDataPtr = &sMainMenuData;
-    memset(sMainMenuDataPtr, 0, sizeof(*sMainMenuDataPtr));
+    if ((sMainMenuDataPtr = AllocZeroed(sizeof(struct MainMenuResources))) == NULL)
+    {
+        SetMainCallback2(callback);
+        return;
+    }
     
     // initialize stuff
     sMainMenuDataPtr->gfxLoadState = 0;
     sMainMenuDataPtr->savedCallback = callback;
-    sSelectedOption = (menuType == HAS_NO_SAVED_GAME) ? HW_WIN_NEW_GAME : HW_WIN_CONTINUE;
     for(i = 0; i < 6; i++)
     {
         sMainMenuDataPtr->iconBoxSpriteIds[i] = SPRITE_NONE;
@@ -377,17 +386,13 @@ void MainMenu_Init(MainCallback callback)
     SetMainCallback2(MainMenu_RunSetup);
 }
 
-void OpenCustomMainMenu(u8 type)
-{
-    menuType = type;
-    if (menuType > HAS_MYSTERY_EVENTS)
-        menuType = HAS_NO_SAVED_GAME;
-    MainMenu_Init(CB2_InitTitleScreen);
-}
-
 static void MainMenu_RunSetup(void)
 {
-    MainMenu_DoGfxSetup();
+    while (1)
+    {
+        if (MainMenu_DoGfxSetup() == TRUE)
+            break;
+    }
 }
 
 static void MainMenu_MainCB(void)
@@ -412,17 +417,13 @@ static void MainMenu_VBlankCB(void)
 //
 static void MainMenu_FreeResources(void)
 {
-    // Destroy sprite objects before releasing resource state.
-    if (sMainMenuDataPtr != NULL)
-    {
-        DestroyMugshot();
-        DestroyIconShadow();
-        DestroyMonIcons();
-    }
-    sBg1TilemapBuffer = NULL;
-    sBg2TilemapBuffer = NULL;
+    try_free(sMainMenuDataPtr);
+    try_free(sBg1TilemapBuffer);
+    try_free(sBg2TilemapBuffer);
     FreeAllWindowBuffers();
-    sMainMenuDataPtr = NULL;
+    DestroyMugshot();
+    DestroyIconShadow();
+    DestroyMonIcons();
     DmaClearLarge16(3, (void *)VRAM, VRAM_SIZE, 0x1000);
 }
 
@@ -447,11 +448,7 @@ static void MainMenu_FadeAndBail(void)
 static void Task_MainMenuWaitFadeIn(u8 taskId)
 {
     if (!gPaletteFade.active)
-    {
-        if (JOY_HELD(A_BUTTON | START_BUTTON | B_BUTTON))
-            return;
         gTasks[taskId].func = Task_MainMenuMain;
-    }
 }
 
 static void Task_MainMenuTurnOff(u8 taskId)
@@ -522,7 +519,9 @@ static bool8 MainMenu_DoGfxSetup(void)
         break;
     case 5: // Here is where the sprites are drawn and text is printed
         PrintToWindow(WINDOW_HEADER, FONT_WHITE);
-        // Stability mode for reintegration: no sprites yet (mugshot/party icons).
+        CreateIconShadow();
+        CreatePartyMonIcons();
+        CreateMugshot();
         taskId = CreateTask(Task_MainMenuWaitFadeIn, 0);
         BlendPalettes(0xFFFFFFFF, 16, RGB_BLACK);
         gMain.state++;
@@ -545,12 +544,16 @@ static bool8 MainMenu_InitBgs(void)
     ResetBgsAndClearDma3BusyFlags(0);
     InitBgsFromTemplates(0, sMainMenuBgTemplates, NELEMS(sMainMenuBgTemplates));
 
-    sBg1TilemapBuffer = sBg1TilemapBufferRaw;
+    sBg1TilemapBuffer = Alloc(0x800);
+    if (sBg1TilemapBuffer == NULL)
+        return FALSE;
     memset(sBg1TilemapBuffer, 0, 0x800);
     SetBgTilemapBuffer(1, sBg1TilemapBuffer);
     ScheduleBgCopyTilemapToVram(1);
 
-    sBg2TilemapBuffer = sBg2TilemapBufferRaw;
+    sBg2TilemapBuffer = Alloc(0x800);
+    if (sBg2TilemapBuffer == NULL)
+        return FALSE;
     memset(sBg2TilemapBuffer, 0, 0x800);
     SetBgTilemapBuffer(2, sBg2TilemapBuffer);
     ScheduleBgCopyTilemapToVram(2);
@@ -611,11 +614,11 @@ static bool8 MainMenu_LoadGraphics(void) // Load all the tilesets, tilemaps, spr
         {
             if (gSaveBlock2Ptr->playerGender == MALE)
             {
-                DecompressDataWithHeaderWram(sMainBgTilemap, sBg1TilemapBuffer);
+                LZ77UnCompWram(sMainBgTilemap, sBg1TilemapBuffer);
             }
             else
             {
-                DecompressDataWithHeaderWram(sMainBgTilemapFem, sBg1TilemapBuffer);
+                LZ77UnCompWram(sMainBgTilemapFem, sBg1TilemapBuffer);
             }
             sMainMenuDataPtr->gfxLoadState++;
         }
@@ -628,7 +631,7 @@ static bool8 MainMenu_LoadGraphics(void) // Load all the tilesets, tilemaps, spr
     case 3:
         if (FreeTempTileDataBuffersIfPossible() != TRUE)
         {
-                DecompressDataWithHeaderWram(sScrollBgTilemap, sBg2TilemapBuffer);
+                LZ77UnCompWram(sScrollBgTilemap, sBg2TilemapBuffer);
             sMainMenuDataPtr->gfxLoadState++;
         }
         break;
@@ -887,7 +890,7 @@ static void Task_MainMenuMain(u8 taskId)
                 sSelectedOption = HW_WIN_CONTINUE;
                 break;
             case HW_WIN_NEW_GAME:
-                sMainMenuDataPtr->savedCallback = CB2_NewGame;
+                sMainMenuDataPtr->savedCallback = CB2_NewGameBirchSpeech_FromNewMainMenu;
                 sSelectedOption = HW_WIN_CONTINUE;
                 break;
             case HW_WIN_OPTIONS:
