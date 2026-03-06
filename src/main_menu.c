@@ -24,6 +24,7 @@
 #include "pokeball.h"
 #include "pokedex.h"
 #include "pokemon.h"
+#include "pokemon_icon.h"
 #include "random.h"
 #include "region_map.h"
 #include "rtc.h"
@@ -233,6 +234,8 @@ static void CustomMenu_RebuildBgWithCustomButtons(u8 menuType, u8 selectedMenuIt
 static void CustomMenu_DrawPrimaryLabels(u8 menuType, u8 selectedMenuItem);
 static void CustomMenu_CreateContinueMugshot(void);
 static void CustomMenu_DestroyContinueMugshot(void);
+static void CustomMenu_CreateContinuePartyIcons(void);
+static void CustomMenu_DestroyContinuePartyIcons(void);
 static void NewGameBirchSpeech_CreateDialogueWindowBorder(u8, u8, u8, u8, u8, u8);
 
 // .rodata
@@ -257,6 +260,8 @@ static const u8 gText_MainMenuOption[] = _("OPCIONES");
 static const u8 gText_MainMenuMysteryGift[] = _("REGALO MISTERIOSO");
 static const u8 gText_MainMenuMysteryGift2[] = _("REGALO MISTERIOSO");
 static const u8 gText_MainMenuMysteryEvents[] = _("EVENTOS MISTERIOSOS");
+static const u8 gText_MainMenuStatPokedex[] = _("Pokedex: ");
+static const u8 gText_MainMenuStatBadges[] = _("Medallas: ");
 static const u8 gText_WirelessNotConnected[] = _("El Adaptador Inalámbrico no\nestá conectado.");
 static const u8 gText_MysteryGiftCantUse[] = _("REGALO MISTERIOSO no se puede usar\ncon el Adaptador Inalámbrico conectado.");
 static const u8 gText_MysteryEventsCantUse[] = _("EVENTOS MISTERIOSOS no se pueden usar\ncon el Adaptador Inalámbrico conectado.");
@@ -331,12 +336,12 @@ static const struct WindowTemplate sWindowTemplates_MainMenu[] =
     // NEW GAME
     {
         .bg = 0,
-        .tilemapLeft = MENU_LEFT,
-        .tilemapTop = MENU_TOP_WIN3,
-        .width = MENU_WIDTH,
-        .height = MENU_HEIGHT_WIN3,
+        .tilemapLeft = 10,   // custom continue info block (right side of mugshot)
+        .tilemapTop = 3,
+        .width = 17,
+        .height = 8,
         .paletteNum = 15,
-        .baseBlock = 0x9D
+        .baseBlock = 0x264
     },
     // OPTION / MYSTERY GIFT
     {
@@ -423,14 +428,25 @@ static const u16 sCustomMainMenuLargeButtonPal[] = INCBIN_U16("graphics/ui_main_
 static const u16 sCustomMainMenuLargeButtonHighlightPal[] = INCBIN_U16("graphics/ui_main_menu/main_bg_grande_highlight.gbapal");
 static const u32 sCustomMainMenuLargeButtonTiles[] = INCBIN_U32("graphics/ui_main_menu/main_bg_grande.4bpp");
 static const u32 sCustomMainMenuSmallButtonTiles[] = INCBIN_U32("graphics/ui_main_menu/main_bg_pequeno.4bpp");
+static const u16 sCustomIconShadowPal[] = INCBIN_U16("graphics/ui_main_menu/icon_shadow.gbapal");
+static const u32 sCustomIconShadowGfx[] = INCBIN_U32("graphics/ui_main_menu/icon_shadow.4bpp");
+static const u16 sCustomIconShadowPalFem[] = INCBIN_U16("graphics/ui_main_menu/icon_shadow_fem.gbapal");
+static const u32 sCustomIconShadowGfxFem[] = INCBIN_U32("graphics/ui_main_menu/icon_shadow_fem.4bpp");
 static const u16 sCustomBrendanMugshotPal[] = INCBIN_U16("graphics/ui_main_menu/brendan_mugshot.gbapal");
 static const u16 sCustomMayMugshotPal[] = INCBIN_U16("graphics/ui_main_menu/may_mugshot.gbapal");
 static const u32 sCustomBrendanMugshotGfx[] = INCBIN_U32("graphics/ui_main_menu/brendan_mugshot.4bpp");
 static const u32 sCustomMayMugshotGfx[] = INCBIN_U32("graphics/ui_main_menu/may_mugshot.4bpp");
 static EWRAM_DATA u16 sCustomMainMenuBgTilemapBuffer[0x400];
 static u8 sCustomContinueMugshotSpriteId;
+static u8 sCustomContinueIconShadowSpriteIds[PARTY_SIZE];
+static u8 sCustomContinueMonIconSpriteIds[PARTY_SIZE];
 
 #define TAG_CONTINUE_MUGSHOT 0xA612
+#define TAG_CONTINUE_ICON_BOX 0xA613
+#define CONTINUE_ICON_BOX_1_START_X  (136 + 8)
+#define CONTINUE_ICON_BOX_1_START_Y  38
+#define CONTINUE_ICON_BOX_X_DIFF     32
+#define CONTINUE_ICON_BOX_Y_DIFF     32
 static const struct OamData sCustomContinueMugshotOamData =
 {
     .shape = SPRITE_SHAPE(64x64),
@@ -455,6 +471,35 @@ static const struct SpriteTemplate sCustomContinueMugshotSpriteTemplate =
     .paletteTag = TAG_CONTINUE_MUGSHOT,
     .oam = &sCustomContinueMugshotOamData,
     .anims = sCustomContinueMugshotAnimTable,
+    .images = NULL,
+    .affineAnims = gDummySpriteAffineAnimTable,
+    .callback = SpriteCallbackDummy,
+};
+
+static const struct OamData sCustomContinueIconBoxOamData =
+{
+    .shape = SPRITE_SHAPE(32x32),
+    .size = SPRITE_SIZE(32x32),
+    .priority = 1,
+};
+
+static const union AnimCmd sCustomContinueIconBoxAnim[] =
+{
+    ANIMCMD_FRAME(0, 1),
+    ANIMCMD_END,
+};
+
+static const union AnimCmd *const sCustomContinueIconBoxAnimTable[] =
+{
+    sCustomContinueIconBoxAnim,
+};
+
+static const struct SpriteTemplate sCustomContinueIconBoxSpriteTemplate =
+{
+    .tileTag = TAG_CONTINUE_ICON_BOX,
+    .paletteTag = TAG_CONTINUE_ICON_BOX,
+    .oam = &sCustomContinueIconBoxOamData,
+    .anims = sCustomContinueIconBoxAnimTable,
     .images = NULL,
     .affineAnims = gDummySpriteAffineAnimTable,
     .callback = SpriteCallbackDummy,
@@ -714,12 +759,18 @@ static void CustomMenu_RebuildBgWithCustomButtons(u8 menuType, u8 selectedMenuIt
 static void CustomMenu_DrawPrimaryLabels(u8 menuType, u8 selectedMenuItem)
 {
     const struct MapHeader *saveMapHeader;
+    u8 dexStr[24];
+    u8 badgeStr[24];
+    u8 numberBuffer[8];
     u8 playTimeStr[16];
     u8 *playTimePtr;
     u8 continueTextWidth;
     u8 continueLocationWidth;
     u8 continueLocationX;
     u8 continueTimeX;
+    u16 dexCount;
+    u8 badgeCount = 0;
+    u16 i;
     bool8 highlightContinue = FALSE;
     bool8 highlightNewGame = FALSE;
     bool8 highlightOptions = FALSE;
@@ -765,6 +816,7 @@ static void CustomMenu_DrawPrimaryLabels(u8 menuType, u8 selectedMenuItem)
     mysteryEventsTextColor = highlightMysteryEvents ? sTextColor_MenuButtonHighlight : sTextColor_MenuButtonNormal;
 
     FillWindowPixelBuffer(2, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
+    FillWindowPixelBuffer(3, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
     FillWindowPixelBuffer(0, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
     FillWindowPixelBuffer(1, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
     FillWindowPixelBuffer(5, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
@@ -784,8 +836,39 @@ static void CustomMenu_DrawPrimaryLabels(u8 menuType, u8 selectedMenuItem)
         AddTextPrinterParameterized3(2, FONT_NORMAL, continueLocationX, 0, continueTextColor, 0, gStringVar4);
         if (continueTimeX < MENU_WIDTH * 8)
             AddTextPrinterParameterized3(2, FONT_NORMAL, continueTimeX, 0, continueTextColor, 0, playTimeStr);
+
+        // Stats at the right side of the mugshot (dedicated taller window to avoid clipping).
+        AddTextPrinterParameterized3(3, FONT_NORMAL, 0, 0, continueTextColor, 0, gSaveBlock2Ptr->playerName);
+
+        if (FlagGet(FLAG_SYS_POKEDEX_GET))
+        {
+            if (IsNationalPokedexEnabled())
+                dexCount = GetNationalPokedexCount(FLAG_GET_CAUGHT);
+            else
+                dexCount = GetHoennPokedexCount(FLAG_GET_CAUGHT);
+            ConvertIntToDecimalStringN(numberBuffer, dexCount, STR_CONV_MODE_LEFT_ALIGN, 4);
+            StringCopy(dexStr, gText_MainMenuStatPokedex);
+            StringAppend(dexStr, numberBuffer);
+            AddTextPrinterParameterized3(3, FONT_NORMAL, 0, 16, continueTextColor, 0, dexStr);
+        }
+
+        for (i = FLAG_BADGE01_GET; i < FLAG_BADGE01_GET + NUM_BADGES; i++)
+        {
+            if (FlagGet(i))
+                badgeCount++;
+        }
+        if (badgeCount > 0)
+        {
+            ConvertIntToDecimalStringN(numberBuffer, badgeCount, STR_CONV_MODE_LEFT_ALIGN, 2);
+            StringCopy(badgeStr, gText_MainMenuStatBadges);
+            StringAppend(badgeStr, numberBuffer);
+            AddTextPrinterParameterized3(3, FONT_NORMAL, 0, 32, continueTextColor, 0, badgeStr);
+        }
+
         PutWindowTilemap(2);
+        PutWindowTilemap(3);
         CopyWindowToVram(2, COPYWIN_GFX);
+        CopyWindowToVram(3, COPYWIN_GFX);
     }
     AddTextPrinterParameterized3(0, FONT_NORMAL,
                                  GetStringCenterAlignXOffset(FONT_NORMAL, gText_MainMenuNewGame, 14 * 8) - 7,
@@ -873,6 +956,99 @@ static void CustomMenu_DestroyContinueMugshot(void)
     FreeSpritePaletteByTag(TAG_CONTINUE_MUGSHOT);
 }
 
+static void CustomMenu_CreateContinuePartyIcons(void)
+{
+    u8 i;
+    u8 count;
+    s16 x;
+    s16 y;
+    struct SpriteSheet spriteSheet;
+    struct SpritePalette spritePalette;
+
+    if (sCustomContinueIconShadowSpriteIds[0] != SPRITE_NONE || gPlayerPartyCount == 0)
+        return;
+
+    if (gSaveBlock2Ptr->playerGender == MALE)
+    {
+        spriteSheet.data = sCustomIconShadowGfx;
+        spritePalette.data = sCustomIconShadowPal;
+    }
+    else
+    {
+        spriteSheet.data = sCustomIconShadowGfxFem;
+        spritePalette.data = sCustomIconShadowPalFem;
+    }
+    spriteSheet.size = 32 * 32 / 2;
+    spriteSheet.tag = TAG_CONTINUE_ICON_BOX;
+    spritePalette.tag = TAG_CONTINUE_ICON_BOX;
+
+    FreeSpriteTilesByTag(TAG_CONTINUE_ICON_BOX);
+    FreeSpritePaletteByTag(TAG_CONTINUE_ICON_BOX);
+    if (LoadSpriteSheet(&spriteSheet) == 0xFF)
+        return;
+    if (LoadSpritePalette(&spritePalette) == 0xFF)
+        return;
+
+    LoadMonIconPalettes();
+    count = gPlayerPartyCount;
+    if (count > PARTY_SIZE)
+        count = PARTY_SIZE;
+
+    for (i = 0; i < count; i++)
+    {
+        x = CONTINUE_ICON_BOX_1_START_X + (CONTINUE_ICON_BOX_X_DIFF * (i % 3));
+        y = CONTINUE_ICON_BOX_1_START_Y + (CONTINUE_ICON_BOX_Y_DIFF * (i / 3));
+
+        sCustomContinueIconShadowSpriteIds[i] = CreateSprite(&sCustomContinueIconBoxSpriteTemplate, x, y, 2);
+        if (sCustomContinueIconShadowSpriteIds[i] != MAX_SPRITES)
+            gSprites[sCustomContinueIconShadowSpriteIds[i]].oam.priority = 1;
+        else
+            sCustomContinueIconShadowSpriteIds[i] = SPRITE_NONE;
+
+#ifdef RHH_EXPANSION
+        sCustomContinueMonIconSpriteIds[i] = CreateMonIcon(GetMonData(&gPlayerParty[i], MON_DATA_SPECIES_OR_EGG),
+                                                           SpriteCB_MonIcon,
+                                                           x, y - 2,
+                                                           0,
+                                                           GetMonData(&gPlayerParty[i], MON_DATA_PERSONALITY));
+#else
+        sCustomContinueMonIconSpriteIds[i] = CreateMonIcon(GetMonData(&gPlayerParty[i], MON_DATA_SPECIES_OR_EGG),
+                                                           SpriteCB_MonIcon,
+                                                           x, y - 2,
+                                                           0,
+                                                           GetMonData(&gPlayerParty[i], MON_DATA_PERSONALITY),
+                                                           FALSE);
+#endif
+        if (sCustomContinueMonIconSpriteIds[i] != MAX_SPRITES)
+            gSprites[sCustomContinueMonIconSpriteIds[i]].oam.priority = 0;
+        else
+            sCustomContinueMonIconSpriteIds[i] = SPRITE_NONE;
+    }
+}
+
+static void CustomMenu_DestroyContinuePartyIcons(void)
+{
+    u8 i;
+
+    for (i = 0; i < PARTY_SIZE; i++)
+    {
+        if (sCustomContinueMonIconSpriteIds[i] != SPRITE_NONE)
+        {
+            DestroySprite(&gSprites[sCustomContinueMonIconSpriteIds[i]]);
+            sCustomContinueMonIconSpriteIds[i] = SPRITE_NONE;
+        }
+        if (sCustomContinueIconShadowSpriteIds[i] != SPRITE_NONE)
+        {
+            DestroySprite(&gSprites[sCustomContinueIconShadowSpriteIds[i]]);
+            sCustomContinueIconShadowSpriteIds[i] = SPRITE_NONE;
+        }
+    }
+
+    FreeMonIconPalettes();
+    FreeSpriteTilesByTag(TAG_CONTINUE_ICON_BOX);
+    FreeSpritePaletteByTag(TAG_CONTINUE_ICON_BOX);
+}
+
 static void CB2_MainMenu(void)
 {
     RunTasks();
@@ -904,6 +1080,7 @@ static u32 InitMainMenu(bool8 returningFromOptionsMenu)
 {
     u8 initialMenuType = HAS_NO_SAVED_GAME;
     u8 initialCurrItem;
+    u8 i;
     u16 palette;
 
     SetVBlankCallback(NULL);
@@ -956,6 +1133,11 @@ static u32 InitMainMenu(bool8 returningFromOptionsMenu)
     ResetTasks();
     ResetSpriteData();
     FreeAllSpritePalettes();
+    for (i = 0; i < PARTY_SIZE; i++)
+    {
+        sCustomContinueIconShadowSpriteIds[i] = SPRITE_NONE;
+        sCustomContinueMonIconSpriteIds[i] = SPRITE_NONE;
+    }
     sCustomContinueMugshotSpriteId = SPRITE_NONE;
     if (returningFromOptionsMenu)
         BeginNormalPaletteFade(PALETTES_ALL, 0, 0x10, 0, RGB_BLACK); // fade to black
@@ -980,9 +1162,15 @@ static u32 InitMainMenu(bool8 returningFromOptionsMenu)
         initialCurrItem = 0;
     CustomMenu_RebuildBgWithCustomButtons(initialMenuType, initialCurrItem);
     if (initialMenuType >= HAS_SAVED_GAME)
+    {
         CustomMenu_CreateContinueMugshot();
+        CustomMenu_CreateContinuePartyIcons();
+    }
     else
+    {
         CustomMenu_DestroyContinueMugshot();
+        CustomMenu_DestroyContinuePartyIcons();
+    }
     ChangeBgX(0, 0, BG_COORD_SET);
     ChangeBgY(0, 0, BG_COORD_SET);
     ChangeBgX(1, 0, BG_COORD_SET);
@@ -1591,6 +1779,7 @@ static void Task_HandleMainMenuAPressed(u8 taskId)
         ChangeBgY(0, 0, BG_COORD_SET);
         ChangeBgY(1, CUSTOM_BUTTON_BG_Y_OFFSET, BG_COORD_SET);
         CustomMenu_DestroyContinueMugshot();
+        CustomMenu_DestroyContinuePartyIcons();
         switch (action)
         {
             case ACTION_NEW_GAME:
@@ -1651,6 +1840,7 @@ static void Task_HandleMainMenuBPressed(u8 taskId)
         if (gTasks[taskId].tMenuType == HAS_MYSTERY_EVENTS)
             RemoveScrollIndicatorArrowPair(gTasks[taskId].tScrollArrowTaskId);
         CustomMenu_DestroyContinueMugshot();
+        CustomMenu_DestroyContinuePartyIcons();
         sCurrItemAndOptionMenuCheck = 0;
         FreeAllWindowBuffers();
         SetMainCallback2(CB2_InitTitleScreen);
