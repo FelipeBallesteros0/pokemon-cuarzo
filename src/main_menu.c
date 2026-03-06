@@ -699,6 +699,9 @@ void CB2_ReinitMainMenu(void)
 
 static u32 InitMainMenu(bool8 returningFromOptionsMenu)
 {
+    u8 initialMenuType = HAS_NO_SAVED_GAME;
+    u8 initialCurrItem;
+
     SetVBlankCallback(NULL);
 
     SetGpuReg(REG_OFFSET_DISPCNT, 0);
@@ -744,7 +747,16 @@ static u32 InitMainMenu(bool8 returningFromOptionsMenu)
     LoadBgTilemap(2, sCustomMainMenuBgTilemap, sizeof(sCustomMainMenuBgTilemap), 0);
     LoadBgTiles(1, sCustomMainMenuLargeButtonTiles, sizeof(sCustomMainMenuLargeButtonTiles), CUSTOM_BUTTON_LARGE_BASE);
     LoadBgTiles(1, sCustomMainMenuSmallButtonTiles, sizeof(sCustomMainMenuSmallButtonTiles), CUSTOM_BUTTON_SMALL_BASE);
-    CustomMenu_RebuildBgWithCustomButtons(HAS_NO_SAVED_GAME, 0);
+    if (gSaveFileStatus == SAVE_STATUS_OK || gSaveFileStatus == SAVE_STATUS_ERROR)
+    {
+        initialMenuType = HAS_SAVED_GAME;
+        if (IsMysteryGiftEnabled())
+            initialMenuType++;
+    }
+    initialCurrItem = sCurrItemAndOptionMenuCheck & ~OPTION_MENU_FLAG;
+    if (initialCurrItem > initialMenuType + 1)
+        initialCurrItem = 0;
+    CustomMenu_RebuildBgWithCustomButtons(initialMenuType, initialCurrItem);
     ChangeBgX(0, 0, BG_COORD_SET);
     ChangeBgY(0, 0, BG_COORD_SET);
     ChangeBgX(1, 0, BG_COORD_SET);
@@ -852,6 +864,8 @@ static void Task_MainMenuCheckSaveFile(u8 taskId)
         sCurrItemAndOptionMenuCheck &= ~OPTION_MENU_FLAG;  // turn off the "returning from options menu" flag
         tCurrItem = sCurrItemAndOptionMenuCheck;
         tItemCount = tMenuType + 2;
+        // Keep custom button highlight in sync from the first visible frame.
+        CustomMenu_RebuildBgWithCustomButtons(tMenuType, tCurrItem);
     }
 }
 
