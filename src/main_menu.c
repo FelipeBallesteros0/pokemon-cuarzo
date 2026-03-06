@@ -345,23 +345,23 @@ static const struct WindowTemplate sWindowTemplates_MainMenu[] =
         .paletteNum = 15,
         .baseBlock = 0xD1
     },
-    // OPTION / MYSTERY EVENTS
+    // OPTION / MYSTERY EVENTS (custom bottom-left label)
     {
         .bg = 0,
-        .tilemapLeft = MENU_LEFT,
-        .tilemapTop = MENU_TOP_WIN5,
-        .width = MENU_WIDTH,
-        .height = MENU_HEIGHT_WIN5,
+        .tilemapLeft = 1,
+        .tilemapTop = 16,
+        .width = 14,
+        .height = 3,
         .paletteNum = 15,
         .baseBlock = 0x105
     },
-    // OPTION
+    // OPTION (custom bottom-right label)
     {
         .bg = 0,
-        .tilemapLeft = MENU_LEFT,
-        .tilemapTop = MENU_TOP_WIN6,
-        .width = MENU_WIDTH,
-        .height = MENU_HEIGHT_WIN6,
+        .tilemapLeft = 16,
+        .tilemapTop = 16,
+        .width = 14,
+        .height = 3,
         .paletteNum = 15,
         .baseBlock = 0x139
     },
@@ -678,9 +678,13 @@ static void CustomMenu_DrawPrimaryLabels(u8 menuType, u8 selectedMenuItem)
     bool8 highlightContinue = FALSE;
     bool8 highlightNewGame = FALSE;
     bool8 highlightOptions = FALSE;
+    bool8 highlightMysteryGift = FALSE;
+    bool8 highlightMysteryEvents = FALSE;
     const u8 *continueTextColor;
     const u8 *newGameTextColor;
     const u8 *optionsTextColor;
+    const u8 *mysteryGiftTextColor;
+    const u8 *mysteryEventsTextColor;
 
     switch (menuType)
     {
@@ -697,11 +701,14 @@ static void CustomMenu_DrawPrimaryLabels(u8 menuType, u8 selectedMenuItem)
     case HAS_MYSTERY_GIFT:
         highlightContinue = (selectedMenuItem == 0);
         highlightNewGame = (selectedMenuItem == 1);
+        highlightMysteryGift = (selectedMenuItem == 2);
         highlightOptions = (selectedMenuItem == 3);
         break;
     case HAS_MYSTERY_EVENTS:
         highlightContinue = (selectedMenuItem == 0);
         highlightNewGame = (selectedMenuItem == 1);
+        highlightMysteryGift = (selectedMenuItem == 2);
+        highlightMysteryEvents = (selectedMenuItem == 3);
         highlightOptions = (selectedMenuItem == 4);
         break;
     }
@@ -709,10 +716,14 @@ static void CustomMenu_DrawPrimaryLabels(u8 menuType, u8 selectedMenuItem)
     continueTextColor = highlightContinue ? sTextColor_MenuButtonHighlight : sTextColor_MenuButtonNormal;
     newGameTextColor = highlightNewGame ? sTextColor_MenuButtonHighlight : sTextColor_MenuButtonNormal;
     optionsTextColor = highlightOptions ? sTextColor_MenuButtonHighlight : sTextColor_MenuButtonNormal;
+    mysteryGiftTextColor = highlightMysteryGift ? sTextColor_MenuButtonHighlight : sTextColor_MenuButtonNormal;
+    mysteryEventsTextColor = highlightMysteryEvents ? sTextColor_MenuButtonHighlight : sTextColor_MenuButtonNormal;
 
     FillWindowPixelBuffer(2, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
     FillWindowPixelBuffer(0, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
     FillWindowPixelBuffer(1, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
+    FillWindowPixelBuffer(5, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
+    FillWindowPixelBuffer(6, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
     if (menuType >= HAS_SAVED_GAME)
     {
         AddTextPrinterParameterized3(2, FONT_NORMAL, 3, 0, continueTextColor, TEXT_SKIP_DRAW, gText_MainMenuContinue);
@@ -725,6 +736,23 @@ static void CustomMenu_DrawPrimaryLabels(u8 menuType, u8 selectedMenuItem)
     AddTextPrinterParameterized3(1, FONT_NORMAL,
                                  GetStringCenterAlignXOffset(FONT_NORMAL, gText_MainMenuOption, 14 * 8) - 21,
                                  8, optionsTextColor, TEXT_SKIP_DRAW, gText_MainMenuOption);
+    if (menuType >= HAS_MYSTERY_GIFT)
+    {
+        const u8 *mysteryGiftText = (menuType >= HAS_MYSTERY_EVENTS) ? gText_MainMenuMysteryGift2 : gText_MainMenuMysteryGift;
+        AddTextPrinterParameterized3(5, FONT_NORMAL,
+                                     GetStringCenterAlignXOffset(FONT_NORMAL, mysteryGiftText, 14 * 8) - 7,
+                                     8, mysteryGiftTextColor, TEXT_SKIP_DRAW, mysteryGiftText);
+        PutWindowTilemap(5);
+        CopyWindowToVram(5, COPYWIN_GFX);
+    }
+    if (menuType >= HAS_MYSTERY_EVENTS)
+    {
+        AddTextPrinterParameterized3(6, FONT_NORMAL,
+                                     GetStringCenterAlignXOffset(FONT_NORMAL, gText_MainMenuMysteryEvents, 14 * 8) - 21,
+                                     8, mysteryEventsTextColor, TEXT_SKIP_DRAW, gText_MainMenuMysteryEvents);
+        PutWindowTilemap(6);
+        CopyWindowToVram(6, COPYWIN_GFX);
+    }
     PutWindowTilemap(0);
     PutWindowTilemap(1);
     CopyWindowToVram(0, COPYWIN_GFX);
