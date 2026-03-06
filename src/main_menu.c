@@ -715,16 +715,16 @@ static void CustomMenu_DrawPrimaryLabels(u8 menuType, u8 selectedMenuItem)
     FillWindowPixelBuffer(1, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
     if (menuType >= HAS_SAVED_GAME)
     {
-        AddTextPrinterParameterized3(2, FONT_NORMAL, 3, -1, continueTextColor, TEXT_SKIP_DRAW, gText_MainMenuContinue);
+        AddTextPrinterParameterized3(2, FONT_NORMAL, 3, 0, continueTextColor, TEXT_SKIP_DRAW, gText_MainMenuContinue);
         PutWindowTilemap(2);
         CopyWindowToVram(2, COPYWIN_GFX);
     }
     AddTextPrinterParameterized3(0, FONT_NORMAL,
                                  GetStringCenterAlignXOffset(FONT_NORMAL, gText_MainMenuNewGame, 14 * 8) - 7,
-                                 7, newGameTextColor, TEXT_SKIP_DRAW, gText_MainMenuNewGame);
+                                 8, newGameTextColor, TEXT_SKIP_DRAW, gText_MainMenuNewGame);
     AddTextPrinterParameterized3(1, FONT_NORMAL,
                                  GetStringCenterAlignXOffset(FONT_NORMAL, gText_MainMenuOption, 14 * 8) - 21,
-                                 7, optionsTextColor, TEXT_SKIP_DRAW, gText_MainMenuOption);
+                                 8, optionsTextColor, TEXT_SKIP_DRAW, gText_MainMenuOption);
     PutWindowTilemap(0);
     PutWindowTilemap(1);
     CopyWindowToVram(0, COPYWIN_GFX);
