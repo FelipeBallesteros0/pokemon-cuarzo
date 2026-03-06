@@ -302,7 +302,7 @@ static const struct WindowTemplate sWindowTemplates_MainMenu[] =
         .width = 14,
         .height = 3,
         .paletteNum = 15,
-        .baseBlock = 1
+        .baseBlock = 0x210
     },
     // OPTIONS
     {
@@ -312,7 +312,7 @@ static const struct WindowTemplate sWindowTemplates_MainMenu[] =
         .width = 14,
         .height = 3,
         .paletteNum = 15,
-        .baseBlock = 43
+        .baseBlock = 0x23A
     },
     // Has saved game
     // CONTINUE
@@ -726,22 +726,22 @@ static void CustomMenu_DrawPrimaryLabels(u8 menuType, u8 selectedMenuItem)
     FillWindowPixelBuffer(6, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
     if (menuType >= HAS_SAVED_GAME)
     {
-        AddTextPrinterParameterized3(2, FONT_NORMAL, 3, 0, continueTextColor, TEXT_SKIP_DRAW, gText_MainMenuContinue);
+        AddTextPrinterParameterized3(2, FONT_NORMAL, 3, 0, continueTextColor, 0, gText_MainMenuContinue);
         PutWindowTilemap(2);
         CopyWindowToVram(2, COPYWIN_GFX);
     }
     AddTextPrinterParameterized3(0, FONT_NORMAL,
                                  GetStringCenterAlignXOffset(FONT_NORMAL, gText_MainMenuNewGame, 14 * 8) - 7,
-                                 8, newGameTextColor, TEXT_SKIP_DRAW, gText_MainMenuNewGame);
+                                 8, newGameTextColor, 0, gText_MainMenuNewGame);
     AddTextPrinterParameterized3(1, FONT_NORMAL,
                                  GetStringCenterAlignXOffset(FONT_NORMAL, gText_MainMenuOption, 14 * 8) - 21,
-                                 8, optionsTextColor, TEXT_SKIP_DRAW, gText_MainMenuOption);
+                                 8, optionsTextColor, 0, gText_MainMenuOption);
     if (menuType >= HAS_MYSTERY_GIFT)
     {
         const u8 *mysteryGiftText = (menuType >= HAS_MYSTERY_EVENTS) ? gText_MainMenuMysteryGift2 : gText_MainMenuMysteryGift;
         AddTextPrinterParameterized3(5, FONT_NORMAL,
                                      GetStringCenterAlignXOffset(FONT_NORMAL, mysteryGiftText, 14 * 8) - 7,
-                                     8, mysteryGiftTextColor, TEXT_SKIP_DRAW, mysteryGiftText);
+                                     8, mysteryGiftTextColor, 0, mysteryGiftText);
         PutWindowTilemap(5);
         CopyWindowToVram(5, COPYWIN_GFX);
     }
@@ -749,14 +749,17 @@ static void CustomMenu_DrawPrimaryLabels(u8 menuType, u8 selectedMenuItem)
     {
         AddTextPrinterParameterized3(6, FONT_NORMAL,
                                      GetStringCenterAlignXOffset(FONT_NORMAL, gText_MainMenuMysteryEvents, 14 * 8) - 21,
-                                     8, mysteryEventsTextColor, TEXT_SKIP_DRAW, gText_MainMenuMysteryEvents);
+                                     8, mysteryEventsTextColor, 0, gText_MainMenuMysteryEvents);
         PutWindowTilemap(6);
         CopyWindowToVram(6, COPYWIN_GFX);
     }
+    // Flush text printers and BG0 tilemap immediately to avoid delayed label pop-in.
+    RunTextPrinters();
     PutWindowTilemap(0);
     PutWindowTilemap(1);
     CopyWindowToVram(0, COPYWIN_GFX);
     CopyWindowToVram(1, COPYWIN_GFX);
+    CopyBgTilemapBufferToVram(0);
 }
 
 static void CB2_MainMenu(void)
@@ -790,6 +793,7 @@ static u32 InitMainMenu(bool8 returningFromOptionsMenu)
 {
     u8 initialMenuType = HAS_NO_SAVED_GAME;
     u8 initialCurrItem;
+    u16 palette;
 
     SetVBlankCallback(NULL);
 
@@ -820,6 +824,23 @@ static u32 InitMainMenu(bool8 returningFromOptionsMenu)
     LoadPalette(sCustomMainMenuLargeButtonPal, BG_PLTT_ID(CUSTOM_BUTTON_PAL_SLOT), sizeof(sCustomMainMenuLargeButtonPal));
     LoadPalette(sCustomMainMenuLargeButtonHighlightPal, BG_PLTT_ID(CUSTOM_BUTTON_HL_PAL_SLOT), sizeof(sCustomMainMenuLargeButtonHighlightPal));
     LoadPalette(sMainMenuTextPal, BG_PLTT_ID(15), PLTT_SIZE_4BPP);
+    palette = RGB_BLACK;
+    LoadPalette(&palette, BG_PLTT_ID(15) + 14, PLTT_SIZEOF(1));
+    palette = RGB(7, 7, 7); // #383838
+    LoadPalette(&palette, BG_PLTT_ID(15) + 10, PLTT_SIZEOF(1));
+    palette = RGB(27, 27, 27); // #D8D8D8
+    LoadPalette(&palette, BG_PLTT_ID(15) + 11, PLTT_SIZEOF(1));
+    LoadPalette(&palette, BG_PLTT_ID(15) + 12, PLTT_SIZEOF(1));
+    if (gSaveBlock2Ptr->playerGender == MALE)
+    {
+        palette = RGB(4, 16, 31);
+        LoadPalette(&palette, BG_PLTT_ID(15) + 1, PLTT_SIZEOF(1));
+    }
+    else
+    {
+        palette = RGB(31, 3, 21);
+        LoadPalette(&palette, BG_PLTT_ID(15) + 1, PLTT_SIZEOF(1));
+    }
     ScanlineEffect_Stop();
     ResetTasks();
     ResetSpriteData();
@@ -855,6 +876,9 @@ static u32 InitMainMenu(bool8 returningFromOptionsMenu)
     InitWindows(sWindowTemplates_MainMenu);
     DeactivateAllTextPrinters();
     LoadMainMenuWindowFrameTiles(0, MAIN_MENU_BORDER_TILE);
+    FillBgTilemapBufferRect_Palette0(0, 0, 0, 0, 32, 32);
+    CopyBgTilemapBufferToVram(0);
+    CustomMenu_DrawPrimaryLabels(initialMenuType, initialCurrItem);
 
     SetGpuReg(REG_OFFSET_WIN0H, 0);
     SetGpuReg(REG_OFFSET_WIN0V, 0);
@@ -955,6 +979,7 @@ static void Task_MainMenuCheckSaveFile(u8 taskId)
         tItemCount = tMenuType + 2;
         // Keep custom button highlight in sync from the first visible frame.
         CustomMenu_RebuildBgWithCustomButtons(tMenuType, tCurrItem);
+        CustomMenu_DrawPrimaryLabels(tMenuType, tCurrItem);
     }
 }
 
