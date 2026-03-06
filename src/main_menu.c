@@ -637,10 +637,13 @@ static void CustomMenu_RebuildBgWithCustomButtons(u8 menuType, u8 selectedMenuIt
 
     CpuFill16(0, sCustomMainMenuBgTilemapBuffer, sizeof(sCustomMainMenuBgTilemapBuffer));
 
-    CustomMenu_DrawButtonStamp(CUSTOM_BUTTON_LARGE_X, CUSTOM_BUTTON_LARGE_Y,
-                               CUSTOM_BUTTON_LARGE_WIDTH, CUSTOM_BUTTON_LARGE_HEIGHT,
-                               CUSTOM_BUTTON_LARGE_BASE,
-                               highlighted == CUSTOM_BTN_CONTINUE);
+    if (menuType >= HAS_SAVED_GAME)
+    {
+        CustomMenu_DrawButtonStamp(CUSTOM_BUTTON_LARGE_X, CUSTOM_BUTTON_LARGE_Y,
+                                   CUSTOM_BUTTON_LARGE_WIDTH, CUSTOM_BUTTON_LARGE_HEIGHT,
+                                   CUSTOM_BUTTON_LARGE_BASE,
+                                   highlighted == CUSTOM_BTN_CONTINUE);
+    }
     CustomMenu_DrawButtonStamp(CUSTOM_BUTTON_SMALL_TL_X, CUSTOM_BUTTON_SMALL_TL_Y,
                                CUSTOM_BUTTON_SMALL_WIDTH, CUSTOM_BUTTON_SMALL_HEIGHT,
                                CUSTOM_BUTTON_SMALL_BASE,
@@ -649,14 +652,20 @@ static void CustomMenu_RebuildBgWithCustomButtons(u8 menuType, u8 selectedMenuIt
                                CUSTOM_BUTTON_SMALL_WIDTH, CUSTOM_BUTTON_SMALL_HEIGHT,
                                CUSTOM_BUTTON_SMALL_BASE,
                                highlighted == CUSTOM_BTN_OPTIONS);
-    CustomMenu_DrawButtonStamp(CUSTOM_BUTTON_SMALL_BL_X, CUSTOM_BUTTON_SMALL_BL_Y,
-                               CUSTOM_BUTTON_SMALL_WIDTH, CUSTOM_BUTTON_SMALL_HEIGHT,
-                               CUSTOM_BUTTON_SMALL_BASE,
-                               highlighted == CUSTOM_BTN_MYSTERY_GIFT);
-    CustomMenu_DrawButtonStamp(CUSTOM_BUTTON_SMALL_BR_X, CUSTOM_BUTTON_SMALL_BR_Y,
-                               CUSTOM_BUTTON_SMALL_WIDTH, CUSTOM_BUTTON_SMALL_HEIGHT,
-                               CUSTOM_BUTTON_SMALL_BASE,
-                               highlighted == CUSTOM_BTN_MYSTERY_EVENTS);
+    if (menuType >= HAS_MYSTERY_GIFT)
+    {
+        CustomMenu_DrawButtonStamp(CUSTOM_BUTTON_SMALL_BL_X, CUSTOM_BUTTON_SMALL_BL_Y,
+                                   CUSTOM_BUTTON_SMALL_WIDTH, CUSTOM_BUTTON_SMALL_HEIGHT,
+                                   CUSTOM_BUTTON_SMALL_BASE,
+                                   highlighted == CUSTOM_BTN_MYSTERY_GIFT);
+    }
+    if (menuType >= HAS_MYSTERY_EVENTS)
+    {
+        CustomMenu_DrawButtonStamp(CUSTOM_BUTTON_SMALL_BR_X, CUSTOM_BUTTON_SMALL_BR_Y,
+                                   CUSTOM_BUTTON_SMALL_WIDTH, CUSTOM_BUTTON_SMALL_HEIGHT,
+                                   CUSTOM_BUTTON_SMALL_BASE,
+                                   highlighted == CUSTOM_BTN_MYSTERY_EVENTS);
+    }
 
     LoadBgTilemap(1, sCustomMainMenuBgTilemapBuffer, sizeof(sCustomMainMenuBgTilemapBuffer), 0);
 }
@@ -1083,7 +1092,6 @@ static void Task_HandleMainMenuInput(u8 taskId)
 
 static void Task_HandleMainMenuAPressed(u8 taskId)
 {
-    bool8 wirelessAdapterConnected;
     u8 action;
 
     if (!gPaletteFade.active)
@@ -1098,7 +1106,6 @@ static void Task_HandleMainMenuAPressed(u8 taskId)
         ClearStdWindowAndFrame(5, TRUE);
         ClearStdWindowAndFrame(6, TRUE);
         ClearStdWindowAndFrame(7, TRUE);
-        wirelessAdapterConnected = IsWirelessAdapterConnected();
         switch (gTasks[taskId].tMenuType)
         {
             case HAS_NO_SAVED_GAME:
@@ -1141,11 +1148,6 @@ static void Task_HandleMainMenuAPressed(u8 taskId)
                         break;
                     case 2:
                         action = ACTION_MYSTERY_GIFT;
-                        if (!wirelessAdapterConnected)
-                        {
-                            action = ACTION_INVALID;
-                            gTasks[taskId].tMenuType = HAS_NO_SAVED_GAME;
-                        }
                         break;
                     case 3:
                         action = ACTION_OPTION;
@@ -1163,35 +1165,10 @@ static void Task_HandleMainMenuAPressed(u8 taskId)
                         action = ACTION_NEW_GAME;
                         break;
                     case 2:
-                        if (gTasks[taskId].tWirelessAdapterConnected)
-                        {
-                            action = ACTION_MYSTERY_GIFT;
-                            if (!wirelessAdapterConnected)
-                            {
-                                action = ACTION_INVALID;
-                                gTasks[taskId].tMenuType = HAS_NO_SAVED_GAME;
-                            }
-                        }
-                        else if (wirelessAdapterConnected)
-                        {
-                            action = ACTION_INVALID;
-                            gTasks[taskId].tMenuType = HAS_SAVED_GAME;
-                        }
-                        else
-                        {
-                            action = ACTION_EREADER;
-                        }
+                        action = ACTION_MYSTERY_GIFT;
                         break;
                     case 3:
-                        if (wirelessAdapterConnected)
-                        {
-                            action = ACTION_INVALID;
-                            gTasks[taskId].tMenuType = HAS_MYSTERY_GIFT;
-                        }
-                        else
-                        {
-                            action = ACTION_MYSTERY_EVENTS;
-                        }
+                        action = ACTION_MYSTERY_EVENTS;
                         break;
                     case 4:
                         action = ACTION_OPTION;
