@@ -232,6 +232,7 @@ static void MainMenu_FormatSavegameTime(void);
 static void MainMenu_FormatSavegameBadges(void);
 static void CustomMenu_RebuildBgWithCustomButtons(u8 menuType, u8 selectedMenuItem);
 static void CustomMenu_DrawPrimaryLabels(u8 menuType, u8 selectedMenuItem);
+static void CustomMenu_LoadButtonPalettesByGender(void);
 static void CustomMenu_CreateContinueMugshot(void);
 static void CustomMenu_DestroyContinueMugshot(void);
 static void CustomMenu_CreateContinuePartyIcons(void);
@@ -426,6 +427,22 @@ static const u32 sCustomMainMenuBgTilemap[] = INCBIN_U32("graphics/ui_main_menu/
 static const u16 sCustomMainMenuBgPal[] = INCBIN_U16("graphics/ui_main_menu/scroll_tiles.gbapal");
 static const u16 sCustomMainMenuLargeButtonPal[] = INCBIN_U16("graphics/ui_main_menu/main_bg_grande.gbapal");
 static const u16 sCustomMainMenuLargeButtonHighlightPal[] = INCBIN_U16("graphics/ui_main_menu/main_bg_grande_highlight.gbapal");
+static const u16 sCustomMainMenuButtonPalMale[] =
+{
+    0x0000, 0x7FFF, 0x481B, 0x1862, 0x45AA, 0x2CE5,
+};
+static const u16 sCustomMainMenuButtonPalMaleHighlight[] =
+{
+    0x0000, 0x7FFF, 0x5C5F, 0x24C5, 0x5A2E, 0x3D68,
+};
+static const u16 sCustomMainMenuButtonPalFemale[] =
+{
+    0x0000, 0x7FFF, 0x481B, RGB(6, 3, 4), RGB(17, 10, 11), RGB(11, 5, 6),
+};
+static const u16 sCustomMainMenuButtonPalFemaleHighlight[] =
+{
+    0x0000, 0x7FFF, 0x5C5F, RGB(9, 5, 6), RGB(20, 13, 14), RGB(14, 8, 9),
+};
 static const u32 sCustomMainMenuLargeButtonTiles[] = INCBIN_U32("graphics/ui_main_menu/main_bg_grande.4bpp");
 static const u32 sCustomMainMenuSmallButtonTiles[] = INCBIN_U32("graphics/ui_main_menu/main_bg_pequeno.4bpp");
 static const u16 sCustomIconShadowPal[] = INCBIN_U16("graphics/ui_main_menu/icon_shadow.gbapal");
@@ -638,14 +655,14 @@ enum
 
 #define MAIN_MENU_BORDER_TILE   0x1D5
 #define BIRCH_DLG_BASE_TILE_NUM 0xFC
-#define CUSTOM_BUTTON_PAL_SLOT      2
+#define CUSTOM_BUTTON_PAL_SLOT      4
 #define CUSTOM_BUTTON_LARGE_BASE    0x20
 #define CUSTOM_BUTTON_LARGE_WIDTH   29
 #define CUSTOM_BUTTON_LARGE_HEIGHT  12
 #define CUSTOM_BUTTON_LARGE_X       1
 #define CUSTOM_BUTTON_LARGE_Y       0
 #define CUSTOM_BUTTON_SMALL_BASE    (CUSTOM_BUTTON_LARGE_BASE + (sizeof(sCustomMainMenuLargeButtonTiles) / TILE_SIZE_4BPP))
-#define CUSTOM_BUTTON_HL_PAL_SLOT   3
+#define CUSTOM_BUTTON_HL_PAL_SLOT   5
 #define CUSTOM_BUTTON_SMALL_WIDTH   14
 #define CUSTOM_BUTTON_SMALL_HEIGHT  3
 #define CUSTOM_BUTTON_SMALL_TL_X    1
@@ -902,6 +919,20 @@ static void CustomMenu_DrawPrimaryLabels(u8 menuType, u8 selectedMenuItem)
     CopyBgTilemapBufferToVram(0);
 }
 
+static void CustomMenu_LoadButtonPalettesByGender(void)
+{
+    if (gSaveBlock2Ptr->playerGender == MALE)
+    {
+        LoadPalette(sCustomMainMenuButtonPalMale, BG_PLTT_ID(CUSTOM_BUTTON_PAL_SLOT), sizeof(sCustomMainMenuButtonPalMale));
+        LoadPalette(sCustomMainMenuButtonPalMaleHighlight, BG_PLTT_ID(CUSTOM_BUTTON_HL_PAL_SLOT), sizeof(sCustomMainMenuButtonPalMaleHighlight));
+    }
+    else
+    {
+        LoadPalette(sCustomMainMenuButtonPalFemale, BG_PLTT_ID(CUSTOM_BUTTON_PAL_SLOT), sizeof(sCustomMainMenuButtonPalFemale));
+        LoadPalette(sCustomMainMenuButtonPalFemaleHighlight, BG_PLTT_ID(CUSTOM_BUTTON_HL_PAL_SLOT), sizeof(sCustomMainMenuButtonPalFemaleHighlight));
+    }
+}
+
 static void CustomMenu_CreateContinueMugshot(void)
 {
     struct SpriteSheet spriteSheet;
@@ -1109,8 +1140,7 @@ static u32 InitMainMenu(bool8 returningFromOptionsMenu)
     LoadPalette(sCustomMainMenuBgPal, BG_PLTT_ID(1), PLTT_SIZE_4BPP);
     // BG color 0 cannot be transparent on tile BGs; avoid visible magenta key color.
     LoadPalette(&sCustomMainMenuBgPal[1], BG_PLTT_ID(1), PLTT_SIZEOF(1));
-    LoadPalette(sCustomMainMenuLargeButtonPal, BG_PLTT_ID(CUSTOM_BUTTON_PAL_SLOT), sizeof(sCustomMainMenuLargeButtonPal));
-    LoadPalette(sCustomMainMenuLargeButtonHighlightPal, BG_PLTT_ID(CUSTOM_BUTTON_HL_PAL_SLOT), sizeof(sCustomMainMenuLargeButtonHighlightPal));
+    CustomMenu_LoadButtonPalettesByGender();
     LoadPalette(sMainMenuTextPal, BG_PLTT_ID(15), PLTT_SIZE_4BPP);
     palette = RGB_BLACK;
     LoadPalette(&palette, BG_PLTT_ID(15) + 14, PLTT_SIZEOF(1));
@@ -1281,6 +1311,7 @@ static void Task_MainMenuCheckSaveFile(u8 taskId)
         sCurrItemAndOptionMenuCheck &= ~OPTION_MENU_FLAG;  // turn off the "returning from options menu" flag
         tCurrItem = sCurrItemAndOptionMenuCheck;
         tItemCount = tMenuType + 2;
+        CustomMenu_LoadButtonPalettesByGender();
         // Keep custom button highlight in sync from the first visible frame.
         CustomMenu_RebuildBgWithCustomButtons(tMenuType, tCurrItem);
         CustomMenu_DrawPrimaryLabels(tMenuType, tCurrItem);
