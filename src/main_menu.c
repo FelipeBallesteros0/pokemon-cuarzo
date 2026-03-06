@@ -228,7 +228,7 @@ static void MainMenu_FormatSavegamePlayer(void);
 static void MainMenu_FormatSavegamePokedex(void);
 static void MainMenu_FormatSavegameTime(void);
 static void MainMenu_FormatSavegameBadges(void);
-static void CustomMenu_RebuildBgWithLargeButton(void);
+static void CustomMenu_RebuildBgWithCustomButtons(void);
 static void NewGameBirchSpeech_CreateDialogueWindowBorder(u8, u8, u8, u8, u8, u8);
 
 // .rodata
@@ -417,6 +417,7 @@ static const u32 sCustomMainMenuBgTilemap[] = INCBIN_U32("graphics/ui_main_menu/
 static const u16 sCustomMainMenuBgPal[] = INCBIN_U16("graphics/ui_main_menu/scroll_tiles.gbapal");
 static const u16 sCustomMainMenuLargeButtonPal[] = INCBIN_U16("graphics/ui_main_menu/main_bg_grande.gbapal");
 static const u32 sCustomMainMenuLargeButtonTiles[] = INCBIN_U32("graphics/ui_main_menu/main_bg_grande.4bpp");
+static const u32 sCustomMainMenuSmallButtonTiles[] = INCBIN_U32("graphics/ui_main_menu/main_bg_pequeno.4bpp");
 static EWRAM_DATA u16 sCustomMainMenuBgTilemapBuffer[0x400];
 
 static const u8 sTextColor_Headers[] = {TEXT_DYNAMIC_COLOR_1, TEXT_DYNAMIC_COLOR_2, TEXT_DYNAMIC_COLOR_3};
@@ -556,23 +557,54 @@ enum
 #define CUSTOM_BUTTON_LARGE_HEIGHT  12
 #define CUSTOM_BUTTON_LARGE_X       1
 #define CUSTOM_BUTTON_LARGE_Y       0
+#define CUSTOM_BUTTON_SMALL_BASE    (CUSTOM_BUTTON_LARGE_BASE + (sizeof(sCustomMainMenuLargeButtonTiles) / TILE_SIZE_4BPP))
+#define CUSTOM_BUTTON_SMALL_WIDTH   14
+#define CUSTOM_BUTTON_SMALL_HEIGHT  3
+#define CUSTOM_BUTTON_SMALL_TL_X    1
+#define CUSTOM_BUTTON_SMALL_TL_Y    12
+#define CUSTOM_BUTTON_SMALL_TR_X    16
+#define CUSTOM_BUTTON_SMALL_TR_Y    12
+#define CUSTOM_BUTTON_SMALL_BL_X    1
+#define CUSTOM_BUTTON_SMALL_BL_Y    16
+#define CUSTOM_BUTTON_SMALL_BR_X    16
+#define CUSTOM_BUTTON_SMALL_BR_Y    16
 #define CUSTOM_BUTTON_BG_Y_OFFSET   (-0x700)
 
-static void CustomMenu_RebuildBgWithLargeButton(void)
+static void CustomMenu_DrawButtonStamp(u8 baseX, u8 baseY, u8 width, u8 height, u16 baseTile)
 {
     u8 y;
     u8 x;
-    CpuFill16(0, sCustomMainMenuBgTilemapBuffer, sizeof(sCustomMainMenuBgTilemapBuffer));
 
-    for (y = 0; y < CUSTOM_BUTTON_LARGE_HEIGHT; y++)
+    for (y = 0; y < height; y++)
     {
-        for (x = 0; x < CUSTOM_BUTTON_LARGE_WIDTH; x++)
+        for (x = 0; x < width; x++)
         {
-            u16 tile = CUSTOM_BUTTON_LARGE_BASE + y * CUSTOM_BUTTON_LARGE_WIDTH + x;
-            sCustomMainMenuBgTilemapBuffer[(CUSTOM_BUTTON_LARGE_Y + y) * 32 + (CUSTOM_BUTTON_LARGE_X + x)] =
+            u16 tile = baseTile + y * width + x;
+            sCustomMainMenuBgTilemapBuffer[(baseY + y) * 32 + (baseX + x)] =
                 (tile & 0x03FF) | (CUSTOM_BUTTON_PAL_SLOT << 12);
         }
     }
+}
+
+static void CustomMenu_RebuildBgWithCustomButtons(void)
+{
+    CpuFill16(0, sCustomMainMenuBgTilemapBuffer, sizeof(sCustomMainMenuBgTilemapBuffer));
+
+    CustomMenu_DrawButtonStamp(CUSTOM_BUTTON_LARGE_X, CUSTOM_BUTTON_LARGE_Y,
+                               CUSTOM_BUTTON_LARGE_WIDTH, CUSTOM_BUTTON_LARGE_HEIGHT,
+                               CUSTOM_BUTTON_LARGE_BASE);
+    CustomMenu_DrawButtonStamp(CUSTOM_BUTTON_SMALL_TL_X, CUSTOM_BUTTON_SMALL_TL_Y,
+                               CUSTOM_BUTTON_SMALL_WIDTH, CUSTOM_BUTTON_SMALL_HEIGHT,
+                               CUSTOM_BUTTON_SMALL_BASE);
+    CustomMenu_DrawButtonStamp(CUSTOM_BUTTON_SMALL_TR_X, CUSTOM_BUTTON_SMALL_TR_Y,
+                               CUSTOM_BUTTON_SMALL_WIDTH, CUSTOM_BUTTON_SMALL_HEIGHT,
+                               CUSTOM_BUTTON_SMALL_BASE);
+    CustomMenu_DrawButtonStamp(CUSTOM_BUTTON_SMALL_BL_X, CUSTOM_BUTTON_SMALL_BL_Y,
+                               CUSTOM_BUTTON_SMALL_WIDTH, CUSTOM_BUTTON_SMALL_HEIGHT,
+                               CUSTOM_BUTTON_SMALL_BASE);
+    CustomMenu_DrawButtonStamp(CUSTOM_BUTTON_SMALL_BR_X, CUSTOM_BUTTON_SMALL_BR_Y,
+                               CUSTOM_BUTTON_SMALL_WIDTH, CUSTOM_BUTTON_SMALL_HEIGHT,
+                               CUSTOM_BUTTON_SMALL_BASE);
 }
 
 static void CB2_MainMenu(void)
@@ -647,7 +679,8 @@ static u32 InitMainMenu(bool8 returningFromOptionsMenu)
     LoadBgTiles(2, sCustomMainMenuBgTiles, sizeof(sCustomMainMenuBgTiles), 0);
     LoadBgTilemap(2, sCustomMainMenuBgTilemap, sizeof(sCustomMainMenuBgTilemap), 0);
     LoadBgTiles(1, sCustomMainMenuLargeButtonTiles, sizeof(sCustomMainMenuLargeButtonTiles), CUSTOM_BUTTON_LARGE_BASE);
-    CustomMenu_RebuildBgWithLargeButton();
+    LoadBgTiles(1, sCustomMainMenuSmallButtonTiles, sizeof(sCustomMainMenuSmallButtonTiles), CUSTOM_BUTTON_SMALL_BASE);
+    CustomMenu_RebuildBgWithCustomButtons();
     LoadBgTilemap(1, sCustomMainMenuBgTilemapBuffer, sizeof(sCustomMainMenuBgTilemapBuffer), 0);
     ChangeBgX(0, 0, BG_COORD_SET);
     ChangeBgY(0, 0, BG_COORD_SET);
