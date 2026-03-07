@@ -1311,7 +1311,6 @@ static void Task_MainMenuCheckSaveFile(u8 taskId)
         sCurrItemAndOptionMenuCheck &= ~OPTION_MENU_FLAG;  // turn off the "returning from options menu" flag
         tCurrItem = sCurrItemAndOptionMenuCheck;
         tItemCount = tMenuType + 2;
-        CustomMenu_LoadButtonPalettesByGender();
         // Keep custom button highlight in sync from the first visible frame.
         CustomMenu_RebuildBgWithCustomButtons(tMenuType, tCurrItem);
         CustomMenu_DrawPrimaryLabels(tMenuType, tCurrItem);
