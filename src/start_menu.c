@@ -103,8 +103,11 @@ EWRAM_DATA static bool8 sStartMenuObjWasEnabled = FALSE;
 EWRAM_DATA static bool8 sStartMenuTransitionPendingUnblank = FALSE;
 EWRAM_DATA static u16 sStartMenuScrollBgTilemapBuffer[32 * 32];
 EWRAM_DATA static void *sStartMenuSavedBg3TilemapBuffer = NULL;
+EWRAM_DATA static s8 sStartMenuGridActionIndices[9] = {0};
+EWRAM_DATA static u8 sStartMenuSelectedGridSlot = 0;
 
 #define START_MENU_BUTTON_PAL_SLOT 13
+#define START_MENU_CURSOR_PAL_SLOT 11
 #define START_MENU_BUTTON_WIDTH_TILES 8
 #define START_MENU_BUTTON_HEIGHT_TILES 4
 #define START_MENU_BUTTON_GRID_COLUMNS 3
@@ -114,6 +117,7 @@ EWRAM_DATA static void *sStartMenuSavedBg3TilemapBuffer = NULL;
 #define START_MENU_BUTTON_GRID_X_SPACING 9
 #define START_MENU_BUTTON_GRID_Y_SPACING 5
 #define START_MENU_BUTTON_BASE_TILE 0x1D0
+#define START_MENU_CURSOR_BASE_TILE 0x1F0
 #define START_MENU_BUTTON_TEXT_BASEBLOCK 0x240
 
 // Menu action callbacks
@@ -270,18 +274,8 @@ static const u16 sStartMenuScrollBgTilemap[] = INCBIN_U16("graphics/ui_startmenu
 static const u16 sStartMenuScrollBgPalette[] = INCBIN_U16("graphics/ui_startmenu_full/pause_scroll.pal.bin");
 static const u8 sStartMenuButtonTiles[] = INCBIN_U8("graphics/ui_startmenu_full/boton.4bpp");
 static const u16 sStartMenuButtonPalette[] = INCBIN_U16("graphics/ui_startmenu_full/boton.gbapal");
-static const u8 *const sStartMenuButtonLabels[9] =
-{
-    gText_MenuPokedex,
-    gText_MenuPokemon,
-    gText_MenuBag,
-    gText_MenuDexNav,
-    gText_MenuPokenav,
-    gText_MenuPlayer,
-    gText_MenuSave,
-    gText_MenuOption,
-    gText_MenuExit,
-};
+static const u8 sStartMenuCursorTiles[] = INCBIN_U8("graphics/ui_startmenu_full/cursor.4bpp");
+static const u16 sStartMenuCursorPalette[] = INCBIN_U16("graphics/ui_startmenu_full/cursor.gbapal");
 
 static const struct WindowTemplate sWindowTemplate_StartMenuButtonsText =
 {
@@ -334,6 +328,10 @@ static void StartMenu_DisableScrollingBg(void);
 static void StartMenu_DrawButtonGrid(void);
 static void StartMenu_DrawButtonText(void);
 static void StartMenu_RemoveButtonTextWindow(void);
+static void StartMenu_BuildGridActionMap(void);
+static void StartMenu_RefreshCustomMenuVisuals(void);
+static bool8 StartMenu_MoveCursorInGrid(s8 dx, s8 dy);
+static s8 StartMenu_GetSlotForAction(u8 action);
 
 void SetDexPokemonPokenavFlags(void) // unused
 {
@@ -578,8 +576,9 @@ static bool32 InitStartMenuStep(void)
         break;
     case 2:
         LoadMessageBoxAndBorderGfx();
-        DrawStdWindowFrame(AddStartMenuWindow(sNumStartMenuActions), FALSE);
-        sInitStartMenuData[1] = 0;
+        AddStartMenuWindow(sNumStartMenuActions); // Kept for save/retire flows that remove this window.
+        StartMenu_BuildGridActionMap();
+        StartMenu_RefreshCustomMenuVisuals();
         sInitStartMenuData[0]++;
         break;
     case 3:
@@ -587,15 +586,6 @@ static bool32 InitStartMenuStep(void)
             ShowSafariBallsWindow();
         if (CurrentBattlePyramidLocation() != PYRAMID_LOCATION_NONE)
             ShowPyramidFloorWindow();
-        sInitStartMenuData[0]++;
-        break;
-    case 4:
-        if (PrintStartMenuActions(&sInitStartMenuData[1], 2))
-            sInitStartMenuData[0]++;
-        break;
-    case 5:
-        sStartMenuCursorPos = InitMenuNormal(GetStartMenuWindowId(), FONT_NORMAL, 0, 9, 16, sNumStartMenuActions, sStartMenuCursorPos);
-        CopyWindowToVram(GetStartMenuWindowId(), COPYWIN_MAP);
         return TRUE;
     }
 
@@ -678,22 +668,34 @@ void ShowStartMenu(void)
 
 static bool8 HandleStartMenuInput(void)
 {
+    s8 actionIndex;
+
     StartMenu_UpdateScrollingBg();
 
-    if (JOY_NEW(DPAD_UP))
+    if (JOY_NEW(DPAD_LEFT) && StartMenu_MoveCursorInGrid(-1, 0))
     {
         PlaySE(SE_SELECT);
-        sStartMenuCursorPos = Menu_MoveCursor(-1);
     }
-
-    if (JOY_NEW(DPAD_DOWN))
+    else if (JOY_NEW(DPAD_RIGHT) && StartMenu_MoveCursorInGrid(1, 0))
     {
         PlaySE(SE_SELECT);
-        sStartMenuCursorPos = Menu_MoveCursor(1);
+    }
+    else if (JOY_NEW(DPAD_UP) && StartMenu_MoveCursorInGrid(0, -1))
+    {
+        PlaySE(SE_SELECT);
+    }
+    else if (JOY_NEW(DPAD_DOWN) && StartMenu_MoveCursorInGrid(0, 1))
+    {
+        PlaySE(SE_SELECT);
     }
 
     if (JOY_NEW(A_BUTTON))
     {
+        actionIndex = sStartMenuGridActionIndices[sStartMenuSelectedGridSlot];
+        if (actionIndex < 0)
+            return FALSE;
+
+        sStartMenuCursorPos = actionIndex;
         PlaySE(SE_SELECT);
         if (sStartMenuItems[sCurrentStartMenuActions[sStartMenuCursorPos]].func.u8_void == StartMenuPokedexCallback)
         {
@@ -1537,6 +1539,96 @@ static void HideStartMenuWindow(void)
     UnlockPlayerFieldControls();
 }
 
+static s8 StartMenu_GetSlotForAction(u8 action)
+{
+    switch (action)
+    {
+    case MENU_ACTION_POKEDEX:
+        return 0;
+    case MENU_ACTION_POKEMON:
+        return 1;
+    case MENU_ACTION_BAG:
+    case MENU_ACTION_PYRAMID_BAG:
+        return 2;
+    case MENU_ACTION_DEXNAV:
+        return 3;
+    case MENU_ACTION_POKENAV:
+        return 4;
+    case MENU_ACTION_PLAYER:
+    case MENU_ACTION_PLAYER_LINK:
+        return 5;
+    case MENU_ACTION_SAVE:
+    case MENU_ACTION_REST_FRONTIER:
+        return 6;
+    case MENU_ACTION_OPTION:
+        return 7;
+    case MENU_ACTION_EXIT:
+    case MENU_ACTION_RETIRE_SAFARI:
+    case MENU_ACTION_RETIRE_FRONTIER:
+    case MENU_ACTION_DEBUG:
+        return 8;
+    default:
+        return -1;
+    }
+}
+
+static void StartMenu_BuildGridActionMap(void)
+{
+    s8 i;
+    s8 slot;
+    s8 fallbackSlot;
+    s8 selectedSlot = -1;
+
+    for (i = 0; i < (s8)ARRAY_COUNT(sStartMenuGridActionIndices); i++)
+        sStartMenuGridActionIndices[i] = -1;
+
+    for (i = 0; i < sNumStartMenuActions; i++)
+    {
+        slot = StartMenu_GetSlotForAction(sCurrentStartMenuActions[i]);
+        if (slot >= 0 && sStartMenuGridActionIndices[slot] == -1)
+        {
+            sStartMenuGridActionIndices[slot] = i;
+            continue;
+        }
+
+        for (fallbackSlot = 0; fallbackSlot < (s8)ARRAY_COUNT(sStartMenuGridActionIndices); fallbackSlot++)
+        {
+            if (sStartMenuGridActionIndices[fallbackSlot] == -1)
+            {
+                sStartMenuGridActionIndices[fallbackSlot] = i;
+                break;
+            }
+        }
+    }
+
+    for (i = 0; i < (s8)ARRAY_COUNT(sStartMenuGridActionIndices); i++)
+    {
+        if (sStartMenuGridActionIndices[i] == sStartMenuCursorPos)
+        {
+            selectedSlot = i;
+            break;
+        }
+    }
+
+    if (selectedSlot < 0)
+    {
+        for (i = 0; i < (s8)ARRAY_COUNT(sStartMenuGridActionIndices); i++)
+        {
+            if (sStartMenuGridActionIndices[i] >= 0)
+            {
+                selectedSlot = i;
+                break;
+            }
+        }
+    }
+
+    if (selectedSlot < 0)
+        selectedSlot = 0;
+
+    sStartMenuSelectedGridSlot = selectedSlot;
+    sStartMenuCursorPos = sStartMenuGridActionIndices[sStartMenuSelectedGridSlot];
+}
+
 static void StartMenu_RemoveButtonTextWindow(void)
 {
     if (sStartMenuButtonTextWindowActive)
@@ -1548,32 +1640,31 @@ static void StartMenu_RemoveButtonTextWindow(void)
 
 static void StartMenu_DrawButtonText(void)
 {
-    u8 i;
+    u8 slot;
+    u8 action;
     u8 x;
     u8 y;
     u16 width;
     const u8 *label;
+    s8 actionIndex;
 
     StartMenu_RemoveButtonTextWindow();
     sStartMenuButtonTextWindowId = AddWindow(&sWindowTemplate_StartMenuButtonsText);
     sStartMenuButtonTextWindowActive = TRUE;
     FillWindowPixelBuffer(sStartMenuButtonTextWindowId, PIXEL_FILL(0));
 
-    for (i = 0; i < 9; i++)
+    for (slot = 0; slot < 9; slot++)
     {
-        if (i == 5)
-        {
-            StringExpandPlaceholders(gStringVar4, sStartMenuButtonLabels[i]);
-            label = gStringVar4;
-        }
-        else
-        {
-            label = sStartMenuButtonLabels[i];
-        }
+        actionIndex = sStartMenuGridActionIndices[slot];
+        if (actionIndex < 0)
+            continue;
 
+        action = sCurrentStartMenuActions[actionIndex];
+        StringExpandPlaceholders(gStringVar4, sStartMenuItems[action].text);
+        label = gStringVar4;
         width = GetStringWidth(FONT_NORMAL, label, 0);
-        x = (i % 3) * 64 + ((64 - width) / 2);
-        y = (i / 3) * 32 + 12;
+        x = (slot % 3) * 64 + ((64 - width) / 2);
+        y = (slot / 3) * 32 + 12;
         AddTextPrinterParameterized(sStartMenuButtonTextWindowId, FONT_NORMAL, label, x, y, TEXT_SKIP_DRAW, NULL);
     }
 
@@ -1585,9 +1676,12 @@ static void StartMenu_DrawButtonGrid(void)
 {
     u16 *bg0TilemapBuffer = GetBgTilemapBuffer(0);
     u16 x, y, bx, by;
+    u8 slot;
 
     if (bg0TilemapBuffer == NULL)
         return;
+
+    FillBgTilemapBufferRect_Palette0(0, 0, 0, 0, 32, 32);
 
     for (by = 0; by < START_MENU_BUTTON_GRID_ROWS; by++)
     {
@@ -1595,6 +1689,9 @@ static void StartMenu_DrawButtonGrid(void)
         {
             const u16 originX = START_MENU_BUTTON_GRID_X + bx * START_MENU_BUTTON_GRID_X_SPACING;
             const u16 originY = START_MENU_BUTTON_GRID_Y + by * START_MENU_BUTTON_GRID_Y_SPACING;
+            slot = by * START_MENU_BUTTON_GRID_COLUMNS + bx;
+            if (sStartMenuGridActionIndices[slot] < 0)
+                continue;
 
             for (y = 0; y < START_MENU_BUTTON_HEIGHT_TILES; y++)
             {
@@ -1609,6 +1706,65 @@ static void StartMenu_DrawButtonGrid(void)
             }
         }
     }
+}
+
+static void StartMenu_RefreshCustomMenuVisuals(void)
+{
+    u16 *bg0TilemapBuffer = GetBgTilemapBuffer(0);
+    u16 x, y;
+    u8 slotX;
+    u8 slotY;
+    u16 originX;
+    u16 originY;
+
+    if (bg0TilemapBuffer == NULL)
+        return;
+
+    StartMenu_DrawButtonGrid();
+    StartMenu_DrawButtonText();
+
+    slotX = sStartMenuSelectedGridSlot % START_MENU_BUTTON_GRID_COLUMNS;
+    slotY = sStartMenuSelectedGridSlot / START_MENU_BUTTON_GRID_COLUMNS;
+    originX = START_MENU_BUTTON_GRID_X + slotX * START_MENU_BUTTON_GRID_X_SPACING;
+    originY = START_MENU_BUTTON_GRID_Y + slotY * START_MENU_BUTTON_GRID_Y_SPACING;
+
+    for (y = 0; y < START_MENU_BUTTON_HEIGHT_TILES; y++)
+    {
+        for (x = 0; x < START_MENU_BUTTON_WIDTH_TILES; x++)
+        {
+            const u16 tileId = START_MENU_CURSOR_BASE_TILE + y * START_MENU_BUTTON_WIDTH_TILES + x;
+            const u16 entry = tileId | (START_MENU_CURSOR_PAL_SLOT << 12);
+            bg0TilemapBuffer[(originY + y) * 32 + (originX + x)] = entry;
+        }
+    }
+
+    CopyBgTilemapBufferToVram(0);
+}
+
+static bool8 StartMenu_MoveCursorInGrid(s8 dx, s8 dy)
+{
+    s8 row = sStartMenuSelectedGridSlot / START_MENU_BUTTON_GRID_COLUMNS;
+    s8 col = sStartMenuSelectedGridSlot % START_MENU_BUTTON_GRID_COLUMNS;
+    s8 step;
+    s8 candidateRow;
+    s8 candidateCol;
+    s8 candidateSlot;
+
+    for (step = 1; step < START_MENU_BUTTON_GRID_COLUMNS + 1; step++)
+    {
+        candidateRow = (row + dy * step + START_MENU_BUTTON_GRID_ROWS) % START_MENU_BUTTON_GRID_ROWS;
+        candidateCol = (col + dx * step + START_MENU_BUTTON_GRID_COLUMNS) % START_MENU_BUTTON_GRID_COLUMNS;
+        candidateSlot = candidateRow * START_MENU_BUTTON_GRID_COLUMNS + candidateCol;
+        if (sStartMenuGridActionIndices[candidateSlot] >= 0)
+        {
+            sStartMenuSelectedGridSlot = candidateSlot;
+            sStartMenuCursorPos = sStartMenuGridActionIndices[candidateSlot];
+            StartMenu_RefreshCustomMenuVisuals();
+            return TRUE;
+        }
+    }
+
+    return FALSE;
 }
 
 static void StartMenu_EnableScrollingBg(void)
@@ -1638,10 +1794,10 @@ static void StartMenu_EnableScrollingBg(void)
     CpuFill16(0, (void *)BG_CHAR_ADDR(bg0CharBase), TILE_SIZE_4BPP);
     FillBgTilemapBufferRect_Palette0(0, 0, 0, 0, 32, 32);
     LoadBgTiles(0, sStartMenuButtonTiles, sizeof(sStartMenuButtonTiles), START_MENU_BUTTON_BASE_TILE);
+    LoadBgTiles(0, sStartMenuCursorTiles, sizeof(sStartMenuCursorTiles), START_MENU_CURSOR_BASE_TILE);
     LoadPalette(sStartMenuButtonPalette, BG_PLTT_ID(START_MENU_BUTTON_PAL_SLOT), sizeof(sStartMenuButtonPalette));
-    StartMenu_DrawButtonGrid();
+    LoadPalette(sStartMenuCursorPalette, BG_PLTT_ID(START_MENU_CURSOR_PAL_SLOT), sizeof(sStartMenuCursorPalette));
     CopyBgTilemapBufferToVram(0);
-    StartMenu_DrawButtonText();
 
     ShowBg(3);
     sStartMenuObjWasEnabled = (GetGpuReg(REG_OFFSET_DISPCNT) & DISPCNT_OBJ_ON) != 0;
