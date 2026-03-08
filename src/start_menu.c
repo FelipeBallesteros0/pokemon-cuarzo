@@ -96,6 +96,8 @@ EWRAM_DATA static u8 (*sSaveDialogCallback)(void) = NULL;
 EWRAM_DATA static u8 sSaveDialogTimer = 0;
 EWRAM_DATA static bool8 sSavingComplete = FALSE;
 EWRAM_DATA static u8 sSaveInfoWindowId = 0;
+EWRAM_DATA static u8 sStartMenuButtonTextWindowId = 0;
+EWRAM_DATA static bool8 sStartMenuButtonTextWindowActive = FALSE;
 EWRAM_DATA static bool8 sStartMenuScrollBgActive = FALSE;
 EWRAM_DATA static bool8 sStartMenuObjWasEnabled = FALSE;
 EWRAM_DATA static bool8 sStartMenuTransitionPendingUnblank = FALSE;
@@ -111,7 +113,8 @@ EWRAM_DATA static void *sStartMenuSavedBg3TilemapBuffer = NULL;
 #define START_MENU_BUTTON_GRID_Y 3
 #define START_MENU_BUTTON_GRID_X_SPACING 9
 #define START_MENU_BUTTON_GRID_Y_SPACING 5
-#define START_MENU_BUTTON_BASE_TILE 0x260
+#define START_MENU_BUTTON_BASE_TILE 0x1D0
+#define START_MENU_BUTTON_TEXT_BASEBLOCK 0x240
 
 // Menu action callbacks
 static bool8 StartMenuPokedexCallback(void);
@@ -267,6 +270,29 @@ static const u16 sStartMenuScrollBgTilemap[] = INCBIN_U16("graphics/ui_startmenu
 static const u16 sStartMenuScrollBgPalette[] = INCBIN_U16("graphics/ui_startmenu_full/pause_scroll.pal.bin");
 static const u8 sStartMenuButtonTiles[] = INCBIN_U8("graphics/ui_startmenu_full/boton.4bpp");
 static const u16 sStartMenuButtonPalette[] = INCBIN_U16("graphics/ui_startmenu_full/boton.gbapal");
+static const u8 *const sStartMenuButtonLabels[9] =
+{
+    gText_MenuPokedex,
+    gText_MenuPokemon,
+    gText_MenuBag,
+    gText_MenuDexNav,
+    gText_MenuPokenav,
+    gText_MenuPlayer,
+    gText_MenuSave,
+    gText_MenuOption,
+    gText_MenuExit,
+};
+
+static const struct WindowTemplate sWindowTemplate_StartMenuButtonsText =
+{
+    .bg = 0,
+    .tilemapLeft = START_MENU_BUTTON_GRID_X,
+    .tilemapTop = START_MENU_BUTTON_GRID_Y,
+    .width = 24,
+    .height = 12,
+    .paletteNum = 15,
+    .baseBlock = START_MENU_BUTTON_TEXT_BASEBLOCK
+};
 
 // Local functions
 static void BuildStartMenuActions(void);
@@ -306,6 +332,8 @@ static void StartMenu_EnableScrollingBg(void);
 static void StartMenu_UpdateScrollingBg(void);
 static void StartMenu_DisableScrollingBg(void);
 static void StartMenu_DrawButtonGrid(void);
+static void StartMenu_DrawButtonText(void);
+static void StartMenu_RemoveButtonTextWindow(void);
 
 void SetDexPokemonPokenavFlags(void) // unused
 {
@@ -1509,6 +1537,50 @@ static void HideStartMenuWindow(void)
     UnlockPlayerFieldControls();
 }
 
+static void StartMenu_RemoveButtonTextWindow(void)
+{
+    if (sStartMenuButtonTextWindowActive)
+    {
+        RemoveWindow(sStartMenuButtonTextWindowId);
+        sStartMenuButtonTextWindowActive = FALSE;
+    }
+}
+
+static void StartMenu_DrawButtonText(void)
+{
+    u8 i;
+    u8 x;
+    u8 y;
+    u16 width;
+    const u8 *label;
+
+    StartMenu_RemoveButtonTextWindow();
+    sStartMenuButtonTextWindowId = AddWindow(&sWindowTemplate_StartMenuButtonsText);
+    sStartMenuButtonTextWindowActive = TRUE;
+    FillWindowPixelBuffer(sStartMenuButtonTextWindowId, PIXEL_FILL(0));
+
+    for (i = 0; i < 9; i++)
+    {
+        if (i == 5)
+        {
+            StringExpandPlaceholders(gStringVar4, sStartMenuButtonLabels[i]);
+            label = gStringVar4;
+        }
+        else
+        {
+            label = sStartMenuButtonLabels[i];
+        }
+
+        width = GetStringWidth(FONT_NORMAL, label, 0);
+        x = (i % 3) * 64 + ((64 - width) / 2);
+        y = (i / 3) * 32 + 12;
+        AddTextPrinterParameterized(sStartMenuButtonTextWindowId, FONT_NORMAL, label, x, y, TEXT_SKIP_DRAW, NULL);
+    }
+
+    PutWindowTilemap(sStartMenuButtonTextWindowId);
+    CopyWindowToVram(sStartMenuButtonTextWindowId, COPYWIN_FULL);
+}
+
 static void StartMenu_DrawButtonGrid(void)
 {
     u16 *bg0TilemapBuffer = GetBgTilemapBuffer(0);
@@ -1569,6 +1641,7 @@ static void StartMenu_EnableScrollingBg(void)
     LoadPalette(sStartMenuButtonPalette, BG_PLTT_ID(START_MENU_BUTTON_PAL_SLOT), sizeof(sStartMenuButtonPalette));
     StartMenu_DrawButtonGrid();
     CopyBgTilemapBufferToVram(0);
+    StartMenu_DrawButtonText();
 
     ShowBg(3);
     sStartMenuObjWasEnabled = (GetGpuReg(REG_OFFSET_DISPCNT) & DISPCNT_OBJ_ON) != 0;
@@ -1620,6 +1693,7 @@ static void StartMenu_DisableScrollingBg(void)
     CpuFill16(0, (void *)BG_CHAR_ADDR(bg0CharBase), TILE_SIZE_4BPP);
     FillBgTilemapBufferRect_Palette0(0, 0, 0, 0, 32, 32);
     CopyBgTilemapBufferToVram(0);
+    StartMenu_RemoveButtonTextWindow();
 
     DrawWholeMapView();
     CopyBgTilemapBufferToVram(1);
