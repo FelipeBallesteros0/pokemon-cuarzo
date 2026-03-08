@@ -98,7 +98,6 @@ EWRAM_DATA static bool8 sSavingComplete = FALSE;
 EWRAM_DATA static u8 sSaveInfoWindowId = 0;
 EWRAM_DATA static bool8 sStartMenuScrollBgActive = FALSE;
 EWRAM_DATA static bool8 sStartMenuObjWasEnabled = FALSE;
-EWRAM_DATA static u16 sStartMenuScrollBgTilemapPal15[32 * 32];
 EWRAM_DATA static u16 sStartMenuScrollBgTilemapBuffer[32 * 32];
 EWRAM_DATA static void *sStartMenuSavedBg3TilemapBuffer = NULL;
 
@@ -251,9 +250,9 @@ static const struct WindowTemplate sSaveInfoWindowTemplate = {
     .baseBlock = 8
 };
 
-static const u8 sStartMenuScrollBgTiles[] = INCBIN_U8("graphics/ui_startmenu_full/pause_scroll.img.bin");
-static const u16 sStartMenuScrollBgTilemap[] = INCBIN_U16("graphics/ui_startmenu_full/pause_scroll.map.bin");
-static const u16 sStartMenuScrollBgPalette[] = INCBIN_U16("graphics/ui_startmenu_full/pause_scroll.pal.bin");
+static const u8 sStartMenuScrollBgTiles[] = INCBIN_U8("graphics/ui_startmenu_full/scroll_tiles.4bpp");
+static const u32 sStartMenuScrollBgTilemap[] = INCBIN_U32("graphics/ui_startmenu_full/scroll_tilemap.bin.lz");
+static const u16 sStartMenuScrollBgPalette[] = INCBIN_U16("graphics/ui_startmenu_full/scroll_tiles.gbapal");
 
 // Local functions
 static void BuildStartMenuActions(void);
@@ -1513,18 +1512,11 @@ static void HideStartMenuWindow(void)
 
 static void StartMenu_EnableScrollingBg(void)
 {
-    u16 i;
-
-    // Force the scroll background tilemap to use palette slot 14 to avoid clashing
-    // with the active overworld palettes.
-    for (i = 0; i < ARRAY_COUNT(sStartMenuScrollBgTilemapPal15); i++)
-        sStartMenuScrollBgTilemapPal15[i] = (sStartMenuScrollBgTilemap[i] & 0x0FFF) | (14 << 12);
-
     sStartMenuSavedBg3TilemapBuffer = GetBgTilemapBuffer(3);
     SetBgTilemapBuffer(3, sStartMenuScrollBgTilemapBuffer);
     LoadBgTiles(3, sStartMenuScrollBgTiles, sizeof(sStartMenuScrollBgTiles), 0);
-    CopyToBgTilemapBuffer(3, sStartMenuScrollBgTilemapPal15, 0, 0);
-    LoadPalette(sStartMenuScrollBgPalette, BG_PLTT_ID(14), sizeof(sStartMenuScrollBgPalette));
+    CopyToBgTilemapBuffer(3, sStartMenuScrollBgTilemap, 0, 0);
+    LoadPalette(sStartMenuScrollBgPalette, BG_PLTT_ID(1), sizeof(sStartMenuScrollBgPalette));
     ChangeBgY(3, 0, BG_COORD_SET);
     CopyBgTilemapBufferToVram(3);
     HideBg(1);
@@ -1540,9 +1532,10 @@ static void StartMenu_UpdateScrollingBg(void)
     if (sStartMenuScrollBgActive)
     {
         // Overworld camera updates can still write to BG3 while paused.
-        // Re-apply our tilemap each frame to keep a stable background.
-        CopyToBgTilemapBuffer(3, sStartMenuScrollBgTilemapPal15, 0, 0);
+        // Re-apply our tiles/tilemap each frame to keep a stable background.
+        LoadBgTiles(3, sStartMenuScrollBgTiles, sizeof(sStartMenuScrollBgTiles), 0);
         CopyBgTilemapBufferToVram(3);
+        LoadPalette(sStartMenuScrollBgPalette, BG_PLTT_ID(1), sizeof(sStartMenuScrollBgPalette));
         ChangeBgY(3, 64, BG_COORD_SUB);
     }
 }
