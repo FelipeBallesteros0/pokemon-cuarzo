@@ -1710,7 +1710,8 @@ static void OverworldBasic(void)
     UpdateCameraPanning();
     BuildOamBuffer();
     UpdatePaletteFade();
-    UpdateTilesetAnimations();
+    if (!IsStartMenuScrollBgActive())
+        UpdateTilesetAnimations();
     DoScheduledBgTilemapCopiesToVram();
     // Every minute if no palette fade is active, update TOD blending as needed
     if (!gPaletteFade.active && --gTimeUpdateCounter <= 0)
@@ -2067,8 +2068,14 @@ static void VBlankCB_Field(void)
     ProcessSpriteCopyRequests();
     ScanlineEffect_InitHBlankDmaTransfer();
     FieldUpdateBgTilemapScroll();
+    if (IsStartMenuScrollBgActive())
+    {
+        SetGpuReg(REG_OFFSET_BG3HOFS, 0);
+        SetGpuReg(REG_OFFSET_BG3VOFS, (u16)(GetBgY(3) >> 8));
+    }
     TransferPlttBuffer();
-    TransferTilesetAnimsBuffer();
+    if (!IsStartMenuScrollBgActive())
+        TransferTilesetAnimsBuffer();
 }
 
 static void InitCurrentFlashLevelScanlineEffect(void)

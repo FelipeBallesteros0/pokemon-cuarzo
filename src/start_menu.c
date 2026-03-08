@@ -9,6 +9,7 @@
 #include "event_object_lock.h"
 #include "event_scripts.h"
 #include "fieldmap.h"
+#include "field_camera.h"
 #include "field_effect.h"
 #include "field_player_avatar.h"
 #include "field_specials.h"
@@ -94,6 +95,11 @@ EWRAM_DATA static u8 (*sSaveDialogCallback)(void) = NULL;
 EWRAM_DATA static u8 sSaveDialogTimer = 0;
 EWRAM_DATA static bool8 sSavingComplete = FALSE;
 EWRAM_DATA static u8 sSaveInfoWindowId = 0;
+EWRAM_DATA static bool8 sStartMenuScrollBgActive = FALSE;
+EWRAM_DATA static bool8 sStartMenuObjWasEnabled = FALSE;
+EWRAM_DATA static u16 sStartMenuScrollBgTilemapPal15[32 * 32];
+EWRAM_DATA static u16 sStartMenuScrollBgTilemapBuffer[32 * 32];
+EWRAM_DATA static void *sStartMenuSavedBg3TilemapBuffer = NULL;
 
 // Menu action callbacks
 static bool8 StartMenuPokedexCallback(void);
@@ -244,6 +250,10 @@ static const struct WindowTemplate sSaveInfoWindowTemplate = {
     .baseBlock = 8
 };
 
+static const u8 sStartMenuScrollBgTiles[] = INCBIN_U8("graphics/ui_startmenu_full/pause_scroll.img.bin");
+static const u16 sStartMenuScrollBgTilemap[] = INCBIN_U16("graphics/ui_startmenu_full/pause_scroll.map.bin");
+static const u16 sStartMenuScrollBgPalette[] = INCBIN_U16("graphics/ui_startmenu_full/pause_scroll.pal.bin");
+
 // Local functions
 static void BuildStartMenuActions(void);
 static void AddStartMenuAction(u8 action);
@@ -278,6 +288,9 @@ static void ShowSaveInfoWindow(void);
 static void RemoveSaveInfoWindow(void);
 static void HideStartMenuWindow(void);
 static void HideStartMenuDebug(void);
+static void StartMenu_EnableScrollingBg(void);
+static void StartMenu_UpdateScrollingBg(void);
+static void StartMenu_DisableScrollingBg(void);
 
 void SetDexPokemonPokenavFlags(void) // unused
 {
@@ -513,6 +526,7 @@ static bool32 InitStartMenuStep(void)
     switch (state)
     {
     case 0:
+        StartMenu_EnableScrollingBg();
         sInitStartMenuData[0]++;
         break;
     case 1:
@@ -621,6 +635,8 @@ void ShowStartMenu(void)
 
 static bool8 HandleStartMenuInput(void)
 {
+    StartMenu_UpdateScrollingBg();
+
     if (JOY_NEW(DPAD_UP))
     {
         PlaySE(SE_SELECT);
@@ -807,6 +823,7 @@ static bool8 StartMenuSafariZoneRetireCallback(void)
 static void HideStartMenuDebug(void)
 {
     PlaySE(SE_SELECT);
+    StartMenu_DisableScrollingBg();
     ClearStdWindowAndFrame(GetStartMenuWindowId(), TRUE);
     RemoveStartMenuWindow();
 }
@@ -1470,16 +1487,80 @@ void SaveForBattleTowerLink(void)
 
 static void HideStartMenuWindow(void)
 {
+    StartMenu_DisableScrollingBg();
     ClearStdWindowAndFrame(GetStartMenuWindowId(), TRUE);
     RemoveStartMenuWindow();
     ScriptUnfreezeObjectEvents();
     UnlockPlayerFieldControls();
 }
 
+static void StartMenu_EnableScrollingBg(void)
+{
+    u16 i;
+
+    // Force the scroll background tilemap to use palette slot 14 to avoid clashing
+    // with the active overworld palettes.
+    for (i = 0; i < ARRAY_COUNT(sStartMenuScrollBgTilemapPal15); i++)
+        sStartMenuScrollBgTilemapPal15[i] = (sStartMenuScrollBgTilemap[i] & 0x0FFF) | (14 << 12);
+
+    sStartMenuSavedBg3TilemapBuffer = GetBgTilemapBuffer(3);
+    SetBgTilemapBuffer(3, sStartMenuScrollBgTilemapBuffer);
+    LoadBgTiles(3, sStartMenuScrollBgTiles, sizeof(sStartMenuScrollBgTiles), 0);
+    CopyToBgTilemapBuffer(3, sStartMenuScrollBgTilemapPal15, 0, 0);
+    LoadPalette(sStartMenuScrollBgPalette, BG_PLTT_ID(14), sizeof(sStartMenuScrollBgPalette));
+    ChangeBgY(3, 0, BG_COORD_SET);
+    CopyBgTilemapBufferToVram(3);
+    HideBg(1);
+    HideBg(2);
+    sStartMenuObjWasEnabled = (GetGpuReg(REG_OFFSET_DISPCNT) & DISPCNT_OBJ_ON) != 0;
+    if (sStartMenuObjWasEnabled)
+        ClearGpuRegBits(REG_OFFSET_DISPCNT, DISPCNT_OBJ_ON);
+    sStartMenuScrollBgActive = TRUE;
+}
+
+static void StartMenu_UpdateScrollingBg(void)
+{
+    if (sStartMenuScrollBgActive)
+    {
+        // Overworld camera updates can still write to BG3 while paused.
+        // Re-apply our tilemap each frame to keep a stable background.
+        CopyToBgTilemapBuffer(3, sStartMenuScrollBgTilemapPal15, 0, 0);
+        CopyBgTilemapBufferToVram(3);
+        ChangeBgY(3, 64, BG_COORD_SUB);
+    }
+}
+
+static void StartMenu_DisableScrollingBg(void)
+{
+    if (!sStartMenuScrollBgActive)
+        return;
+
+    if (sStartMenuObjWasEnabled)
+        SetGpuRegBits(REG_OFFSET_DISPCNT, DISPCNT_OBJ_ON);
+    ShowBg(1);
+    ShowBg(2);
+    if (sStartMenuSavedBg3TilemapBuffer != NULL)
+    {
+        SetBgTilemapBuffer(3, sStartMenuSavedBg3TilemapBuffer);
+        sStartMenuSavedBg3TilemapBuffer = NULL;
+    }
+    ChangeBgY(3, 0, BG_COORD_SET);
+    DrawWholeMapView();
+    ScheduleBgCopyTilemapToVram(1);
+    ScheduleBgCopyTilemapToVram(2);
+    ScheduleBgCopyTilemapToVram(3);
+    sStartMenuScrollBgActive = FALSE;
+}
+
 void HideStartMenu(void)
 {
     PlaySE(SE_SELECT);
     HideStartMenuWindow();
+}
+
+bool8 IsStartMenuScrollBgActive(void)
+{
+    return sStartMenuScrollBgActive;
 }
 
 void AppendToList(u8 *list, u8 *pos, u8 newEntry)
