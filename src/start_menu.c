@@ -42,6 +42,7 @@
 #include "task.h"
 #include "text.h"
 #include "text_window.h"
+#include "tileset_anims.h"
 #include "trainer_card.h"
 #include "window.h"
 #include "union_room.h"
@@ -1497,6 +1498,8 @@ static void StartMenu_EnableScrollingBg(void)
 {
     sStartMenuSavedBg3TilemapBuffer = GetBgTilemapBuffer(3);
     SetBgTilemapBuffer(3, sStartMenuScrollBgTilemapBuffer);
+    SetBgAttribute(3, BG_ATTR_CHARBASEINDEX, 3);
+    ShowBg(3);
     LoadBgTiles(3, sStartMenuScrollBgTiles, sizeof(sStartMenuScrollBgTiles), 0);
     CopyToBgTilemapBuffer(3, sStartMenuScrollBgTilemap, 0, 0);
     LoadPalette(sStartMenuScrollBgPalette, BG_PLTT_ID(1), sizeof(sStartMenuScrollBgPalette));
@@ -1537,6 +1540,13 @@ static void StartMenu_DisableScrollingBg(void)
         SetBgTilemapBuffer(3, sStartMenuSavedBg3TilemapBuffer);
         sStartMenuSavedBg3TilemapBuffer = NULL;
     }
+    CopyMapTilesetsToVram(gMapHeader.mapLayout);
+    LoadMapTilesetPalettes(gMapHeader.mapLayout);
+    InitTilesetAnimations();
+    UpdateTilesetAnimations();
+    TransferTilesetAnimsBuffer();
+    SetBgAttribute(3, BG_ATTR_CHARBASEINDEX, 0);
+    ShowBg(3);
     ChangeBgY(3, 0, BG_COORD_SET);
     DrawWholeMapView();
     ScheduleBgCopyTilemapToVram(1);
