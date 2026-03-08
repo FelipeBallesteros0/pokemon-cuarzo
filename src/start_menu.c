@@ -99,6 +99,7 @@ EWRAM_DATA static bool8 sSavingComplete = FALSE;
 EWRAM_DATA static u8 sSaveInfoWindowId = 0;
 EWRAM_DATA static bool8 sStartMenuScrollBgActive = FALSE;
 EWRAM_DATA static bool8 sStartMenuObjWasEnabled = FALSE;
+EWRAM_DATA static bool8 sStartMenuTransitionPendingUnblank = FALSE;
 EWRAM_DATA static u16 sStartMenuScrollBgTilemapBuffer[32 * 32];
 EWRAM_DATA static void *sStartMenuSavedBg3TilemapBuffer = NULL;
 
@@ -581,8 +582,8 @@ static void InitStartMenu(void)
 
 static void StartMenuTask(u8 taskId)
 {
-    if (InitStartMenuStep() == TRUE)
-        SwitchTaskToFollowupFunc(taskId);
+    InitStartMenu();
+    SwitchTaskToFollowupFunc(taskId);
 }
 
 static void CreateStartMenuTask(TaskFunc followupFunc)
@@ -1513,10 +1514,11 @@ static void HideStartMenuWindow(void)
 
 static void StartMenu_EnableScrollingBg(void)
 {
+    sStartMenuTransitionPendingUnblank = TRUE;
+    SetGpuRegBits(REG_OFFSET_DISPCNT, DISPCNT_FORCED_BLANK);
     sStartMenuSavedBg3TilemapBuffer = GetBgTilemapBuffer(3);
     SetBgTilemapBuffer(3, sStartMenuScrollBgTilemapBuffer);
     SetBgAttribute(3, BG_ATTR_CHARBASEINDEX, 3);
-    ShowBg(3);
     LoadBgTiles(3, sStartMenuScrollBgTiles, sizeof(sStartMenuScrollBgTiles), 0);
     CopyToBgTilemapBuffer(3, sStartMenuScrollBgTilemap, 0, 0);
     LoadPalette(sStartMenuScrollBgPalette, BG_PLTT_ID(1), sizeof(sStartMenuScrollBgPalette));
@@ -1524,6 +1526,7 @@ static void StartMenu_EnableScrollingBg(void)
     CopyBgTilemapBufferToVram(3);
     HideBg(1);
     HideBg(2);
+    ShowBg(3);
     sStartMenuObjWasEnabled = (GetGpuReg(REG_OFFSET_DISPCNT) & DISPCNT_OBJ_ON) != 0;
     if (sStartMenuObjWasEnabled)
         ClearGpuRegBits(REG_OFFSET_DISPCNT, DISPCNT_OBJ_ON);
@@ -1534,11 +1537,7 @@ static void StartMenu_UpdateScrollingBg(void)
 {
     if (sStartMenuScrollBgActive)
     {
-        // Overworld camera updates can still write to BG3 while paused.
-        // Re-apply our tiles/tilemap each frame to keep a stable background.
-        LoadBgTiles(3, sStartMenuScrollBgTiles, sizeof(sStartMenuScrollBgTiles), 0);
-        CopyBgTilemapBufferToVram(3);
-        LoadPalette(sStartMenuScrollBgPalette, BG_PLTT_ID(1), sizeof(sStartMenuScrollBgPalette));
+        // Keep the animation lightweight to avoid transition artifacts.
         ChangeBgY(3, 64, BG_COORD_SUB);
     }
 }
@@ -1548,10 +1547,13 @@ static void StartMenu_DisableScrollingBg(void)
     if (!sStartMenuScrollBgActive)
         return;
 
+    sStartMenuScrollBgActive = FALSE;
+    sStartMenuTransitionPendingUnblank = TRUE;
+    SetGpuRegBits(REG_OFFSET_DISPCNT, DISPCNT_FORCED_BLANK);
     if (sStartMenuObjWasEnabled)
         SetGpuRegBits(REG_OFFSET_DISPCNT, DISPCNT_OBJ_ON);
-    ShowBg(1);
-    ShowBg(2);
+    HideBg(1);
+    HideBg(2);
     if (sStartMenuSavedBg3TilemapBuffer != NULL)
     {
         SetBgTilemapBuffer(3, sStartMenuSavedBg3TilemapBuffer);
@@ -1566,10 +1568,11 @@ static void StartMenu_DisableScrollingBg(void)
     ShowBg(3);
     ChangeBgY(3, 0, BG_COORD_SET);
     DrawWholeMapView();
-    ScheduleBgCopyTilemapToVram(1);
-    ScheduleBgCopyTilemapToVram(2);
-    ScheduleBgCopyTilemapToVram(3);
-    sStartMenuScrollBgActive = FALSE;
+    CopyBgTilemapBufferToVram(1);
+    CopyBgTilemapBufferToVram(2);
+    CopyBgTilemapBufferToVram(3);
+    ShowBg(1);
+    ShowBg(2);
 }
 
 void HideStartMenu(void)
@@ -1581,6 +1584,15 @@ void HideStartMenu(void)
 bool8 IsStartMenuScrollBgActive(void)
 {
     return sStartMenuScrollBgActive;
+}
+
+void StartMenu_ProcessTransition(void)
+{
+    if (sStartMenuTransitionPendingUnblank && !IsDma3ManagerBusyWithBgCopy())
+    {
+        ClearGpuRegBits(REG_OFFSET_DISPCNT, DISPCNT_FORCED_BLANK);
+        sStartMenuTransitionPendingUnblank = FALSE;
+    }
 }
 
 void AppendToList(u8 *list, u8 *pos, u8 newEntry)
