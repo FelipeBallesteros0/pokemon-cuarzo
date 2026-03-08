@@ -287,6 +287,7 @@ static const struct WindowTemplate sWindowTemplate_StartMenuButtonsText =
     .paletteNum = 15,
     .baseBlock = START_MENU_BUTTON_TEXT_BASEBLOCK
 };
+static const u8 sStartMenuButtonTextColors[] = {TEXT_COLOR_TRANSPARENT, TEXT_COLOR_WHITE, TEXT_COLOR_DARK_GRAY};
 
 // Local functions
 static void BuildStartMenuActions(void);
@@ -1665,7 +1666,7 @@ static void StartMenu_DrawButtonText(void)
         width = GetStringWidth(FONT_NORMAL, label, 0);
         x = (slot % 3) * 64 + ((64 - width) / 2);
         y = (slot / 3) * 32 + 12;
-        AddTextPrinterParameterized(sStartMenuButtonTextWindowId, FONT_NORMAL, label, x, y, TEXT_SKIP_DRAW, NULL);
+        AddTextPrinterParameterized3(sStartMenuButtonTextWindowId, FONT_NORMAL, x, y, sStartMenuButtonTextColors, TEXT_SKIP_DRAW, label);
     }
 
     PutWindowTilemap(sStartMenuButtonTextWindowId);
