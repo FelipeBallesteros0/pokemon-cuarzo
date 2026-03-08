@@ -103,6 +103,17 @@ EWRAM_DATA static bool8 sStartMenuTransitionPendingUnblank = FALSE;
 EWRAM_DATA static u16 sStartMenuScrollBgTilemapBuffer[32 * 32];
 EWRAM_DATA static void *sStartMenuSavedBg3TilemapBuffer = NULL;
 
+#define START_MENU_BUTTON_PAL_SLOT 13
+#define START_MENU_BUTTON_WIDTH_TILES 8
+#define START_MENU_BUTTON_HEIGHT_TILES 4
+#define START_MENU_BUTTON_GRID_COLUMNS 3
+#define START_MENU_BUTTON_GRID_ROWS 3
+#define START_MENU_BUTTON_GRID_X 1
+#define START_MENU_BUTTON_GRID_Y 3
+#define START_MENU_BUTTON_GRID_X_SPACING 9
+#define START_MENU_BUTTON_GRID_Y_SPACING 5
+#define START_MENU_BUTTON_BASE_TILE 0x260
+
 // Menu action callbacks
 static bool8 StartMenuPokedexCallback(void);
 static bool8 StartMenuPokemonCallback(void);
@@ -255,6 +266,8 @@ static const struct WindowTemplate sSaveInfoWindowTemplate = {
 static const u8 sStartMenuScrollBgTiles[] = INCBIN_U8("graphics/ui_startmenu_full/pause_scroll.img.bin");
 static const u16 sStartMenuScrollBgTilemap[] = INCBIN_U16("graphics/ui_startmenu_full/pause_scroll.map.bin");
 static const u16 sStartMenuScrollBgPalette[] = INCBIN_U16("graphics/ui_startmenu_full/pause_scroll.pal.bin");
+static const u8 sStartMenuButtonTiles[] = INCBIN_U8("graphics/ui_startmenu_full/boton.4bpp");
+static const u16 sStartMenuButtonPalette[] = INCBIN_U16("graphics/ui_startmenu_full/boton.gbapal");
 
 // Local functions
 static void BuildStartMenuActions(void);
@@ -293,6 +306,7 @@ static void HideStartMenuDebug(void);
 static void StartMenu_EnableScrollingBg(void);
 static void StartMenu_UpdateScrollingBg(void);
 static void StartMenu_DisableScrollingBg(void);
+static void StartMenu_DrawButtonGrid(void);
 
 void SetDexPokemonPokenavFlags(void) // unused
 {
@@ -1512,6 +1526,36 @@ static void HideStartMenuWindow(void)
     UnlockPlayerFieldControls();
 }
 
+static void StartMenu_DrawButtonGrid(void)
+{
+    u16 *bg0TilemapBuffer = GetBgTilemapBuffer(0);
+    u16 x, y, bx, by;
+
+    if (bg0TilemapBuffer == NULL)
+        return;
+
+    for (by = 0; by < START_MENU_BUTTON_GRID_ROWS; by++)
+    {
+        for (bx = 0; bx < START_MENU_BUTTON_GRID_COLUMNS; bx++)
+        {
+            const u16 originX = START_MENU_BUTTON_GRID_X + bx * START_MENU_BUTTON_GRID_X_SPACING;
+            const u16 originY = START_MENU_BUTTON_GRID_Y + by * START_MENU_BUTTON_GRID_Y_SPACING;
+
+            for (y = 0; y < START_MENU_BUTTON_HEIGHT_TILES; y++)
+            {
+                for (x = 0; x < START_MENU_BUTTON_WIDTH_TILES; x++)
+                {
+                    const u16 tileId = START_MENU_BUTTON_BASE_TILE + y * START_MENU_BUTTON_WIDTH_TILES + x;
+                    const u16 entry = tileId | (START_MENU_BUTTON_PAL_SLOT << 12);
+                    const u16 dstX = originX + x;
+                    const u16 dstY = originY + y;
+                    bg0TilemapBuffer[dstY * 32 + dstX] = entry;
+                }
+            }
+        }
+    }
+}
+
 static void StartMenu_EnableScrollingBg(void)
 {
     u16 i;
@@ -1538,6 +1582,9 @@ static void StartMenu_EnableScrollingBg(void)
     bg0CharBase = GetBgAttribute(0, BG_ATTR_CHARBASEINDEX);
     CpuFill16(0, (void *)BG_CHAR_ADDR(bg0CharBase), TILE_SIZE_4BPP);
     FillBgTilemapBufferRect_Palette0(0, 0, 0, 0, 32, 32);
+    LoadBgTiles(0, sStartMenuButtonTiles, sizeof(sStartMenuButtonTiles), START_MENU_BUTTON_BASE_TILE);
+    LoadPalette(sStartMenuButtonPalette, BG_PLTT_ID(START_MENU_BUTTON_PAL_SLOT), sizeof(sStartMenuButtonPalette));
+    StartMenu_DrawButtonGrid();
     CopyBgTilemapBufferToVram(0);
 
     ShowBg(3);
