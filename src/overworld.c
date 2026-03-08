@@ -1703,6 +1703,7 @@ u8 UpdateSpritePaletteWithTime(u8 paletteNum)
 
 static void OverworldBasic(void)
 {
+    StartMenu_ProcessTransition();
     ScriptContext_RunScript();
     RunTasks();
     AnimateSprites();
