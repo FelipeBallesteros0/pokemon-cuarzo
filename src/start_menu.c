@@ -1606,6 +1606,8 @@ static void StartMenu_UpdateScrollingBg(void)
 
 static void StartMenu_DisableScrollingBg(void)
 {
+    u8 bg0CharBase;
+
     if (!sStartMenuScrollBgActive)
         return;
 
@@ -1629,6 +1631,13 @@ static void StartMenu_DisableScrollingBg(void)
     SetBgAttribute(3, BG_ATTR_CHARBASEINDEX, 0);
     ShowBg(3);
     ChangeBgY(3, 0, BG_COORD_SET);
+
+    // Remove the temporary fixed button grid from BG0 when closing Start Menu.
+    bg0CharBase = GetBgAttribute(0, BG_ATTR_CHARBASEINDEX);
+    CpuFill16(0, (void *)BG_CHAR_ADDR(bg0CharBase), TILE_SIZE_4BPP);
+    FillBgTilemapBufferRect_Palette0(0, 0, 0, 0, 32, 32);
+    CopyBgTilemapBufferToVram(0);
+
     DrawWholeMapView();
     CopyBgTilemapBufferToVram(1);
     CopyBgTilemapBufferToVram(2);
