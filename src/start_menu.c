@@ -252,9 +252,9 @@ static const struct WindowTemplate sSaveInfoWindowTemplate = {
     .baseBlock = 8
 };
 
-static const u8 sStartMenuScrollBgTiles[] = INCBIN_U8("graphics/ui_startmenu_full/scroll_tiles.4bpp");
-static const u32 sStartMenuScrollBgTilemap[] = INCBIN_U32("graphics/ui_startmenu_full/scroll_tilemap.bin.lz");
-static const u16 sStartMenuScrollBgPalette[] = INCBIN_U16("graphics/ui_startmenu_full/scroll_tiles.gbapal");
+static const u8 sStartMenuScrollBgTiles[] = INCBIN_U8("graphics/ui_startmenu_full/pause_scroll.img.bin");
+static const u16 sStartMenuScrollBgTilemap[] = INCBIN_U16("graphics/ui_startmenu_full/pause_scroll.map.bin");
+static const u16 sStartMenuScrollBgPalette[] = INCBIN_U16("graphics/ui_startmenu_full/pause_scroll.pal.bin");
 
 // Local functions
 static void BuildStartMenuActions(void);
@@ -1514,18 +1514,32 @@ static void HideStartMenuWindow(void)
 
 static void StartMenu_EnableScrollingBg(void)
 {
+    u16 i;
+    u8 bg0CharBase;
+
     sStartMenuTransitionPendingUnblank = TRUE;
     SetGpuRegBits(REG_OFFSET_DISPCNT, DISPCNT_FORCED_BLANK);
     sStartMenuSavedBg3TilemapBuffer = GetBgTilemapBuffer(3);
     SetBgTilemapBuffer(3, sStartMenuScrollBgTilemapBuffer);
-    SetBgAttribute(3, BG_ATTR_CHARBASEINDEX, 3);
+    // BG3 uses mapBaseIndex 30 in overworld, so charbase 3 would overlap map VRAM.
+    // Use charbase 1 to keep tile graphics and tilemap in separate VRAM regions.
+    SetBgAttribute(3, BG_ATTR_CHARBASEINDEX, 1);
     LoadBgTiles(3, sStartMenuScrollBgTiles, sizeof(sStartMenuScrollBgTiles), 0);
-    CopyToBgTilemapBuffer(3, sStartMenuScrollBgTilemap, 0, 0);
-    LoadPalette(sStartMenuScrollBgPalette, BG_PLTT_ID(1), sizeof(sStartMenuScrollBgPalette));
+    CopyToBgTilemapBuffer(3, sStartMenuScrollBgTilemap, sizeof(sStartMenuScrollBgTilemap), 0);
+    for (i = 0; i < ARRAY_COUNT(sStartMenuScrollBgTilemapBuffer); i++)
+        sStartMenuScrollBgTilemapBuffer[i] = (sStartMenuScrollBgTilemapBuffer[i] & 0x0FFF) | (12 << 12);
+    LoadPalette(sStartMenuScrollBgPalette, BG_PLTT_ID(12), sizeof(sStartMenuScrollBgPalette));
     ChangeBgY(3, 0, BG_COORD_SET);
     CopyBgTilemapBufferToVram(3);
     HideBg(1);
     HideBg(2);
+
+    // Ensure BG0 is transparent outside menu windows so BG3 background is visible.
+    bg0CharBase = GetBgAttribute(0, BG_ATTR_CHARBASEINDEX);
+    CpuFill16(0, (void *)BG_CHAR_ADDR(bg0CharBase), TILE_SIZE_4BPP);
+    FillBgTilemapBufferRect_Palette0(0, 0, 0, 0, 32, 32);
+    CopyBgTilemapBufferToVram(0);
+
     ShowBg(3);
     sStartMenuObjWasEnabled = (GetGpuReg(REG_OFFSET_DISPCNT) & DISPCNT_OBJ_ON) != 0;
     if (sStartMenuObjWasEnabled)
@@ -1538,6 +1552,7 @@ static void StartMenu_UpdateScrollingBg(void)
     if (sStartMenuScrollBgActive)
     {
         // Keep the animation lightweight to avoid transition artifacts.
+        LoadPalette(sStartMenuScrollBgPalette, BG_PLTT_ID(12), sizeof(sStartMenuScrollBgPalette));
         ChangeBgY(3, 64, BG_COORD_SUB);
     }
 }
