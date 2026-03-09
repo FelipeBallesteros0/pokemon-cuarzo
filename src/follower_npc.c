@@ -53,6 +53,7 @@ static void SetFollowerNPCScriptPointer(const u8 *script);
 static void PlayerLogCoordinates(struct ObjectEvent *player);
 static void TurnNPCIntoFollower(u32 localId, u32 followerFlags, u32 setScript, const u8 *script);
 static u32 GetFollowerNPCSprite(void);
+static u32 GetFollowerNPCFieldMoveSprite(void);
 static bool32 FollowerNPCHasRunningFrames(void);
 static bool32 IsStateMovement(u32 state);
 static u32 GetNewPlayerMovementDirection(u32 state);
@@ -65,6 +66,7 @@ static void SetUpSurfBlobFieldEffect(struct ObjectEvent *npc);
 static u8 CreateFollowerSurfMountSprite(struct ObjectEvent *follower);
 static void DestroyFollowerSurfMountSprite(struct ObjectEvent *follower);
 static void SpriteCB_FollowerSurfMount(struct Sprite *sprite);
+static void Task_FollowerSurfFieldMovePose(u8 taskId);
 static void Task_CreateFollowerSurfMountAfterJump(u8 taskId);
 static void SetSurfDismount(void);
 static void Task_BindSurfBlobToFollowerNPC(u8 taskId);
@@ -274,6 +276,23 @@ static u32 GetFollowerNPCSprite(void)
     }
 
     return GetFollowerNPCData(FNPC_DATA_GFX_ID);
+}
+
+static u32 GetFollowerNPCFieldMoveSprite(void)
+{
+    switch (GetFollowerNPCData(FNPC_DATA_GFX_ID))
+    {
+    case OBJ_EVENT_GFX_MAY_NORMAL:
+        return OBJ_EVENT_GFX_MAY_FIELD_MOVE;
+    case OBJ_EVENT_GFX_BRENDAN_NORMAL:
+        return OBJ_EVENT_GFX_BRENDAN_FIELD_MOVE;
+    case OBJ_EVENT_GFX_RIVAL_MAY_NORMAL:
+        return OBJ_EVENT_GFX_RIVAL_MAY_FIELD_MOVE;
+    case OBJ_EVENT_GFX_RIVAL_BRENDAN_NORMAL:
+        return OBJ_EVENT_GFX_RIVAL_BRENDAN_FIELD_MOVE;
+    default:
+        return GetFollowerNPCData(FNPC_DATA_GFX_ID);
+    }
 }
 
 static bool32 FollowerNPCHasRunningFrames(void)
@@ -686,6 +705,35 @@ static void Task_BindSurfBlobToFollowerNPC(u8 taskId)
     DestroyTask(taskId);
     gPlayerAvatar.preventStep = FALSE;
     return;
+}
+
+static void Task_FollowerSurfFieldMovePose(u8 taskId)
+{
+    struct ObjectEvent *follower;
+
+    if (!PlayerHasFollowerNPC())
+    {
+        gPlayerAvatar.preventStep = FALSE;
+        DestroyTask(taskId);
+        return;
+    }
+
+    follower = &gObjectEvents[GetFollowerNPCObjectId()];
+    if (!follower->active)
+    {
+        gPlayerAvatar.preventStep = FALSE;
+        DestroyTask(taskId);
+        return;
+    }
+
+    // Prefer waiting until the held movement ends, but some follower gfx don't have a full
+    // field-move anim sequence; timeout avoids softlock and player movement lock.
+    if (ObjectEventClearHeldMovementIfFinished(follower) == 0
+     && ++gTasks[taskId].data[0] < 24)
+        return;
+
+    SetSurfJump();
+    DestroyTask(taskId);
 }
 
 static void Task_CreateFollowerSurfMountAfterJump(u8 taskId)
@@ -1389,14 +1437,21 @@ void NPCFollow(struct ObjectEvent *npc, u32 state, bool32 ignoreScriptActive)
             follower->fieldEffectSpriteId = FieldEffectStart(FLDEFF_SURF_BLOB);
             SetSurfBlob_BobState(follower->fieldEffectSpriteId, 1);
         }
-        else if (GetFollowerNPCData(FNPC_DATA_SURF_BLOB) == FNPC_SURF_BLOB_RECREATE && FNPC_USE_SURF_MOUNT_SPRITE == TRUE)
-        {
-            follower->fieldEffectSpriteId = CreateFollowerSurfMountSprite(follower);
-        }
-        else
+    else if (GetFollowerNPCData(FNPC_DATA_SURF_BLOB) == FNPC_SURF_BLOB_RECREATE && FNPC_USE_SURF_MOUNT_SPRITE == TRUE)
+    {
+        follower->fieldEffectSpriteId = CreateFollowerSurfMountSprite(follower);
+    }
+    else
         {
             TryUpdateFollowerNPCSpriteUnderwater();
         }
+    }
+
+    // While follower is playing the pre-surf field move pose, avoid overriding its held movement.
+    if (FindTaskIdByFunc(Task_FollowerSurfFieldMovePose) != TASK_NONE)
+    {
+        ObjectEventClearHeldMovementIfFinished(follower);
+        return;
     }
 
     dir = DetermineFollowerNPCDirection(player, follower);
@@ -1419,7 +1474,17 @@ void NPCFollow(struct ObjectEvent *npc, u32 state, bool32 ignoreScriptActive)
     {
         SetFollowerNPCData(FNPC_DATA_SURF_BLOB, FNPC_SURF_BLOB_RECREATE);
         gPlayerAvatar.preventStep = TRUE;
-        SetSurfJump();
+        if (FNPC_SHOW_SURF_BLOB == FALSE && FNPC_USE_SURF_MOUNT_SPRITE == TRUE)
+        {
+            ObjectEventSetGraphicsId(follower, GetFollowerNPCFieldMoveSprite());
+            ObjectEventTurn(follower, follower->movementDirection);
+            ObjectEventSetHeldMovement(follower, MOVEMENT_ACTION_START_ANIM_IN_DIRECTION);
+            CreateTask(Task_FollowerSurfFieldMovePose, 1);
+        }
+        else
+        {
+            SetSurfJump();
+        }
         ObjectEventClearHeldMovementIfFinished(follower);
         return;
     }
