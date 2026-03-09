@@ -120,6 +120,7 @@ EWRAM_DATA static u8 sStartMenuSelectedGridSlot = 0;
 #define START_MENU_BUTTON_BASE_TILE 0x140
 #define START_MENU_BUTTON_SELECTED_BASE_TILE 0x160
 #define START_MENU_BUTTON_TEXT_BASEBLOCK 0x80
+#define START_MENU_BAR_TILE 0x1F0
 
 // Menu action callbacks
 static bool8 StartMenuPokedexCallback(void);
@@ -320,6 +321,7 @@ static void StartMenu_EnableScrollingBg(void);
 static void StartMenu_UpdateScrollingBg(void);
 static void StartMenu_DisableScrollingBg(void);
 static void StartMenu_DrawButtonGrid(void);
+static void StartMenu_DrawEdgeBars(void);
 static void StartMenu_DrawButtonText(void);
 static void StartMenu_RemoveButtonTextWindow(void);
 static void StartMenu_BuildButtonPaletteByGender(void);
@@ -1649,6 +1651,7 @@ static void StartMenu_LoadTextPalette(void)
     LoadPalette(&sStartMenuButtonPaletteDynamic[2],           BG_PLTT_ID(START_MENU_TEXT_PAL_SLOT) + 1, PLTT_SIZEOF(1)); // idx 1 bg
     LoadPalette(&sStartMenuStrongBlack,                       BG_PLTT_ID(START_MENU_TEXT_PAL_SLOT) + 2, PLTT_SIZEOF(1)); // idx 2 fg
     LoadPalette(&gStandardMenuPalette[TEXT_COLOR_LIGHT_GRAY], BG_PLTT_ID(START_MENU_TEXT_PAL_SLOT) + 3, PLTT_SIZEOF(1)); // idx 3 shadow
+    LoadPalette(&sStartMenuStrongBlack,                       BG_PLTT_ID(START_MENU_TEXT_PAL_SLOT) + 5, PLTT_SIZEOF(1)); // idx 5 bar fill
 }
 
 static void StartMenu_BuildButtonPaletteByGender(void)
@@ -1782,6 +1785,32 @@ static void StartMenu_DrawButtonGrid(void)
     }
 }
 
+static void StartMenu_DrawEdgeBars(void)
+{
+    u16 *bg0TilemapBuffer = GetBgTilemapBuffer(0);
+    u16 x, y;
+    u16 entry;
+
+    if (bg0TilemapBuffer == NULL)
+        return;
+
+    entry = START_MENU_BAR_TILE | (START_MENU_TEXT_PAL_SLOT << 12);
+
+    // Top edge bar: rows 0-1 (16 px).
+    for (y = 0; y < 2; y++)
+    {
+        for (x = 0; x < 30; x++)
+            bg0TilemapBuffer[y * 32 + x] = entry;
+    }
+
+    // Bottom edge bar: rows 18-19 (16 px).
+    for (y = 18; y < 20; y++)
+    {
+        for (x = 0; x < 30; x++)
+            bg0TilemapBuffer[y * 32 + x] = entry;
+    }
+}
+
 static void StartMenu_RefreshCustomMenuVisuals(void)
 {
     u16 *bg0TilemapBuffer = GetBgTilemapBuffer(0);
@@ -1798,6 +1827,7 @@ static void StartMenu_RefreshCustomMenuVisuals(void)
     LoadBgTiles(0, sStartMenuButtonSelectedTiles, sizeof(sStartMenuButtonSelectedTiles), START_MENU_BUTTON_SELECTED_BASE_TILE);
 
     StartMenu_DrawButtonGrid();
+    StartMenu_DrawEdgeBars();
 
     slotX = sStartMenuSelectedGridSlot % START_MENU_BUTTON_GRID_COLUMNS;
     slotY = sStartMenuSelectedGridSlot / START_MENU_BUTTON_GRID_COLUMNS;
@@ -1869,6 +1899,8 @@ static void StartMenu_EnableScrollingBg(void)
     // Ensure BG0 is transparent outside menu windows so BG3 background is visible.
     bg0CharBase = GetBgAttribute(0, BG_ATTR_CHARBASEINDEX);
     CpuFill16(0, (void *)BG_CHAR_ADDR(bg0CharBase), TILE_SIZE_4BPP);
+    // Build a solid tile using color index 5 (black) for edge bars.
+    CpuFill16(0x5555, (void *)(BG_CHAR_ADDR(bg0CharBase) + START_MENU_BAR_TILE * TILE_SIZE_4BPP), TILE_SIZE_4BPP);
     FillBgTilemapBufferRect_Palette0(0, 0, 0, 0, 32, 32);
     LoadBgTiles(0, sStartMenuButtonTiles, sizeof(sStartMenuButtonTiles), START_MENU_BUTTON_BASE_TILE);
     LoadBgTiles(0, sStartMenuButtonSelectedTiles, sizeof(sStartMenuButtonSelectedTiles), START_MENU_BUTTON_SELECTED_BASE_TILE);
