@@ -1853,6 +1853,8 @@ static void StartMenu_UpdateScrollingBg(void)
     if (sStartMenuScrollBgActive)
     {
         StartMenu_LoadTextPalette();
+        // Some return-to-field flows can leave this tile range altered; refresh highlight tiles.
+        LoadBgTiles(0, sStartMenuButtonSelectedTiles, sizeof(sStartMenuButtonSelectedTiles), START_MENU_BUTTON_SELECTED_BASE_TILE);
         // Keep the animation lightweight to avoid transition artifacts.
         LoadPalette(sStartMenuScrollBgPalette, BG_PLTT_ID(12), sizeof(sStartMenuScrollBgPalette));
         ChangeBgY(3, 64, BG_COORD_SUB);
