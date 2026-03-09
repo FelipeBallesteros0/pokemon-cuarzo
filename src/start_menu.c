@@ -116,10 +116,10 @@ EWRAM_DATA static u8 sStartMenuSelectedGridSlot = 0;
 #define START_MENU_BUTTON_GRID_Y 3
 #define START_MENU_BUTTON_GRID_X_SPACING 9
 #define START_MENU_BUTTON_GRID_Y_SPACING 5
-#define START_MENU_BUTTON_BASE_TILE 0x1D0
-// Keep selected button tiles away from message/std window gfx (0x200/0x214).
-#define START_MENU_BUTTON_SELECTED_BASE_TILE 0x300
-#define START_MENU_BUTTON_TEXT_BASEBLOCK 0x240
+// BG0 in overworld uses charbase 2; keep custom tiles below 0x200 to avoid spilling into map VRAM.
+#define START_MENU_BUTTON_BASE_TILE 0x140
+#define START_MENU_BUTTON_SELECTED_BASE_TILE 0x160
+#define START_MENU_BUTTON_TEXT_BASEBLOCK 0x80
 
 // Menu action callbacks
 static bool8 StartMenuPokedexCallback(void);
@@ -573,6 +573,8 @@ static bool32 InitStartMenuStep(void)
         AddStartMenuWindow(sNumStartMenuActions); // Kept for save/retire flows that remove this window.
         StartMenu_BuildGridActionMap();
         StartMenu_RefreshCustomMenuVisuals();
+        // Unblank only after all start menu visuals are fully prepared.
+        sStartMenuTransitionPendingUnblank = TRUE;
         sInitStartMenuData[0]++;
         break;
     case 3:
@@ -638,6 +640,9 @@ void Task_ShowStartMenu(u8 taskId)
         if (InUnionRoom() == TRUE)
             SetUsingUnionRoomStartMenu();
 
+        // After returning from submenus, force a clean redraw before handling input.
+        LoadBgTiles(0, sStartMenuButtonSelectedTiles, sizeof(sStartMenuButtonSelectedTiles), START_MENU_BUTTON_SELECTED_BASE_TILE);
+        StartMenu_RefreshCustomMenuVisuals();
         gMenuCallback = HandleStartMenuInput;
         task->data[0]++;
         break;
@@ -1760,6 +1765,9 @@ static void StartMenu_RefreshCustomMenuVisuals(void)
     if (bg0TilemapBuffer == NULL)
         return;
 
+    // Ensure selected button graphics are valid before writing tilemap entries.
+    LoadBgTiles(0, sStartMenuButtonSelectedTiles, sizeof(sStartMenuButtonSelectedTiles), START_MENU_BUTTON_SELECTED_BASE_TILE);
+
     StartMenu_DrawButtonGrid();
 
     slotX = sStartMenuSelectedGridSlot % START_MENU_BUTTON_GRID_COLUMNS;
@@ -1812,7 +1820,8 @@ static void StartMenu_EnableScrollingBg(void)
     u16 i;
     u8 bg0CharBase;
 
-    sStartMenuTransitionPendingUnblank = TRUE;
+    // Keep display blank during setup; unblank is requested after visuals are ready.
+    sStartMenuTransitionPendingUnblank = FALSE;
     SetGpuRegBits(REG_OFFSET_DISPCNT, DISPCNT_FORCED_BLANK);
     sStartMenuSavedBg3TilemapBuffer = GetBgTilemapBuffer(3);
     SetBgTilemapBuffer(3, sStartMenuScrollBgTilemapBuffer);
@@ -1853,8 +1862,6 @@ static void StartMenu_UpdateScrollingBg(void)
     if (sStartMenuScrollBgActive)
     {
         StartMenu_LoadTextPalette();
-        // Some return-to-field flows can leave this tile range altered; refresh highlight tiles.
-        LoadBgTiles(0, sStartMenuButtonSelectedTiles, sizeof(sStartMenuButtonSelectedTiles), START_MENU_BUTTON_SELECTED_BASE_TILE);
         // Keep the animation lightweight to avoid transition artifacts.
         LoadPalette(sStartMenuScrollBgPalette, BG_PLTT_ID(12), sizeof(sStartMenuScrollBgPalette));
         ChangeBgY(3, 64, BG_COORD_SUB);
@@ -1913,6 +1920,28 @@ void HideStartMenu(void)
 bool8 IsStartMenuScrollBgActive(void)
 {
     return sStartMenuScrollBgActive;
+}
+
+void StartMenu_RefreshForReturnFade(void)
+{
+    if (!sStartMenuScrollBgActive)
+        return;
+
+    LoadBgTiles(0, sStartMenuButtonTiles, sizeof(sStartMenuButtonTiles), START_MENU_BUTTON_BASE_TILE);
+    LoadBgTiles(0, sStartMenuButtonSelectedTiles, sizeof(sStartMenuButtonSelectedTiles), START_MENU_BUTTON_SELECTED_BASE_TILE);
+    LoadPalette(sStartMenuButtonPalette, BG_PLTT_ID(START_MENU_BUTTON_PAL_SLOT), sizeof(sStartMenuButtonPalette));
+    LoadPalette(&sStartMenuCursorPalette[1], BG_PLTT_ID(START_MENU_BUTTON_PAL_SLOT) + 6, PLTT_SIZEOF(1));
+    StartMenu_LoadTextPalette();
+    StartMenu_RefreshCustomMenuVisuals();
+}
+
+void StartMenu_PrepareForReturnInput(void)
+{
+    if (InUnionRoom() == TRUE)
+        SetUsingUnionRoomStartMenu();
+
+    StartMenu_RefreshForReturnFade();
+    gMenuCallback = HandleStartMenuInput;
 }
 
 void StartMenu_ProcessTransition(void)

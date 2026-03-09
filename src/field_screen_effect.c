@@ -510,8 +510,13 @@ static void Task_WaitForFadeShowStartMenu(u8 taskId)
 {
     if (WaitForWeatherFadeIn() == TRUE)
     {
+        u8 startMenuTaskId;
+
+        // Prepare start menu visuals and input on the same handoff frame.
+        StartMenu_PrepareForReturnInput();
+        startMenuTaskId = CreateTask(Task_ShowStartMenu, 80);
+        gTasks[startMenuTaskId].data[0] = 1;
         DestroyTask(taskId);
-        CreateTask(Task_ShowStartMenu, 80);
     }
 }
 

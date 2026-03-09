@@ -13,6 +13,8 @@ void SaveForBattleTowerLink(void);
 void HideStartMenu(void);
 bool8 IsStartMenuScrollBgActive(void);
 void StartMenu_ProcessTransition(void);
+void StartMenu_RefreshForReturnFade(void);
+void StartMenu_PrepareForReturnInput(void);
 void AppendToList(u8 *list, u8 *pos, u8 newEntry);
 
 #endif // GUARD_START_MENU_H
