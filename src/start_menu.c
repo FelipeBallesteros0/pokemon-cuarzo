@@ -277,8 +277,6 @@ static const u8 sStartMenuButtonTiles[] = INCBIN_U8("graphics/ui_startmenu_full/
 static const u16 sStartMenuButtonPalette[] = INCBIN_U16("graphics/ui_startmenu_full/boton.gbapal");
 static const u8 sStartMenuCursorTiles[] = INCBIN_U8("graphics/ui_startmenu_full/cursor.4bpp");
 static const u16 sStartMenuCursorPalette[] = INCBIN_U16("graphics/ui_startmenu_full/cursor.gbapal");
-static const u16 sStartMenuTextBaseFg = RGB(12, 12, 12);       // #626262 (base fg)
-static const u16 sStartMenuTextBaseShadow = RGB(26, 26, 25);   // #D5D5CD (base shadow)
 
 // Text colors using dedicated text palette slots: bg, fg, shadow.
 static const u8 sStartMenuButtonTextColors[] = {1, 2, 3};
@@ -1638,10 +1636,10 @@ static void StartMenu_RemoveButtonTextWindow(void)
 
 static void StartMenu_LoadTextPalette(void)
 {
-    // Keep text on dedicated palette so button art colors remain untouched.
-    LoadPalette(&sStartMenuButtonPalette[2], BG_PLTT_ID(START_MENU_TEXT_PAL_SLOT) + 1, PLTT_SIZEOF(1)); // idx 1 bg
-    LoadPalette(&sStartMenuTextBaseFg,       BG_PLTT_ID(START_MENU_TEXT_PAL_SLOT) + 2, PLTT_SIZEOF(1)); // idx 2 fg
-    LoadPalette(&sStartMenuTextBaseShadow,   BG_PLTT_ID(START_MENU_TEXT_PAL_SLOT) + 3, PLTT_SIZEOF(1)); // idx 3 shadow
+    // Keep button-matched window bg, with default FONT_NORMAL fg/shadow.
+    LoadPalette(&sStartMenuButtonPalette[2],                  BG_PLTT_ID(START_MENU_TEXT_PAL_SLOT) + 1, PLTT_SIZEOF(1)); // idx 1 bg
+    LoadPalette(&gStandardMenuPalette[TEXT_COLOR_DARK_GRAY],  BG_PLTT_ID(START_MENU_TEXT_PAL_SLOT) + 2, PLTT_SIZEOF(1)); // idx 2 fg
+    LoadPalette(&gStandardMenuPalette[TEXT_COLOR_LIGHT_GRAY], BG_PLTT_ID(START_MENU_TEXT_PAL_SLOT) + 3, PLTT_SIZEOF(1)); // idx 3 shadow
 }
 
 static void StartMenu_DrawButtonText(void)
