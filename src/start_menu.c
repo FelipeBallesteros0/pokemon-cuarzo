@@ -108,7 +108,6 @@ EWRAM_DATA static u8 sStartMenuSelectedGridSlot = 0;
 
 #define START_MENU_BUTTON_PAL_SLOT 13
 #define START_MENU_TEXT_PAL_SLOT 14
-#define START_MENU_CURSOR_PAL_SLOT 11
 #define START_MENU_BUTTON_WIDTH_TILES 8
 #define START_MENU_BUTTON_HEIGHT_TILES 4
 #define START_MENU_BUTTON_GRID_COLUMNS 3
@@ -118,7 +117,7 @@ EWRAM_DATA static u8 sStartMenuSelectedGridSlot = 0;
 #define START_MENU_BUTTON_GRID_X_SPACING 9
 #define START_MENU_BUTTON_GRID_Y_SPACING 5
 #define START_MENU_BUTTON_BASE_TILE 0x1D0
-#define START_MENU_CURSOR_BASE_TILE 0x1F0
+#define START_MENU_BUTTON_SELECTED_BASE_TILE 0x210
 #define START_MENU_BUTTON_TEXT_BASEBLOCK 0x240
 
 // Menu action callbacks
@@ -274,8 +273,8 @@ static const u8 sStartMenuScrollBgTiles[] = INCBIN_U8("graphics/ui_startmenu_ful
 static const u16 sStartMenuScrollBgTilemap[] = INCBIN_U16("graphics/ui_startmenu_full/pause_scroll.map.bin");
 static const u16 sStartMenuScrollBgPalette[] = INCBIN_U16("graphics/ui_startmenu_full/pause_scroll.pal.bin");
 static const u8 sStartMenuButtonTiles[] = INCBIN_U8("graphics/ui_startmenu_full/boton.4bpp");
+static const u8 sStartMenuButtonSelectedTiles[] = INCBIN_U8("graphics/ui_startmenu_full/boton_selected.4bpp");
 static const u16 sStartMenuButtonPalette[] = INCBIN_U16("graphics/ui_startmenu_full/boton.gbapal");
-static const u8 sStartMenuCursorTiles[] = INCBIN_U8("graphics/ui_startmenu_full/cursor.4bpp");
 static const u16 sStartMenuCursorPalette[] = INCBIN_U16("graphics/ui_startmenu_full/cursor.gbapal");
 
 // Text colors using dedicated text palette slots: bg, fg, shadow.
@@ -1761,7 +1760,6 @@ static void StartMenu_RefreshCustomMenuVisuals(void)
         return;
 
     StartMenu_DrawButtonGrid();
-    StartMenu_DrawButtonText();
 
     slotX = sStartMenuSelectedGridSlot % START_MENU_BUTTON_GRID_COLUMNS;
     slotY = sStartMenuSelectedGridSlot / START_MENU_BUTTON_GRID_COLUMNS;
@@ -1772,12 +1770,13 @@ static void StartMenu_RefreshCustomMenuVisuals(void)
     {
         for (x = 0; x < START_MENU_BUTTON_WIDTH_TILES; x++)
         {
-            const u16 tileId = START_MENU_CURSOR_BASE_TILE + y * START_MENU_BUTTON_WIDTH_TILES + x;
-            const u16 entry = tileId | (START_MENU_CURSOR_PAL_SLOT << 12);
+            const u16 tileId = START_MENU_BUTTON_SELECTED_BASE_TILE + y * START_MENU_BUTTON_WIDTH_TILES + x;
+            const u16 entry = tileId | (START_MENU_BUTTON_PAL_SLOT << 12);
             bg0TilemapBuffer[(originY + y) * 32 + (originX + x)] = entry;
         }
     }
 
+    StartMenu_DrawButtonText();
     CopyBgTilemapBufferToVram(0);
 }
 
@@ -1834,11 +1833,11 @@ static void StartMenu_EnableScrollingBg(void)
     CpuFill16(0, (void *)BG_CHAR_ADDR(bg0CharBase), TILE_SIZE_4BPP);
     FillBgTilemapBufferRect_Palette0(0, 0, 0, 0, 32, 32);
     LoadBgTiles(0, sStartMenuButtonTiles, sizeof(sStartMenuButtonTiles), START_MENU_BUTTON_BASE_TILE);
-    LoadBgTiles(0, sStartMenuCursorTiles, sizeof(sStartMenuCursorTiles), START_MENU_CURSOR_BASE_TILE);
+    LoadBgTiles(0, sStartMenuButtonSelectedTiles, sizeof(sStartMenuButtonSelectedTiles), START_MENU_BUTTON_SELECTED_BASE_TILE);
     LoadPalette(sStartMenuButtonPalette, BG_PLTT_ID(START_MENU_BUTTON_PAL_SLOT), sizeof(sStartMenuButtonPalette));
+    LoadPalette(&sStartMenuCursorPalette[1], BG_PLTT_ID(START_MENU_BUTTON_PAL_SLOT) + 6, PLTT_SIZEOF(1));
     // Load text fg/shadow in reserved button palette entries.
     StartMenu_LoadTextPalette();
-    LoadPalette(sStartMenuCursorPalette, BG_PLTT_ID(START_MENU_CURSOR_PAL_SLOT), sizeof(sStartMenuCursorPalette));
     CopyBgTilemapBufferToVram(0);
 
     ShowBg(3);
