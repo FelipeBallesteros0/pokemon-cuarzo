@@ -1812,10 +1812,20 @@ static void UpdatePartySelectionSingleLayout(s8 *slotPtr, s8 movementDir)
     case MENU_DIR_RIGHT:
         if (*slotPtr < PARTY_SIZE)
         {
-            if ((*slotPtr & 1) == 0 && *slotPtr + 1 < partyCount)
+            if ((*slotPtr & 1) == 0)
             {
-                sPartyMenuInternal->lastSelectedSlot = *slotPtr + 1;
-                (*slotPtr)++;
+                // Left column -> right column (same row), if partner exists.
+                if (*slotPtr + 1 < partyCount)
+                {
+                    sPartyMenuInternal->lastSelectedSlot = *slotPtr + 1;
+                    (*slotPtr)++;
+                }
+            }
+            else
+            {
+                // Right column wraps to left column (same row).
+                sPartyMenuInternal->lastSelectedSlot = *slotPtr;
+                (*slotPtr)--;
             }
         }
         break;
@@ -1824,8 +1834,18 @@ static void UpdatePartySelectionSingleLayout(s8 *slotPtr, s8 movementDir)
         {
             if ((*slotPtr & 1) == 1)
             {
+                // Right column -> left column (same row).
                 sPartyMenuInternal->lastSelectedSlot = *slotPtr;
                 (*slotPtr)--;
+            }
+            else
+            {
+                // Left column wraps to right column (same row), if partner exists.
+                if (*slotPtr + 1 < partyCount)
+                {
+                    sPartyMenuInternal->lastSelectedSlot = *slotPtr + 1;
+                    (*slotPtr)++;
+                }
             }
         }
         break;
