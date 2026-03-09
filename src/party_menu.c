@@ -3181,7 +3181,9 @@ static void SwitchSelectedMons(u8 taskId)
         tSlot1Width = GetWindowAttribute(windowIds[0], WINDOW_WIDTH);
         tSlot1Height = GetWindowAttribute(windowIds[0], WINDOW_HEIGHT);
         tSlot1Offset = 0;
-        if (tSlot1Width == 10)
+        // In the 2-column layout, column is determined by party slot parity:
+        // 0/2/4 -> left column, 1/3/5 -> right column.
+        if ((gPartyMenu.slotId & 1) == 0)
             tSlot1SlideDir = -1;
         else
             tSlot1SlideDir = 1;
@@ -3191,7 +3193,7 @@ static void SwitchSelectedMons(u8 taskId)
         tSlot2Width = GetWindowAttribute(windowIds[1], WINDOW_WIDTH);
         tSlot2Height = GetWindowAttribute(windowIds[1], WINDOW_HEIGHT);
         tSlot2Offset = 0;
-        if (tSlot2Width == 10)
+        if ((gPartyMenu.slotId2 & 1) == 0)
             tSlot2SlideDir = -1;
         else
             tSlot2SlideDir = 1;
@@ -3280,17 +3282,20 @@ static void SlidePartyMenuBoxOneStep(u8 taskId)
 static void Task_SlideSelectedSlotsOffscreen(u8 taskId)
 {
     s16 *data = gTasks[taskId].data;
-    u16 slidingSlotPositions[2];
+    s16 slot1Pos, slot2Pos;
+    bool8 slot1Offscreen, slot2Offscreen;
 
     SlidePartyMenuBoxOneStep(taskId);
     SlidePartyMenuBoxSpritesOneStep(taskId);
     tSlot1Offset += tSlot1SlideDir;
     tSlot2Offset += tSlot2SlideDir;
-    slidingSlotPositions[0] = tSlot1Left + tSlot1Offset;
-    slidingSlotPositions[1] = tSlot2Left + tSlot2Offset;
+    slot1Pos = tSlot1Left + tSlot1Offset;
+    slot2Pos = tSlot2Left + tSlot2Offset;
+    slot1Offscreen = (slot1Pos + tSlot1Width < 0 || slot1Pos >= 32);
+    slot2Offscreen = (slot2Pos + tSlot2Width < 0 || slot2Pos >= 32);
 
     // Both slots have slid offscreen
-    if (slidingSlotPositions[0] > 33 && slidingSlotPositions[1] > 33)
+    if (slot1Offscreen && slot2Offscreen)
     {
         tSlot1SlideDir *= -1;
         tSlot2SlideDir *= -1;
