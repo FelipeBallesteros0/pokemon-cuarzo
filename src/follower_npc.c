@@ -30,10 +30,12 @@
 #include "task.h"
 #include "trig.h"
 #include "constants/event_object_movement.h"
+#include "constants/event_objects.h"
 #include "constants/field_effects.h"
 #include "constants/frontier_util.h"
 #include "constants/map_types.h"
 #include "constants/metatile_behaviors.h"
+#include "constants/species.h"
 #include "constants/songs.h"
 
 /*
@@ -60,6 +62,9 @@ static u32 ReturnFollowerNPCDelayedState(u32 direction);
 static void TryUpdateFollowerNPCSpriteUnderwater(void);
 static void SetSurfJump(void);
 static void SetUpSurfBlobFieldEffect(struct ObjectEvent *npc);
+static u8 CreateFollowerSurfMountSprite(struct ObjectEvent *follower);
+static void DestroyFollowerSurfMountSprite(struct ObjectEvent *follower);
+static void SpriteCB_FollowerSurfMount(struct Sprite *sprite);
 static void SetSurfDismount(void);
 static void Task_BindSurfBlobToFollowerNPC(u8 taskId);
 static void Task_FinishSurfDismount(u8 taskId);
@@ -533,7 +538,9 @@ static void SetSurfJump(void)
     }
     else
     {
-        SetFollowerNPCData(FNPC_DATA_SURF_BLOB, FNPC_SURF_BLOB_NONE);
+        if (FNPC_USE_SURF_MOUNT_SPRITE == TRUE)
+            follower->fieldEffectSpriteId = CreateFollowerSurfMountSprite(follower);
+        SetFollowerNPCData(FNPC_DATA_SURF_BLOB, FNPC_USE_SURF_MOUNT_SPRITE == TRUE ? FNPC_SURF_BLOB_RECREATE : FNPC_SURF_BLOB_NONE);
         CreateTask(Task_ReallowPlayerMovement, 1);
     }
 
@@ -547,6 +554,83 @@ static void SetUpSurfBlobFieldEffect(struct ObjectEvent *npc)
     gFieldEffectArguments[0] = npc->currentCoords.x;                 // effect_x
     gFieldEffectArguments[1] = npc->currentCoords.y;                 // effect_y
     gFieldEffectArguments[2] = GetFollowerNPCData(FNPC_DATA_OBJ_ID); // objId
+}
+
+static u8 CreateFollowerSurfMountSprite(struct ObjectEvent *follower)
+{
+    u8 spriteId;
+    struct Sprite *sprite;
+
+    spriteId = CreateObjectGraphicsSprite(SPECIES_GYARADOS + OBJ_EVENT_MON, SpriteCB_FollowerSurfMount, follower->currentCoords.x, follower->currentCoords.y, 150);
+    if (spriteId != MAX_SPRITES)
+    {
+        sprite = &gSprites[spriteId];
+        sprite->coordOffsetEnabled = TRUE;
+        sprite->data[0] = GetFollowerNPCObjectId();
+        sprite->data[1] = 0;
+    }
+
+    return spriteId;
+}
+
+static void DestroyFollowerSurfMountSprite(struct ObjectEvent *follower)
+{
+    if (follower->fieldEffectSpriteId > 0 && follower->fieldEffectSpriteId < MAX_SPRITES)
+    {
+        DestroySprite(&gSprites[follower->fieldEffectSpriteId]);
+        follower->fieldEffectSpriteId = 0;
+        if (follower->spriteId < MAX_SPRITES)
+            gSprites[follower->spriteId].y2 = 0;
+    }
+}
+
+static void SpriteCB_FollowerSurfMount(struct Sprite *sprite)
+{
+    static const u8 sDirectionAnims[] =
+    {
+        [DIR_NONE] = 0,
+        [DIR_SOUTH] = 0,
+        [DIR_NORTH] = 1,
+        [DIR_WEST] = 2,
+        [DIR_EAST] = 3,
+        [DIR_SOUTHWEST] = 2,
+        [DIR_SOUTHEAST] = 3,
+        [DIR_NORTHWEST] = 2,
+        [DIR_NORTHEAST] = 3,
+    };
+    u8 followerObjId = sprite->data[0];
+    struct ObjectEvent *follower;
+    struct Sprite *followerSprite;
+    u8 dir;
+
+    if (!PlayerHasFollowerNPC() || followerObjId >= OBJECT_EVENTS_COUNT || !gObjectEvents[followerObjId].active)
+    {
+        DestroySprite(sprite);
+        return;
+    }
+
+    follower = &gObjectEvents[followerObjId];
+    followerSprite = &gSprites[follower->spriteId];
+    sprite->invisible = follower->invisible;
+    if (sprite->invisible)
+        return;
+
+    // Force mount to follow follower position every frame.
+    sprite->x = followerSprite->x;
+    sprite->y = followerSprite->y + 8;
+    sprite->x2 = 0;
+    sprite->y2 = Sin(sprite->data[1], 1);
+    // Move rider with mount bob so follower doesn't look static.
+    followerSprite->y2 = sprite->y2;
+    sprite->data[1] = (sprite->data[1] + 8) & 0xFF;
+
+    dir = follower->movementDirection == DIR_NONE ? follower->facingDirection : follower->movementDirection;
+    StartSpriteAnimIfDifferent(sprite, sDirectionAnims[dir]);
+    sprite->oam.priority = followerSprite->oam.priority;
+    if (dir == DIR_SOUTH)
+        sprite->subpriority = followerSprite->subpriority == 0 ? 0 : followerSprite->subpriority - 1;
+    else
+        sprite->subpriority = followerSprite->subpriority == 255 ? 255 : followerSprite->subpriority + 1;
 }
 
 #define tSpriteId       data[0]
@@ -575,8 +659,10 @@ static void SetSurfDismount(void)
     }
     else
     {
+        if (FNPC_USE_SURF_MOUNT_SPRITE == TRUE)
+            DestroyFollowerSurfMountSprite(follower);
         FollowerNPC_HandleSprite();
-        CreateTask(Task_ReallowPlayerMovement, 1);
+        gPlayerAvatar.preventStep = FALSE;
     }
 
     follower = &gObjectEvents[GetFollowerNPCObjectId()];
@@ -625,7 +711,19 @@ static void Task_FinishSurfDismount(u8 taskId)
 
 static void Task_ReallowPlayerMovement(u8 taskId)
 {
-    bool32 animStatus = ObjectEventClearHeldMovementIfFinished(&gObjectEvents[GetFollowerNPCObjectId()]);
+    bool32 animStatus = FALSE;
+    u8 followerObjId = GetFollowerNPCObjectId();
+    gTasks[taskId].data[1]++;
+
+    if (!PlayerHasFollowerNPC() || followerObjId >= OBJECT_EVENTS_COUNT || !gObjectEvents[followerObjId].active)
+        animStatus = TRUE;
+    else
+        animStatus = ObjectEventClearHeldMovementIfFinished(&gObjectEvents[followerObjId]);
+
+    // Failsafe: never keep the player locked forever due to a stuck follower movement.
+    if (gTasks[taskId].data[1] > 90)
+        animStatus = TRUE;
+
     if (animStatus == 0)
     {
         // Temporarily stop running.
@@ -676,6 +774,10 @@ static void Task_FollowerNPCOutOfDoor(u8 taskId)
                 SetUpSurfBlobFieldEffect(follower);
                 follower->fieldEffectSpriteId = FieldEffectStart(FLDEFF_SURF_BLOB);
                 SetSurfBlob_BobState(follower->fieldEffectSpriteId, 1);
+            }
+            else if (TestPlayerAvatarFlags(PLAYER_AVATAR_FLAG_SURFING) && FNPC_USE_SURF_MOUNT_SPRITE == TRUE)
+            {
+                follower->fieldEffectSpriteId = CreateFollowerSurfMountSprite(follower);
             }
             ObjectEventTurn(follower, DIR_SOUTH);
             follower->singleMovementActive = FALSE;
@@ -1258,6 +1360,10 @@ void NPCFollow(struct ObjectEvent *npc, u32 state, bool32 ignoreScriptActive)
             follower->fieldEffectSpriteId = FieldEffectStart(FLDEFF_SURF_BLOB);
             SetSurfBlob_BobState(follower->fieldEffectSpriteId, 1);
         }
+        else if (GetFollowerNPCData(FNPC_DATA_SURF_BLOB) == FNPC_SURF_BLOB_RECREATE && FNPC_USE_SURF_MOUNT_SPRITE == TRUE)
+        {
+            follower->fieldEffectSpriteId = CreateFollowerSurfMountSprite(follower);
+        }
         else
         {
             TryUpdateFollowerNPCSpriteUnderwater();
@@ -1292,7 +1398,8 @@ void NPCFollow(struct ObjectEvent *npc, u32 state, bool32 ignoreScriptActive)
     else if (GetFollowerNPCData(FNPC_DATA_SURF_BLOB) == FNPC_SURF_BLOB_DESTROY)
     {
         SetFollowerNPCData(FNPC_DATA_SURF_BLOB, FNPC_SURF_BLOB_NONE);
-        gPlayerAvatar.preventStep = TRUE;
+        if (FNPC_SHOW_SURF_BLOB == TRUE)
+            gPlayerAvatar.preventStep = TRUE;
         SetSurfDismount();
         ObjectEventClearHeldMovementIfFinished(follower);
         return;
@@ -1431,9 +1538,12 @@ void HideNPCFollower(void)
         return;
 
     if ((GetFollowerNPCData(FNPC_DATA_SURF_BLOB) == FNPC_SURF_BLOB_RECREATE || GetFollowerNPCData(FNPC_DATA_SURF_BLOB) == FNPC_SURF_BLOB_DESTROY)
-     && gObjectEvents[GetFollowerNPCObjectId()].fieldEffectSpriteId != 0)
+     && gObjectEvents[GetFollowerNPCObjectId()].fieldEffectSpriteId > 0
+     && gObjectEvents[GetFollowerNPCObjectId()].fieldEffectSpriteId < MAX_SPRITES)
     {
-        SetSurfBlob_BobState(gObjectEvents[GetFollowerNPCObjectId()].fieldEffectSpriteId, 2);
+        if (FNPC_SHOW_SURF_BLOB == TRUE)
+            SetSurfBlob_BobState(gObjectEvents[GetFollowerNPCObjectId()].fieldEffectSpriteId, 2);
+
         DestroySprite(&gSprites[gObjectEvents[GetFollowerNPCObjectId()].fieldEffectSpriteId]);
         gObjectEvents[GetFollowerNPCObjectId()].fieldEffectSpriteId = 0;
     }
@@ -1477,7 +1587,7 @@ void FollowerNPC_WarpSetEnd(void)
     else if (gPlayerAvatar.flags & PLAYER_AVATAR_FLAG_SURFING)
     {
         SetFollowerNPCSprite(FOLLOWER_NPC_SPRITE_INDEX_SURF);
-        SetFollowerNPCData(FNPC_DATA_SURF_BLOB, FNPC_SHOW_SURF_BLOB == TRUE ? FNPC_SURF_BLOB_RECREATE : FNPC_SURF_BLOB_NONE);
+        SetFollowerNPCData(FNPC_DATA_SURF_BLOB, (FNPC_SHOW_SURF_BLOB == TRUE || FNPC_USE_SURF_MOUNT_SPRITE == TRUE) ? FNPC_SURF_BLOB_RECREATE : FNPC_SURF_BLOB_NONE);
     }
 
     follower->facingDirection = player->facingDirection;
@@ -1530,7 +1640,7 @@ void FollowerNPC_FollowerToWater(void)
 void FollowerNPC_SetIndicatorToRecreateSurfBlob(void)
 {
     if (PlayerHasFollowerNPC())
-        SetFollowerNPCData(FNPC_DATA_SURF_BLOB, FNPC_SHOW_SURF_BLOB == TRUE ? FNPC_SURF_BLOB_RECREATE : FNPC_SURF_BLOB_NONE);
+        SetFollowerNPCData(FNPC_DATA_SURF_BLOB, (FNPC_SHOW_SURF_BLOB == TRUE || FNPC_USE_SURF_MOUNT_SPRITE == TRUE) ? FNPC_SURF_BLOB_RECREATE : FNPC_SURF_BLOB_NONE);
 }
 
 void FollowerNPC_BindToSurfBlobOnReloadScreen(void)
@@ -1543,15 +1653,21 @@ void FollowerNPC_BindToSurfBlobOnReloadScreen(void)
     follower = &gObjectEvents[GetFollowerNPCObjectId()];
     TryUpdateFollowerNPCSpriteUnderwater();
 
-    if (FNPC_SHOW_SURF_BLOB == FALSE
-     || follower->invisible
+    if (follower->invisible
      || (GetFollowerNPCData(FNPC_DATA_SURF_BLOB) != FNPC_SURF_BLOB_RECREATE && GetFollowerNPCData(FNPC_DATA_SURF_BLOB) != FNPC_SURF_BLOB_DESTROY))
         return;
 
-    // Spawn the surf blob under the follower.
-    SetUpSurfBlobFieldEffect(follower);
-    follower->fieldEffectSpriteId = FieldEffectStart(FLDEFF_SURF_BLOB);
-    SetSurfBlob_BobState(follower->fieldEffectSpriteId, 1);
+    if (FNPC_SHOW_SURF_BLOB == TRUE)
+    {
+        // Spawn the surf blob under the follower.
+        SetUpSurfBlobFieldEffect(follower);
+        follower->fieldEffectSpriteId = FieldEffectStart(FLDEFF_SURF_BLOB);
+        SetSurfBlob_BobState(follower->fieldEffectSpriteId, 1);
+    }
+    else if (FNPC_USE_SURF_MOUNT_SPRITE == TRUE)
+    {
+        follower->fieldEffectSpriteId = CreateFollowerSurfMountSprite(follower);
+    }
 }
 
 void PrepareFollowerNPCDismountSurf(void)
@@ -1566,7 +1682,7 @@ void PrepareFollowerNPCDismountSurf(void)
 void SetFollowerNPCSurfSpriteAfterDive(void)
 {
     SetFollowerNPCSprite(FOLLOWER_NPC_SPRITE_INDEX_SURF);
-    SetFollowerNPCData(FNPC_DATA_SURF_BLOB, FNPC_SHOW_SURF_BLOB == TRUE ? FNPC_SURF_BLOB_RECREATE : FNPC_SURF_BLOB_NONE);
+    SetFollowerNPCData(FNPC_DATA_SURF_BLOB, (FNPC_SHOW_SURF_BLOB == TRUE || FNPC_USE_SURF_MOUNT_SPRITE == TRUE) ? FNPC_SURF_BLOB_RECREATE : FNPC_SURF_BLOB_NONE);
 }
 
 bool32 FollowerNPCComingThroughDoor(void)

@@ -7,6 +7,7 @@
 #define FNPC_FLAG_PARTNER_WILD_BATTLES            FNPC_ALWAYS // Replace the 0 with a flag in order to use that flag to toggle whether the follower partner will join you for wild battles. If you want this to always be active without using a flag, replace 0 with FNPC_ALWAYS.
 #define FNPC_NPC_FOLLOWER_WILD_BATTLE_VS_2        TRUE  // If set to TRUE, two wild Pokemon will show up to the partner battle instead of just one.
 #define FNPC_SHOW_SURF_BLOB                        FALSE // If FALSE, NPC followers use their surf sprite without spawning the separate surf blob field effect.
+#define FNPC_USE_SURF_MOUNT_SPRITE                 TRUE  // If TRUE and FNPC_SHOW_SURF_BLOB is FALSE, follower NPC shows a dedicated mount sprite while surfing.
 #define FNPC_NPC_FOLLOWER_PARTY_PREVIEW           TRUE  // If set to TRUE, a preview of the player's and partner's teams will be shown before every trainer battle.
 #define FNPC_FACE_NPC_FOLLOWER_ON_DOOR_EXIT       TRUE  // If set to TRUE, the player will turn to face the follower when they exit a doorway.
 #define FNPC_NPC_FOLLOWER_SHOW_AFTER_LEAVE_ROUTE  TRUE  // If set to TRUE, the follower will reappear and walk out of the player after using Fly, Escape Rope, or Teleport.
