@@ -37,6 +37,7 @@
 #include "script.h"
 #include "sound.h"
 #include "start_menu.h"
+#include "rtc.h"
 #include "strings.h"
 #include "string_util.h"
 #include "task.h"
@@ -96,8 +97,13 @@ EWRAM_DATA static u8 (*sSaveDialogCallback)(void) = NULL;
 EWRAM_DATA static u8 sSaveDialogTimer = 0;
 EWRAM_DATA static bool8 sSavingComplete = FALSE;
 EWRAM_DATA static u8 sSaveInfoWindowId = 0;
-EWRAM_DATA static u8 sStartMenuButtonTextWindowIds[9] = {0};
+EWRAM_DATA static u8 sStartMenuButtonTextWindowIds[10] = {0};
 EWRAM_DATA static u8 sStartMenuButtonTextWindowCount = 0;
+EWRAM_DATA static u8 sStartMenuClockWindowId = 0;
+EWRAM_DATA static u8 sStartMenuClockHour = 0;
+EWRAM_DATA static u8 sStartMenuClockMinute = 0;
+EWRAM_DATA static bool8 sStartMenuClockWindowActive = FALSE;
+EWRAM_DATA static bool8 sStartMenuClockValueValid = FALSE;
 EWRAM_DATA static bool8 sStartMenuScrollBgActive = FALSE;
 EWRAM_DATA static bool8 sStartMenuObjWasEnabled = FALSE;
 EWRAM_DATA static bool8 sStartMenuTransitionPendingUnblank = FALSE;
@@ -282,6 +288,7 @@ static u16 sStartMenuButtonPaletteDynamic[ARRAY_COUNT(sStartMenuButtonPalette)];
 
 // Text colors using dedicated text palette slots: bg, fg, shadow.
 static const u8 sStartMenuButtonTextColors[] = {1, 2, 3};
+static const u8 sStartMenuClockTextColors[] = {5, 3, 2};
 
 // Local functions
 static void BuildStartMenuActions(void);
@@ -326,6 +333,7 @@ static void StartMenu_DrawButtonText(void);
 static void StartMenu_RemoveButtonTextWindow(void);
 static void StartMenu_BuildButtonPaletteByGender(void);
 static void StartMenu_LoadTextPalette(void);
+static void StartMenu_UpdateClockWindow(void);
 static void StartMenu_BuildGridActionMap(void);
 static void StartMenu_RefreshCustomMenuVisuals(void);
 static bool8 StartMenu_MoveCursorInGrid(s8 dx, s8 dy);
@@ -1639,6 +1647,8 @@ static void StartMenu_RemoveButtonTextWindow(void)
         RemoveWindow(sStartMenuButtonTextWindowIds[i]);
     }
     sStartMenuButtonTextWindowCount = 0;
+    sStartMenuClockWindowActive = FALSE;
+    sStartMenuClockValueValid = FALSE;
 }
 
 static void StartMenu_LoadTextPalette(void)
@@ -1747,6 +1757,52 @@ static void StartMenu_DrawButtonText(void)
         CopyWindowToVram(windowId, COPYWIN_FULL);
         baseBlock += windowWidth * 2;
     }
+
+    // Clock centered on the top black bar.
+    winTemplate.bg = 0;
+    winTemplate.tilemapLeft = 12;
+    winTemplate.tilemapTop = 0;
+    winTemplate.width = 6;
+    winTemplate.height = 2;
+    winTemplate.paletteNum = START_MENU_TEXT_PAL_SLOT;
+    winTemplate.baseBlock = baseBlock;
+    sStartMenuClockWindowId = AddWindow(&winTemplate);
+    sStartMenuClockWindowActive = TRUE;
+    sStartMenuButtonTextWindowIds[sStartMenuButtonTextWindowCount++] = sStartMenuClockWindowId;
+    baseBlock += winTemplate.width * 2;
+    StartMenu_UpdateClockWindow();
+}
+
+static void StartMenu_UpdateClockWindow(void)
+{
+    u8 x;
+    u16 textWidth;
+
+    if (!sStartMenuClockWindowActive)
+        return;
+
+    RtcCalcLocalTime();
+    if (sStartMenuClockValueValid
+        && gLocalTime.hours == sStartMenuClockHour
+        && gLocalTime.minutes == sStartMenuClockMinute)
+        return;
+
+    sStartMenuClockValueValid = TRUE;
+    sStartMenuClockHour = gLocalTime.hours;
+    sStartMenuClockMinute = gLocalTime.minutes;
+
+    ConvertIntToDecimalStringN(gStringVar1, gLocalTime.hours, STR_CONV_MODE_LEADING_ZEROS, 2);
+    StringAppend(gStringVar1, COMPOUND_STRING(":"));
+    ConvertIntToDecimalStringN(gStringVar2, gLocalTime.minutes, STR_CONV_MODE_LEADING_ZEROS, 2);
+    StringAppend(gStringVar1, gStringVar2);
+
+    textWidth = GetStringWidth(FONT_NORMAL, gStringVar1, 0);
+    x = (6 * 8 - textWidth) / 2;
+
+    FillWindowPixelBuffer(sStartMenuClockWindowId, PIXEL_FILL(sStartMenuClockTextColors[0]));
+    AddTextPrinterParameterized3(sStartMenuClockWindowId, FONT_NORMAL, x, 3, sStartMenuClockTextColors, TEXT_SKIP_DRAW, gStringVar1);
+    PutWindowTilemap(sStartMenuClockWindowId);
+    CopyWindowToVram(sStartMenuClockWindowId, COPYWIN_FULL);
 }
 
 static void StartMenu_DrawButtonGrid(void)
@@ -1923,6 +1979,7 @@ static void StartMenu_UpdateScrollingBg(void)
     if (sStartMenuScrollBgActive)
     {
         StartMenu_LoadTextPalette();
+        StartMenu_UpdateClockWindow();
         // Keep the animation lightweight to avoid transition artifacts.
         LoadPalette(sStartMenuScrollBgPalette, BG_PLTT_ID(12), sizeof(sStartMenuScrollBgPalette));
         ChangeBgY(3, 64, BG_COORD_SUB);
