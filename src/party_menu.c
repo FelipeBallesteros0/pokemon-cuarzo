@@ -141,6 +141,7 @@ enum {
 enum {
     PARTY_BOX_LEFT_COLUMN,
     PARTY_BOX_RIGHT_COLUMN,
+    PARTY_BOX_EQUAL_COLUMN,
 };
 
 enum {
@@ -465,6 +466,7 @@ static void Task_BattlePyramidChooseMonHeldItems(u8);
 static void ShiftMoveSlot(struct Pokemon *, u8, u8);
 static void BlitBitmapToPartyWindow_LeftColumn(u8, u8, u8, u8, u8, bool8);
 static void BlitBitmapToPartyWindow_RightColumn(u8, u8, u8, u8, u8, bool8);
+static void BlitBitmapToPartyWindow_Equal(u8, u8, u8, u8, u8, bool8);
 static void CursorCb_Summary(u8);
 static void CursorCb_Switch(u8);
 static void CursorCb_Cancel1(u8);
@@ -960,13 +962,22 @@ static void LoadPartyMenuBoxes(u8 layout)
         sPartyMenuBoxes[i].pokeballSpriteId = SPRITE_NONE;
         sPartyMenuBoxes[i].statusSpriteId = SPRITE_NONE;
     }
-    // The first party mon goes in the left column
-    sPartyMenuBoxes[0].infoRects = &sPartyBoxInfoRects[PARTY_BOX_LEFT_COLUMN];
-
-    if (layout == PARTY_LAYOUT_MULTI_SHOWCASE)
+    if (layout == PARTY_LAYOUT_SINGLE)
+    {
+        for (i = 0; i < PARTY_SIZE; i++)
+            sPartyMenuBoxes[i].infoRects = &sPartyBoxInfoRects[PARTY_BOX_EQUAL_COLUMN];
+    }
+    else if (layout == PARTY_LAYOUT_MULTI_SHOWCASE)
+    {
+        // The first party mon goes in the left column in showcase layouts.
+        sPartyMenuBoxes[0].infoRects = &sPartyBoxInfoRects[PARTY_BOX_LEFT_COLUMN];
         sPartyMenuBoxes[3].infoRects = &sPartyBoxInfoRects[PARTY_BOX_LEFT_COLUMN];
-    else if (layout != PARTY_LAYOUT_SINGLE)
+    }
+    else
+    {
+        sPartyMenuBoxes[0].infoRects = &sPartyBoxInfoRects[PARTY_BOX_LEFT_COLUMN];
         sPartyMenuBoxes[1].infoRects = &sPartyBoxInfoRects[PARTY_BOX_LEFT_COLUMN];
+    }
 }
 
 static void RenderPartyMenuBox(u8 slot)
@@ -2282,7 +2293,7 @@ static void InitPartyMenuWindows(u8 layout)
     switch (layout)
     {
     case PARTY_LAYOUT_SINGLE:
-        InitWindows(sSinglePartyMenuWindowTemplate);
+        InitWindows(sSinglePartyMenuWindowTemplate_Equal);
         break;
     case PARTY_LAYOUT_DOUBLE:
         InitWindows(sDoublePartyMenuWindowTemplate);
@@ -2319,18 +2330,27 @@ static void CreateCancelConfirmWindows(bool8 chooseHalf)
     {
         if (chooseHalf == TRUE)
         {
-            confirmWindowId = AddWindow(&sConfirmButtonWindowTemplate);
+            if (gPartyMenu.layout == PARTY_LAYOUT_SINGLE)
+                confirmWindowId = AddWindow(&sConfirmButtonWindowTemplate_equal);
+            else
+                confirmWindowId = AddWindow(&sConfirmButtonWindowTemplate);
             FillWindowPixelBuffer(confirmWindowId, PIXEL_FILL(0));
             mainOffset = GetStringCenterAlignXOffset(FONT_SMALL, gMenuText_Confirm, 48);
             AddTextPrinterParameterized4(confirmWindowId, FONT_SMALL, mainOffset, 1, 0, 0, sFontColorTable[0], TEXT_SKIP_DRAW, gMenuText_Confirm);
             PutWindowTilemap(confirmWindowId);
             CopyWindowToVram(confirmWindowId, COPYWIN_GFX);
-            cancelWindowId = AddWindow(&sMultiCancelButtonWindowTemplate);
+            if (gPartyMenu.layout == PARTY_LAYOUT_SINGLE)
+                cancelWindowId = AddWindow(&sMultiCancelButtonWindowTemplate_equal);
+            else
+                cancelWindowId = AddWindow(&sMultiCancelButtonWindowTemplate);
             offset = 0;
         }
         else
         {
-            cancelWindowId = AddWindow(&sCancelButtonWindowTemplate);
+            if (gPartyMenu.layout == PARTY_LAYOUT_SINGLE)
+                cancelWindowId = AddWindow(&sCancelButtonWindowTemplate_equal);
+            else
+                cancelWindowId = AddWindow(&sCancelButtonWindowTemplate);
             offset = 3;
         }
         FillWindowPixelBuffer(cancelWindowId, PIXEL_FILL(0));
@@ -2400,9 +2420,25 @@ static void BlitBitmapToPartyWindow_RightColumn(u8 windowId, u8 x, u8 y, u8 widt
         BlitBitmapToPartyWindow(windowId, sSlotTilemap_WideNoHP, 18, x, y, width, height);
 }
 
+static void BlitBitmapToPartyWindow_Equal(u8 windowId, u8 x, u8 y, u8 width, u8 height, bool8 isEgg)
+{
+    if (width == 0 && height == 0)
+    {
+        width = 14;
+        height = 5;
+    }
+    if (isEgg == FALSE)
+        BlitBitmapToPartyWindow(windowId, sEqualMainSlotTileNums, 14, x, y, width, height);
+    else
+        BlitBitmapToPartyWindow(windowId, sEqualMainSlotTileNums_Egg, 14, x, y, width, height);
+}
+
 static void DrawEmptySlot(u8 windowId)
 {
-    BlitBitmapToPartyWindow(windowId, sSlotTilemap_WideEmpty, 18, 0, 0, 18, 3);
+    if (gPartyMenu.layout == PARTY_LAYOUT_SINGLE)
+        BlitBitmapToPartyWindow(windowId, sEqualEmptySlotTileNums, 14, 0, 0, 14, 5);
+    else
+        BlitBitmapToPartyWindow(windowId, sSlotTilemap_WideEmpty, 18, 0, 0, 18, 3);
 }
 
 #define LOAD_PARTY_BOX_PAL(paletteIds, paletteOffsets)                                                    \
