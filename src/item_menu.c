@@ -44,6 +44,7 @@
 #include "task.h"
 #include "text_window.h"
 #include "menu_helpers.h"
+#include "tx_registered_items_menu.h"
 #include "window.h"
 #include "apprentice.h"
 #include "battle_pike.h"
@@ -88,6 +89,8 @@ enum {
     ACTION_SHOW,
     ACTION_GIVE_FAVOR_LADY,
     ACTION_CONFIRM_QUIZ_LADY,
+    ACTION_SELECT_BUTTON,
+    ACTION_L_BUTTON,
     ACTION_BY_NAME,
     ACTION_BY_TYPE,
     ACTION_BY_AMOUNT,
@@ -198,6 +201,9 @@ static void BagMenu_ItemPrintCallback(u8, u32, u8);
 static void ItemMenu_UseOutOfBattle(u8);
 static void ItemMenu_Toss(u8);
 static void ItemMenu_Register(u8);
+static void ItemMenu_RegisterSelect(u8);
+static void ItemMenu_RegisterList(u8);
+static void ItemMenu_Deselect(u8);
 static void ItemMenu_Give(u8);
 static void ItemMenu_Cancel(u8);
 static void ItemMenu_UseInBattle(u8);
@@ -219,6 +225,8 @@ static void ConfirmToss(u8);
 static void CancelToss(u8);
 static void ConfirmSell(u8);
 static void CancelSell(u8);
+static void ItemMenu_FinishRegister(u8);
+static void ItemMenu_FailRegister(u8);
 static void Task_FadeAndCloseBagMenuIfMulch(u8 taskId);
 
 static const u8 sText_Var1CantBeHeldHere[] = _("The {STR_VAR_1} can't be held\nhere.");
@@ -300,6 +308,8 @@ static const struct ListMenuTemplate sItemListMenu =
 };
 
 static const u8 sText_NothingToSort[] = _("There's nothing to sort!");
+static const u8 sMenuText_Select[] = _("SELECT");
+static const u8 sMenuText_L[] = _("LIST");
 static const struct MenuAction sItemMenuActions[] = {
     [ACTION_USE]               = {gMenuText_Use,                {ItemMenu_UseOutOfBattle}},
     [ACTION_TOSS]              = {gMenuText_Toss,               {ItemMenu_Toss}},
@@ -309,12 +319,14 @@ static const struct MenuAction sItemMenuActions[] = {
     [ACTION_BATTLE_USE]        = {gMenuText_Use,                {ItemMenu_UseInBattle}},
     [ACTION_CHECK]             = {COMPOUND_STRING("CHECK"),     {ItemMenu_UseOutOfBattle}},
     [ACTION_WALK]              = {COMPOUND_STRING("WALK"),      {ItemMenu_UseOutOfBattle}},
-    [ACTION_DESELECT]          = {COMPOUND_STRING("DESELECT"),  {ItemMenu_Register}},
+    [ACTION_DESELECT]          = {COMPOUND_STRING("DESELECT"),  {ItemMenu_Deselect}},
     [ACTION_CHECK_TAG]         = {COMPOUND_STRING("CHECK TAG"), {ItemMenu_CheckTag}},
     [ACTION_CONFIRM]           = {gMenuText_Confirm,            {Task_FadeAndCloseBagMenu}},
     [ACTION_SHOW]              = {COMPOUND_STRING("SHOW"),      {ItemMenu_Show}},
     [ACTION_GIVE_FAVOR_LADY]   = {gMenuText_Give2,              {ItemMenu_GiveFavorLady}},
     [ACTION_CONFIRM_QUIZ_LADY] = {gMenuText_Confirm,            {ItemMenu_ConfirmQuizLady}},
+    [ACTION_SELECT_BUTTON]     = {sMenuText_Select,             {ItemMenu_RegisterSelect}},
+    [ACTION_L_BUTTON]          = {sMenuText_L,                  {ItemMenu_RegisterList}},
     [ACTION_BY_NAME]           = {COMPOUND_STRING("Name"),      {ItemMenu_SortByName}},
     [ACTION_BY_TYPE]           = {COMPOUND_STRING("Type"),      {ItemMenu_SortByType}},
     [ACTION_BY_AMOUNT]         = {COMPOUND_STRING("Amount"),    {ItemMenu_SortByAmount}},
@@ -332,6 +344,11 @@ static const u8 sContextMenuItems_ItemsPocket[] = {
 static const u8 sContextMenuItems_KeyItemsPocket[] = {
     ACTION_USE,         ACTION_REGISTER,
     ACTION_DUMMY,       ACTION_CANCEL
+};
+
+static const u8 sContextMenuItems_RegisterKeyItem[] = {
+    ACTION_SELECT_BUTTON,   ACTION_L_BUTTON,
+    ACTION_DUMMY,           ACTION_CANCEL
 };
 
 static const u8 sContextMenuItems_BallsPocket[] = {
@@ -413,6 +430,9 @@ static const struct ScrollArrowsTemplate sBagScrollArrowsTemplate = {
     .palNum = 0,
 };
 
+static const u8 sSelectButtonGfx[] = INCBIN_U8("graphics/interface/select_button.4bpp");
+static const u8 sLButtonGfx[] = INCBIN_U8("graphics/interface/L_button.4bpp");
+static const u8 sRButtonGfx[] = INCBIN_U8("graphics/interface/R_button.4bpp");
 static const u8 sRegisteredSelect_Gfx[] = INCBIN_U8("graphics/bag/select_button.4bpp");
 
 enum {
@@ -602,6 +622,7 @@ static EWRAM_DATA struct ListBuffer1 *sListBuffer1 = 0;
 static EWRAM_DATA struct ListBuffer2 *sListBuffer2 = 0;
 EWRAM_DATA u16 gSpecialVar_ItemId = 0;
 static EWRAM_DATA struct TempWallyBag *sTempWallyBag = 0;
+static EWRAM_DATA bool8 sRegisterSubMenu = FALSE;
 
 void ResetBagScrollPositions(void)
 {
@@ -1042,7 +1063,14 @@ static void BagMenu_ItemPrintCallback(u8 windowId, u32 itemIndex, u8 y)
         {
             // Print registered icon
             if (gSaveBlock1Ptr->registeredItem != ITEM_NONE && gSaveBlock1Ptr->registeredItem == itemSlot.itemId)
-                BlitBitmapToWindow(windowId, sRegisteredSelect_Gfx, 96, y - 1, 24, 16);
+                BlitBitmapToWindow(windowId, sSelectButtonGfx, 96, y - 1, 24, 16);
+            if (TxRegItemsMenu_CheckRegisteredHasItem(itemSlot.itemId))
+            {
+                if (gSaveBlock2Ptr->optionsButtonMode != OPTIONS_BUTTON_MODE_L_EQUALS_A)
+                    BlitBitmapToWindow(windowId, sLButtonGfx, 96, y - 1, 24, 16);
+                else
+                    BlitBitmapToWindow(windowId, sRButtonGfx, 96, y - 1, 24, 16);
+            }
         }
     }
 }
@@ -1718,10 +1746,21 @@ static void OpenContextMenu(u8 taskId)
                 break;
             case POCKET_KEY_ITEMS:
                 gBagMenu->contextMenuItemsPtr = gBagMenu->contextMenuItemsBuffer;
-                gBagMenu->contextMenuNumItems = ARRAY_COUNT(sContextMenuItems_KeyItemsPocket);
-                memcpy(&gBagMenu->contextMenuItemsBuffer, &sContextMenuItems_KeyItemsPocket, sizeof(sContextMenuItems_KeyItemsPocket));
-                if (gSaveBlock1Ptr->registeredItem == gSpecialVar_ItemId)
-                    gBagMenu->contextMenuItemsBuffer[1] = ACTION_DESELECT;
+                if (sRegisterSubMenu == FALSE)
+                {
+                    gBagMenu->contextMenuNumItems = ARRAY_COUNT(sContextMenuItems_KeyItemsPocket);
+                    memcpy(&gBagMenu->contextMenuItemsBuffer, &sContextMenuItems_KeyItemsPocket, sizeof(sContextMenuItems_KeyItemsPocket));
+                    if (gSaveBlock1Ptr->registeredItem == gSpecialVar_ItemId)
+                        gBagMenu->contextMenuItemsBuffer[1] = ACTION_DESELECT;
+                    else if (TxRegItemsMenu_CheckRegisteredHasItem(gSpecialVar_ItemId))
+                        gBagMenu->contextMenuItemsBuffer[1] = ACTION_DESELECT;
+                }
+                else
+                {
+                    gBagMenu->contextMenuNumItems = ARRAY_COUNT(sContextMenuItems_RegisterKeyItem);
+                    memcpy(&gBagMenu->contextMenuItemsBuffer, &sContextMenuItems_RegisterKeyItem, sizeof(sContextMenuItems_RegisterKeyItem));
+                    sRegisterSubMenu = FALSE;
+                }
                 if (gSpecialVar_ItemId == ITEM_MACH_BIKE || gSpecialVar_ItemId == ITEM_ACRO_BIKE)
                 {
                     if (TestPlayerAvatarFlags(PLAYER_AVATAR_FLAG_MACH_BIKE | PLAYER_AVATAR_FLAG_ACRO_BIKE))
@@ -2035,18 +2074,76 @@ static void Task_RemoveItemFromBag(u8 taskId)
 static void ItemMenu_Register(u8 taskId)
 {
     s16 *data = gTasks[taskId].data;
+
+    RemoveContextWindow();
+    PrintItemDescription(tListPosition);
+    ScheduleBgCopyTilemapToVram(0);
+    ScheduleBgCopyTilemapToVram(1);
+    BagMenu_PrintCursor(tListTaskId, COLORID_NORMAL);
+
+    sRegisterSubMenu = TRUE;
+    OpenContextMenu(taskId);
+}
+
+static const u8 sText_TooManyRegistered[] = _("You already have too\nmany items registered!");
+
+static void ResetRegisteredItem(u16 itemId)
+{
+    if (gSaveBlock1Ptr->registeredItem == itemId)
+        gSaveBlock1Ptr->registeredItem = ITEM_NONE;
+    else
+        TxRegItemsMenu_RemoveRegisteredItem(itemId);
+}
+
+static void ItemMenu_FinishRegister(u8 taskId)
+{
+    s16 *data = gTasks[taskId].data;
     u16 *scrollPos = &gBagPosition.scrollPosition[gBagPosition.pocket];
     u16 *cursorPos = &gBagPosition.cursorPosition[gBagPosition.pocket];
 
-    if (gSaveBlock1Ptr->registeredItem == gSpecialVar_ItemId)
-        gSaveBlock1Ptr->registeredItem = ITEM_NONE;
-    else
-        gSaveBlock1Ptr->registeredItem = gSpecialVar_ItemId;
     DestroyListMenuTask(tListTaskId, scrollPos, cursorPos);
     LoadBagItemListBuffers(gBagPosition.pocket);
     tListTaskId = ListMenuInit(&gMultiuseListMenuTemplate, *scrollPos, *cursorPos);
     ScheduleBgCopyTilemapToVram(0);
     ItemMenu_Cancel(taskId);
+}
+
+static void ItemMenu_FailRegister(u8 taskId)
+{
+    ItemMenu_FinishRegister(taskId);
+    DisplayItemMessage(taskId, FONT_NORMAL, sText_TooManyRegistered, ItemMenu_Cancel);
+}
+
+static void ItemMenu_RegisterSelect(u8 taskId)
+{
+    if (gSaveBlock1Ptr->registeredItem == gSpecialVar_ItemId)
+        gSaveBlock1Ptr->registeredItem = ITEM_NONE;
+    else
+        gSaveBlock1Ptr->registeredItem = gSpecialVar_ItemId;
+
+    gTasks[taskId].func = ItemMenu_FinishRegister;
+}
+
+static void ItemMenu_RegisterList(u8 taskId)
+{
+    if (TxRegItemsMenu_AddRegisteredItem(gSpecialVar_ItemId))
+    {
+        gTasks[taskId].func = ItemMenu_FinishRegister;
+    }
+    else
+    {
+        if (!TxRegItemsMenu_CheckRegisteredHasItem(gSpecialVar_ItemId))
+            gTasks[taskId].func = ItemMenu_FailRegister;
+        else
+            gTasks[taskId].func = ItemMenu_FinishRegister;
+    }
+}
+
+static void ItemMenu_Deselect(u8 taskId)
+{
+    ResetRegisteredItem(gSpecialVar_ItemId);
+
+    gTasks[taskId].func = ItemMenu_FinishRegister;
 }
 
 static void ItemMenu_Give(u8 taskId)
@@ -2105,6 +2202,7 @@ static void ItemMenu_Cancel(u8 taskId)
 {
     s16 *data = gTasks[taskId].data;
 
+    sRegisterSubMenu = FALSE;
     RemoveContextWindow();
     PrintItemDescription(tListPosition);
     ScheduleBgCopyTilemapToVram(0);
@@ -2169,32 +2267,56 @@ static void Task_ItemContext_GiveToPC(u8 taskId)
 
 #define tUsingRegisteredKeyItem data[3] // See usage in item_use.c
 
-bool8 UseRegisteredKeyItemOnField(void)
+bool8 UseRegisteredKeyItemOnField(u8 button)
 {
     u8 taskId;
+    u16 registeredItem;
 
     if (InUnionRoom() == TRUE || CurrentBattlePyramidLocation() != PYRAMID_LOCATION_NONE || InBattlePike() || InMultiPartnerRoom() == TRUE)
         return FALSE;
     HideMapNamePopUpWindow();
     ChangeBgY_ScreenOff(0, 0, BG_COORD_SET);
-    if (gSaveBlock1Ptr->registeredItem != ITEM_NONE)
+
+    if (button >= 2 && button <= REGISTERED_ITEMS_MAX + 1)
+        registeredItem = gSaveBlock1Ptr->registeredItems[button - 2].itemId;
+    else
     {
-        if (CheckBagHasItem(gSaveBlock1Ptr->registeredItem, 1) == TRUE)
+        switch (button)
+        {
+        case 0:
+            registeredItem = gSaveBlock1Ptr->registeredItem;
+            break;
+        case 1:
+            registeredItem = gSaveBlock1Ptr->registeredItems[0].itemId;
+            break;
+        default:
+            registeredItem = ITEM_NONE;
+            break;
+        }
+    }
+
+    if (registeredItem != ITEM_NONE)
+    {
+        if (CheckBagHasItem(registeredItem, 1) == TRUE)
         {
             LockPlayerFieldControls();
             FreezeObjectEvents();
             PlayerFreeze();
             StopPlayerAvatar();
-            gSpecialVar_ItemId = gSaveBlock1Ptr->registeredItem;
-            taskId = CreateTask(GetItemFieldFunc(gSaveBlock1Ptr->registeredItem), 8);
+            gSpecialVar_ItemId = registeredItem;
+            taskId = CreateTask(GetItemFieldFunc(registeredItem), 8);
             gTasks[taskId].tUsingRegisteredKeyItem = TRUE;
             return TRUE;
         }
         else
         {
-            gSaveBlock1Ptr->registeredItem = ITEM_NONE;
+            if (button == 0)
+                gSaveBlock1Ptr->registeredItem = ITEM_NONE;
+            else
+                TxRegItemsMenu_RemoveRegisteredItem(registeredItem);
         }
     }
+
     ScriptContext_SetupScript(EventScript_SelectWithoutRegisteredItem);
     return TRUE;
 }

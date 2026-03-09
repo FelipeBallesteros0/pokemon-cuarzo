@@ -22,6 +22,7 @@
 #include "fldeff_misc.h"
 #include "follower_npc.h"
 #include "item_menu.h"
+#include "tx_registered_items_menu.h"
 #include "link.h"
 #include "match_call.h"
 #include "metatile_behavior.h"
@@ -98,6 +99,7 @@ void FieldClearPlayerInput(struct FieldInput *input)
     input->heldDirection2 = FALSE;
     input->tookStep = FALSE;
     input->pressedBButton = FALSE;
+    input->pressedListButton = FALSE;
     input->pressedRButton = FALSE;
     input->input_field_1_1 = FALSE;
     input->input_field_1_2 = FALSE;
@@ -123,6 +125,10 @@ void FieldGetPlayerInput(struct FieldInput *input, u16 newKeys, u16 heldKeys)
                 input->pressedAButton = TRUE;
             if (newKeys & B_BUTTON)
                 input->pressedBButton = TRUE;
+            if (newKeys & L_BUTTON && gSaveBlock2Ptr->optionsButtonMode != OPTIONS_BUTTON_MODE_L_EQUALS_A)
+                input->pressedListButton = TRUE;
+            else if (newKeys & R_BUTTON)
+                input->pressedListButton = TRUE;
             if (newKeys & R_BUTTON)
                 input->pressedRButton = TRUE;
         }
@@ -248,8 +254,32 @@ int ProcessPlayerFieldInput(struct FieldInput *input)
     if (input->tookStep && TryFindHiddenPokemon())
         return TRUE;
 
-    if (input->pressedSelectButton && UseRegisteredKeyItemOnField() == TRUE)
-        return TRUE;
+    if (input->pressedSelectButton)
+    {
+        if (gSaveBlock1Ptr->registeredItemListCount == 1)
+        {
+            if (UseRegisteredKeyItemOnField(1) == TRUE)
+                return TRUE;
+        }
+        else if (gSaveBlock1Ptr->registeredItemListCount > 0)
+        {
+            TxRegItemsMenu_OpenMenu();
+            return TRUE;
+        }
+        else if (UseRegisteredKeyItemOnField(0) == TRUE)
+        {
+            return TRUE;
+        }
+    }
+
+    if (input->pressedListButton)
+    {
+        if (gSaveBlock1Ptr->registeredItemListCount > 0)
+        {
+            TxRegItemsMenu_OpenMenu();
+            return TRUE;
+        }
+    }
 
     if (input->pressedRButton && TryStartDexNavSearch())
         return TRUE;
