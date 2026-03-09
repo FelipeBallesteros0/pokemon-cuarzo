@@ -107,6 +107,7 @@ EWRAM_DATA static s8 sStartMenuGridActionIndices[9] = {0};
 EWRAM_DATA static u8 sStartMenuSelectedGridSlot = 0;
 
 #define START_MENU_BUTTON_PAL_SLOT 13
+#define START_MENU_TEXT_PAL_SLOT 14
 #define START_MENU_CURSOR_PAL_SLOT 11
 #define START_MENU_BUTTON_WIDTH_TILES 8
 #define START_MENU_BUTTON_HEIGHT_TILES 4
@@ -276,11 +277,11 @@ static const u8 sStartMenuButtonTiles[] = INCBIN_U8("graphics/ui_startmenu_full/
 static const u16 sStartMenuButtonPalette[] = INCBIN_U16("graphics/ui_startmenu_full/boton.gbapal");
 static const u8 sStartMenuCursorTiles[] = INCBIN_U8("graphics/ui_startmenu_full/cursor.4bpp");
 static const u16 sStartMenuCursorPalette[] = INCBIN_U16("graphics/ui_startmenu_full/cursor.gbapal");
-static const u16 sStartMenuLatinNormalWhite = RGB(31, 31, 31); // #FFFFFF
-static const u16 sStartMenuLatinNormalDark = RGB(7, 7, 7);     // #383838
+static const u16 sStartMenuTextBaseFg = RGB(12, 12, 12);       // #626262 (base fg)
+static const u16 sStartMenuTextBaseShadow = RGB(26, 26, 25);   // #D5D5CD (base shadow)
 
-// Text colors on button palette: bg uses button center gray, fg/shadow use reserved entries.
-static const u8 sStartMenuButtonTextColors[] = {2, 6, 7};
+// Text colors using dedicated text palette slots: bg, fg, shadow.
+static const u8 sStartMenuButtonTextColors[] = {1, 2, 3};
 
 // Local functions
 static void BuildStartMenuActions(void);
@@ -1637,9 +1638,10 @@ static void StartMenu_RemoveButtonTextWindow(void)
 
 static void StartMenu_LoadTextPalette(void)
 {
-    // Reapply text fg/shadow in unused entries of button palette to guarantee exact bg match.
-    LoadPalette(&sStartMenuLatinNormalWhite, BG_PLTT_ID(START_MENU_BUTTON_PAL_SLOT) + 6 * sizeof(u16), sizeof(u16)); // idx 6
-    LoadPalette(&sStartMenuLatinNormalDark,  BG_PLTT_ID(START_MENU_BUTTON_PAL_SLOT) + 7 * sizeof(u16), sizeof(u16)); // idx 7
+    // Keep text on dedicated palette so button art colors remain untouched.
+    LoadPalette(&sStartMenuButtonPalette[2], BG_PLTT_ID(START_MENU_TEXT_PAL_SLOT) + 1, PLTT_SIZEOF(1)); // idx 1 bg
+    LoadPalette(&sStartMenuTextBaseFg,       BG_PLTT_ID(START_MENU_TEXT_PAL_SLOT) + 2, PLTT_SIZEOF(1)); // idx 2 fg
+    LoadPalette(&sStartMenuTextBaseShadow,   BG_PLTT_ID(START_MENU_TEXT_PAL_SLOT) + 3, PLTT_SIZEOF(1)); // idx 3 shadow
 }
 
 static void StartMenu_DrawButtonText(void)
@@ -1699,7 +1701,7 @@ static void StartMenu_DrawButtonText(void)
         winTemplate.tilemapTop = tilemapTop;
         winTemplate.width = windowWidth;
         winTemplate.height = 2;
-        winTemplate.paletteNum = START_MENU_BUTTON_PAL_SLOT;
+        winTemplate.paletteNum = START_MENU_TEXT_PAL_SLOT;
         winTemplate.baseBlock = baseBlock;
 
         windowId = AddWindow(&winTemplate);
