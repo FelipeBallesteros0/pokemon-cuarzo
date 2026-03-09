@@ -117,7 +117,8 @@ EWRAM_DATA static u8 sStartMenuSelectedGridSlot = 0;
 #define START_MENU_BUTTON_GRID_X_SPACING 9
 #define START_MENU_BUTTON_GRID_Y_SPACING 5
 #define START_MENU_BUTTON_BASE_TILE 0x1D0
-#define START_MENU_BUTTON_SELECTED_BASE_TILE 0x210
+// Keep selected button tiles away from message/std window gfx (0x200/0x214).
+#define START_MENU_BUTTON_SELECTED_BASE_TILE 0x300
 #define START_MENU_BUTTON_TEXT_BASEBLOCK 0x240
 
 // Menu action callbacks
