@@ -96,8 +96,8 @@ EWRAM_DATA static u8 (*sSaveDialogCallback)(void) = NULL;
 EWRAM_DATA static u8 sSaveDialogTimer = 0;
 EWRAM_DATA static bool8 sSavingComplete = FALSE;
 EWRAM_DATA static u8 sSaveInfoWindowId = 0;
-EWRAM_DATA static u8 sStartMenuButtonTextWindowId = 0;
-EWRAM_DATA static bool8 sStartMenuButtonTextWindowActive = FALSE;
+EWRAM_DATA static u8 sStartMenuButtonTextWindowIds[9] = {0};
+EWRAM_DATA static u8 sStartMenuButtonTextWindowCount = 0;
 EWRAM_DATA static bool8 sStartMenuScrollBgActive = FALSE;
 EWRAM_DATA static bool8 sStartMenuObjWasEnabled = FALSE;
 EWRAM_DATA static bool8 sStartMenuTransitionPendingUnblank = FALSE;
@@ -277,16 +277,6 @@ static const u16 sStartMenuButtonPalette[] = INCBIN_U16("graphics/ui_startmenu_f
 static const u8 sStartMenuCursorTiles[] = INCBIN_U8("graphics/ui_startmenu_full/cursor.4bpp");
 static const u16 sStartMenuCursorPalette[] = INCBIN_U16("graphics/ui_startmenu_full/cursor.gbapal");
 
-static const struct WindowTemplate sWindowTemplate_StartMenuButtonsText =
-{
-    .bg = 0,
-    .tilemapLeft = START_MENU_BUTTON_GRID_X,
-    .tilemapTop = START_MENU_BUTTON_GRID_Y,
-    .width = 24,
-    .height = 12,
-    .paletteNum = 15,
-    .baseBlock = START_MENU_BUTTON_TEXT_BASEBLOCK
-};
 static const u8 sStartMenuButtonTextColors[] = {TEXT_COLOR_TRANSPARENT, TEXT_COLOR_WHITE, TEXT_COLOR_DARK_GRAY};
 
 // Local functions
@@ -1632,27 +1622,35 @@ static void StartMenu_BuildGridActionMap(void)
 
 static void StartMenu_RemoveButtonTextWindow(void)
 {
-    if (sStartMenuButtonTextWindowActive)
+    u8 i;
+
+    for (i = 0; i < sStartMenuButtonTextWindowCount; i++)
     {
-        RemoveWindow(sStartMenuButtonTextWindowId);
-        sStartMenuButtonTextWindowActive = FALSE;
+        RemoveWindow(sStartMenuButtonTextWindowIds[i]);
     }
+    sStartMenuButtonTextWindowCount = 0;
 }
 
 static void StartMenu_DrawButtonText(void)
 {
     u8 slot;
     u8 action;
-    u8 x;
-    u8 y;
-    u16 width;
+    u8 textX;
+    u8 textY;
+    u8 windowWidth;
+    u8 tilemapLeft;
+    u8 tilemapTop;
+    u16 textWidth;
+    u16 textXAbs;
+    u16 textYAbs;
+    u16 baseBlock;
+    u8 windowId;
     const u8 *label;
     s8 actionIndex;
+    struct WindowTemplate winTemplate;
 
     StartMenu_RemoveButtonTextWindow();
-    sStartMenuButtonTextWindowId = AddWindow(&sWindowTemplate_StartMenuButtonsText);
-    sStartMenuButtonTextWindowActive = TRUE;
-    FillWindowPixelBuffer(sStartMenuButtonTextWindowId, PIXEL_FILL(0));
+    baseBlock = START_MENU_BUTTON_TEXT_BASEBLOCK;
 
     for (slot = 0; slot < 9; slot++)
     {
@@ -1663,14 +1661,35 @@ static void StartMenu_DrawButtonText(void)
         action = sCurrentStartMenuActions[actionIndex];
         StringExpandPlaceholders(gStringVar4, sStartMenuItems[action].text);
         label = gStringVar4;
-        width = GetStringWidth(FONT_NORMAL, label, 0);
-        x = (slot % 3) * 64 + ((64 - width) / 2);
-        y = (slot / 3) * 32 + 12;
-        AddTextPrinterParameterized3(sStartMenuButtonTextWindowId, FONT_NORMAL, x, y, sStartMenuButtonTextColors, TEXT_SKIP_DRAW, label);
-    }
+        textWidth = GetStringWidth(FONT_NORMAL, label, 0);
+        textXAbs = START_MENU_BUTTON_GRID_X * 8 + (slot % 3) * 64 + ((64 - textWidth) / 2);
+        textYAbs = START_MENU_BUTTON_GRID_Y * 8 + (slot / 3) * 32 + 12;
+        tilemapLeft = textXAbs / 8;
+        tilemapTop = textYAbs / 8;
+        textX = textXAbs % 8;
+        textY = textYAbs % 8;
+        windowWidth = (textWidth + textX + 7) / 8;
+        if (windowWidth == 0)
+            windowWidth = 1;
+        if (windowWidth > 8)
+            windowWidth = 8;
 
-    PutWindowTilemap(sStartMenuButtonTextWindowId);
-    CopyWindowToVram(sStartMenuButtonTextWindowId, COPYWIN_FULL);
+        winTemplate.bg = 0;
+        winTemplate.tilemapLeft = tilemapLeft;
+        winTemplate.tilemapTop = tilemapTop;
+        winTemplate.width = windowWidth;
+        winTemplate.height = 2;
+        winTemplate.paletteNum = 15;
+        winTemplate.baseBlock = baseBlock;
+
+        windowId = AddWindow(&winTemplate);
+        sStartMenuButtonTextWindowIds[sStartMenuButtonTextWindowCount++] = windowId;
+        FillWindowPixelBuffer(windowId, PIXEL_FILL(0));
+        AddTextPrinterParameterized3(windowId, FONT_NORMAL, textX, textY, sStartMenuButtonTextColors, TEXT_SKIP_DRAW, label);
+        PutWindowTilemap(windowId);
+        CopyWindowToVram(windowId, COPYWIN_FULL);
+        baseBlock += windowWidth * 2;
+    }
 }
 
 static void StartMenu_DrawButtonGrid(void)
