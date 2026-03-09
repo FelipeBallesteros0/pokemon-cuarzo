@@ -107,7 +107,6 @@ EWRAM_DATA static s8 sStartMenuGridActionIndices[9] = {0};
 EWRAM_DATA static u8 sStartMenuSelectedGridSlot = 0;
 
 #define START_MENU_BUTTON_PAL_SLOT 13
-#define START_MENU_TEXT_PAL_SLOT 14
 #define START_MENU_CURSOR_PAL_SLOT 11
 #define START_MENU_BUTTON_WIDTH_TILES 8
 #define START_MENU_BUTTON_HEIGHT_TILES 4
@@ -277,12 +276,11 @@ static const u8 sStartMenuButtonTiles[] = INCBIN_U8("graphics/ui_startmenu_full/
 static const u16 sStartMenuButtonPalette[] = INCBIN_U16("graphics/ui_startmenu_full/boton.gbapal");
 static const u8 sStartMenuCursorTiles[] = INCBIN_U8("graphics/ui_startmenu_full/cursor.4bpp");
 static const u16 sStartMenuCursorPalette[] = INCBIN_U16("graphics/ui_startmenu_full/cursor.gbapal");
-static const u16 sStartMenuPureWhiteColor = RGB(31, 31, 31);
-static const u16 sStartMenuShadowGrayColor = RGB(14, 14, 14);
-static const u16 sStartMenuTextWindowBgColor = RGB(15, 15, 15); // #7B7B7B
+static const u16 sStartMenuLatinNormalWhite = RGB(31, 31, 31); // #FFFFFF
+static const u16 sStartMenuLatinNormalDark = RGB(7, 7, 7);     // #383838
 
-// Text palette indices in dedicated text palette: bg=#7B7B7B, fg=white, shadow=gray.
-static const u8 sStartMenuButtonTextColors[] = {0, 1, 2};
+// Text colors on button palette: bg uses button center gray, fg/shadow use reserved entries.
+static const u8 sStartMenuButtonTextColors[] = {2, 6, 7};
 
 // Local functions
 static void BuildStartMenuActions(void);
@@ -324,6 +322,7 @@ static void StartMenu_DisableScrollingBg(void);
 static void StartMenu_DrawButtonGrid(void);
 static void StartMenu_DrawButtonText(void);
 static void StartMenu_RemoveButtonTextWindow(void);
+static void StartMenu_LoadTextPalette(void);
 static void StartMenu_BuildGridActionMap(void);
 static void StartMenu_RefreshCustomMenuVisuals(void);
 static bool8 StartMenu_MoveCursorInGrid(s8 dx, s8 dy);
@@ -1636,6 +1635,13 @@ static void StartMenu_RemoveButtonTextWindow(void)
     sStartMenuButtonTextWindowCount = 0;
 }
 
+static void StartMenu_LoadTextPalette(void)
+{
+    // Reapply text fg/shadow in unused entries of button palette to guarantee exact bg match.
+    LoadPalette(&sStartMenuLatinNormalWhite, BG_PLTT_ID(START_MENU_BUTTON_PAL_SLOT) + 6 * sizeof(u16), sizeof(u16)); // idx 6
+    LoadPalette(&sStartMenuLatinNormalDark,  BG_PLTT_ID(START_MENU_BUTTON_PAL_SLOT) + 7 * sizeof(u16), sizeof(u16)); // idx 7
+}
+
 static void StartMenu_DrawButtonText(void)
 {
     u8 slot;
@@ -1655,6 +1661,7 @@ static void StartMenu_DrawButtonText(void)
     struct WindowTemplate winTemplate;
 
     StartMenu_RemoveButtonTextWindow();
+    StartMenu_LoadTextPalette();
     baseBlock = START_MENU_BUTTON_TEXT_BASEBLOCK;
 
     for (slot = 0; slot < 9; slot++)
@@ -1692,7 +1699,7 @@ static void StartMenu_DrawButtonText(void)
         winTemplate.tilemapTop = tilemapTop;
         winTemplate.width = windowWidth;
         winTemplate.height = 2;
-        winTemplate.paletteNum = START_MENU_TEXT_PAL_SLOT;
+        winTemplate.paletteNum = START_MENU_BUTTON_PAL_SLOT;
         winTemplate.baseBlock = baseBlock;
 
         windowId = AddWindow(&winTemplate);
@@ -1829,10 +1836,8 @@ static void StartMenu_EnableScrollingBg(void)
     LoadBgTiles(0, sStartMenuButtonTiles, sizeof(sStartMenuButtonTiles), START_MENU_BUTTON_BASE_TILE);
     LoadBgTiles(0, sStartMenuCursorTiles, sizeof(sStartMenuCursorTiles), START_MENU_CURSOR_BASE_TILE);
     LoadPalette(sStartMenuButtonPalette, BG_PLTT_ID(START_MENU_BUTTON_PAL_SLOT), sizeof(sStartMenuButtonPalette));
-    // Dedicated text palette so text colors don't modify button art palette.
-    LoadPalette(&sStartMenuTextWindowBgColor, BG_PLTT_ID(START_MENU_TEXT_PAL_SLOT), sizeof(u16));                   // idx 0
-    LoadPalette(&sStartMenuPureWhiteColor,    BG_PLTT_ID(START_MENU_TEXT_PAL_SLOT) + 1 * sizeof(u16), sizeof(u16)); // idx 1
-    LoadPalette(&sStartMenuShadowGrayColor,   BG_PLTT_ID(START_MENU_TEXT_PAL_SLOT) + 2 * sizeof(u16), sizeof(u16)); // idx 2
+    // Load text fg/shadow in reserved button palette entries.
+    StartMenu_LoadTextPalette();
     LoadPalette(sStartMenuCursorPalette, BG_PLTT_ID(START_MENU_CURSOR_PAL_SLOT), sizeof(sStartMenuCursorPalette));
     CopyBgTilemapBufferToVram(0);
 
@@ -1847,6 +1852,7 @@ static void StartMenu_UpdateScrollingBg(void)
 {
     if (sStartMenuScrollBgActive)
     {
+        StartMenu_LoadTextPalette();
         // Keep the animation lightweight to avoid transition artifacts.
         LoadPalette(sStartMenuScrollBgPalette, BG_PLTT_ID(12), sizeof(sStartMenuScrollBgPalette));
         ChangeBgY(3, 64, BG_COORD_SUB);
