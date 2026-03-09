@@ -107,6 +107,7 @@ EWRAM_DATA static s8 sStartMenuGridActionIndices[9] = {0};
 EWRAM_DATA static u8 sStartMenuSelectedGridSlot = 0;
 
 #define START_MENU_BUTTON_PAL_SLOT 13
+#define START_MENU_TEXT_PAL_SLOT 14
 #define START_MENU_CURSOR_PAL_SLOT 11
 #define START_MENU_BUTTON_WIDTH_TILES 8
 #define START_MENU_BUTTON_HEIGHT_TILES 4
@@ -276,9 +277,12 @@ static const u8 sStartMenuButtonTiles[] = INCBIN_U8("graphics/ui_startmenu_full/
 static const u16 sStartMenuButtonPalette[] = INCBIN_U16("graphics/ui_startmenu_full/boton.gbapal");
 static const u8 sStartMenuCursorTiles[] = INCBIN_U8("graphics/ui_startmenu_full/cursor.4bpp");
 static const u16 sStartMenuCursorPalette[] = INCBIN_U16("graphics/ui_startmenu_full/cursor.gbapal");
+static const u16 sStartMenuPureWhiteColor = RGB(31, 31, 31);
+static const u16 sStartMenuShadowGrayColor = RGB(14, 14, 14);
+static const u16 sStartMenuTextWindowBgColor = RGB(15, 15, 15); // #7B7B7B
 
-// Color indices in boton.gbapal: bg=2 (mid gray), fg=1 (light gray), shadow=4 (dark gray).
-static const u8 sStartMenuButtonTextColors[] = {2, 1, 4};
+// Text palette indices in dedicated text palette: bg=#7B7B7B, fg=white, shadow=gray.
+static const u8 sStartMenuButtonTextColors[] = {0, 1, 2};
 
 // Local functions
 static void BuildStartMenuActions(void);
@@ -1664,7 +1668,15 @@ static void StartMenu_DrawButtonText(void)
         label = gStringVar4;
         textWidth = GetStringWidth(FONT_NORMAL, label, 0);
         textXAbs = START_MENU_BUTTON_GRID_X * 8 + (slot % 3) * 64 + ((64 - textWidth) / 2);
+        if ((slot % 3) == 1)
+            textXAbs += 8;
+        else if ((slot % 3) == 2)
+            textXAbs += 16;
         textYAbs = START_MENU_BUTTON_GRID_Y * 8 + (slot / 3) * 32 + 12;
+        if ((slot / 3) == 1)
+            textYAbs += 8;
+        else if ((slot / 3) == 2)
+            textYAbs += 16;
         tilemapLeft = textXAbs / 8;
         tilemapTop = textYAbs / 8;
         textX = textXAbs % 8;
@@ -1680,7 +1692,7 @@ static void StartMenu_DrawButtonText(void)
         winTemplate.tilemapTop = tilemapTop;
         winTemplate.width = windowWidth;
         winTemplate.height = 2;
-        winTemplate.paletteNum = START_MENU_BUTTON_PAL_SLOT;
+        winTemplate.paletteNum = START_MENU_TEXT_PAL_SLOT;
         winTemplate.baseBlock = baseBlock;
 
         windowId = AddWindow(&winTemplate);
@@ -1817,6 +1829,10 @@ static void StartMenu_EnableScrollingBg(void)
     LoadBgTiles(0, sStartMenuButtonTiles, sizeof(sStartMenuButtonTiles), START_MENU_BUTTON_BASE_TILE);
     LoadBgTiles(0, sStartMenuCursorTiles, sizeof(sStartMenuCursorTiles), START_MENU_CURSOR_BASE_TILE);
     LoadPalette(sStartMenuButtonPalette, BG_PLTT_ID(START_MENU_BUTTON_PAL_SLOT), sizeof(sStartMenuButtonPalette));
+    // Dedicated text palette so text colors don't modify button art palette.
+    LoadPalette(&sStartMenuTextWindowBgColor, BG_PLTT_ID(START_MENU_TEXT_PAL_SLOT), sizeof(u16));                   // idx 0
+    LoadPalette(&sStartMenuPureWhiteColor,    BG_PLTT_ID(START_MENU_TEXT_PAL_SLOT) + 1 * sizeof(u16), sizeof(u16)); // idx 1
+    LoadPalette(&sStartMenuShadowGrayColor,   BG_PLTT_ID(START_MENU_TEXT_PAL_SLOT) + 2 * sizeof(u16), sizeof(u16)); // idx 2
     LoadPalette(sStartMenuCursorPalette, BG_PLTT_ID(START_MENU_CURSOR_PAL_SLOT), sizeof(sStartMenuCursorPalette));
     CopyBgTilemapBufferToVram(0);
 
