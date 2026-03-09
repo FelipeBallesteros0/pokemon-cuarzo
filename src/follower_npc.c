@@ -65,6 +65,7 @@ static void SetUpSurfBlobFieldEffect(struct ObjectEvent *npc);
 static u8 CreateFollowerSurfMountSprite(struct ObjectEvent *follower);
 static void DestroyFollowerSurfMountSprite(struct ObjectEvent *follower);
 static void SpriteCB_FollowerSurfMount(struct Sprite *sprite);
+static void Task_CreateFollowerSurfMountAfterJump(u8 taskId);
 static void SetSurfDismount(void);
 static void Task_BindSurfBlobToFollowerNPC(u8 taskId);
 static void Task_FinishSurfDismount(u8 taskId);
@@ -538,10 +539,12 @@ static void SetSurfJump(void)
     }
     else
     {
-        if (FNPC_USE_SURF_MOUNT_SPRITE == TRUE)
-            follower->fieldEffectSpriteId = CreateFollowerSurfMountSprite(follower);
+        follower->fieldEffectSpriteId = 0;
         SetFollowerNPCData(FNPC_DATA_SURF_BLOB, FNPC_USE_SURF_MOUNT_SPRITE == TRUE ? FNPC_SURF_BLOB_RECREATE : FNPC_SURF_BLOB_NONE);
-        CreateTask(Task_ReallowPlayerMovement, 1);
+        if (FNPC_USE_SURF_MOUNT_SPRITE == TRUE)
+            CreateTask(Task_CreateFollowerSurfMountAfterJump, 1);
+        else
+            CreateTask(Task_ReallowPlayerMovement, 1);
     }
 
     follower = &gObjectEvents[GetFollowerNPCObjectId()];
@@ -683,6 +686,30 @@ static void Task_BindSurfBlobToFollowerNPC(u8 taskId)
     DestroyTask(taskId);
     gPlayerAvatar.preventStep = FALSE;
     return;
+}
+
+static void Task_CreateFollowerSurfMountAfterJump(u8 taskId)
+{
+    struct ObjectEvent *follower;
+    bool32 animStatus;
+
+    if (!PlayerHasFollowerNPC())
+    {
+        gPlayerAvatar.preventStep = FALSE;
+        DestroyTask(taskId);
+        return;
+    }
+
+    follower = &gObjectEvents[GetFollowerNPCObjectId()];
+    animStatus = ObjectEventClearHeldMovementIfFinished(follower);
+    if (animStatus == 0)
+        return;
+
+    if (follower->fieldEffectSpriteId == 0)
+        follower->fieldEffectSpriteId = CreateFollowerSurfMountSprite(follower);
+
+    gPlayerAvatar.preventStep = FALSE;
+    DestroyTask(taskId);
 }
 
 static void Task_FinishSurfDismount(u8 taskId)
@@ -1074,7 +1101,9 @@ u32 DetermineFollowerNPCState(struct ObjectEvent *follower, u32 state, u32 direc
             follower->disableAnim = TRUE;
 
         // Handle surfing.
-        if (GetFollowerNPCData(FNPC_DATA_CURRENT_SPRITE) == FOLLOWER_NPC_SPRITE_INDEX_SURF && GetFollowerNPCSprite() == GetFollowerNPCData(FNPC_DATA_GFX_ID))
+        if (GetFollowerNPCData(FNPC_DATA_CURRENT_SPRITE) == FOLLOWER_NPC_SPRITE_INDEX_SURF
+         && (GetFollowerNPCSprite() == GetFollowerNPCData(FNPC_DATA_GFX_ID)
+          || (FNPC_SHOW_SURF_BLOB == FALSE && FNPC_USE_SURF_MOUNT_SPRITE == TRUE)))
             RETURN_STATE(MOVEMENT_ACTION_SURF_STILL_DOWN, direction);
 
         if (MetatileBehavior_IsMuddySlope(follower->currentMetatileBehavior))
