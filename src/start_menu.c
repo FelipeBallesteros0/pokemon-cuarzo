@@ -337,7 +337,6 @@ static void StartMenu_UpdateClockWindow(void);
 static void StartMenu_BuildGridActionMap(void);
 static void StartMenu_RefreshCustomMenuVisuals(void);
 static bool8 StartMenu_MoveCursorInGrid(s8 dx, s8 dy);
-static s8 StartMenu_GetSlotForAction(u8 action);
 
 void SetDexPokemonPokenavFlags(void) // unused
 {
@@ -1554,67 +1553,17 @@ static void HideStartMenuWindow(void)
     UnlockPlayerFieldControls();
 }
 
-static s8 StartMenu_GetSlotForAction(u8 action)
-{
-    switch (action)
-    {
-    case MENU_ACTION_POKEDEX:
-        return 0;
-    case MENU_ACTION_POKEMON:
-        return 1;
-    case MENU_ACTION_BAG:
-    case MENU_ACTION_PYRAMID_BAG:
-        return 2;
-    case MENU_ACTION_DEXNAV:
-        return 3;
-    case MENU_ACTION_POKENAV:
-        return 4;
-    case MENU_ACTION_PLAYER:
-    case MENU_ACTION_PLAYER_LINK:
-        return 5;
-    case MENU_ACTION_SAVE:
-    case MENU_ACTION_REST_FRONTIER:
-        return 6;
-    case MENU_ACTION_OPTION:
-        return 7;
-    case MENU_ACTION_EXIT:
-    case MENU_ACTION_RETIRE_SAFARI:
-    case MENU_ACTION_RETIRE_FRONTIER:
-    case MENU_ACTION_DEBUG:
-        return 8;
-    default:
-        return -1;
-    }
-}
-
 static void StartMenu_BuildGridActionMap(void)
 {
     s8 i;
-    s8 slot;
-    s8 fallbackSlot;
     s8 selectedSlot = -1;
 
     for (i = 0; i < (s8)ARRAY_COUNT(sStartMenuGridActionIndices); i++)
         sStartMenuGridActionIndices[i] = -1;
 
-    for (i = 0; i < sNumStartMenuActions; i++)
-    {
-        slot = StartMenu_GetSlotForAction(sCurrentStartMenuActions[i]);
-        if (slot >= 0 && sStartMenuGridActionIndices[slot] == -1)
-        {
-            sStartMenuGridActionIndices[slot] = i;
-            continue;
-        }
-
-        for (fallbackSlot = 0; fallbackSlot < (s8)ARRAY_COUNT(sStartMenuGridActionIndices); fallbackSlot++)
-        {
-            if (sStartMenuGridActionIndices[fallbackSlot] == -1)
-            {
-                sStartMenuGridActionIndices[fallbackSlot] = i;
-                break;
-            }
-        }
-    }
+    // Compact the grid from top-left to bottom-right with currently available actions.
+    for (i = 0; i < sNumStartMenuActions && i < (s8)ARRAY_COUNT(sStartMenuGridActionIndices); i++)
+        sStartMenuGridActionIndices[i] = i;
 
     for (i = 0; i < (s8)ARRAY_COUNT(sStartMenuGridActionIndices); i++)
     {
