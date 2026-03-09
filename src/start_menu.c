@@ -277,6 +277,7 @@ static const u8 sStartMenuButtonTiles[] = INCBIN_U8("graphics/ui_startmenu_full/
 static const u8 sStartMenuButtonSelectedTiles[] = INCBIN_U8("graphics/ui_startmenu_full/boton_selected.4bpp");
 static const u16 sStartMenuButtonPalette[] = INCBIN_U16("graphics/ui_startmenu_full/boton.gbapal");
 static const u16 sStartMenuCursorPalette[] = INCBIN_U16("graphics/ui_startmenu_full/cursor.gbapal");
+static u16 sStartMenuButtonPaletteDynamic[ARRAY_COUNT(sStartMenuButtonPalette)];
 
 // Text colors using dedicated text palette slots: bg, fg, shadow.
 static const u8 sStartMenuButtonTextColors[] = {1, 2, 3};
@@ -321,6 +322,7 @@ static void StartMenu_DisableScrollingBg(void);
 static void StartMenu_DrawButtonGrid(void);
 static void StartMenu_DrawButtonText(void);
 static void StartMenu_RemoveButtonTextWindow(void);
+static void StartMenu_BuildButtonPaletteByGender(void);
 static void StartMenu_LoadTextPalette(void);
 static void StartMenu_BuildGridActionMap(void);
 static void StartMenu_RefreshCustomMenuVisuals(void);
@@ -1639,10 +1641,37 @@ static void StartMenu_RemoveButtonTextWindow(void)
 
 static void StartMenu_LoadTextPalette(void)
 {
+    StartMenu_BuildButtonPaletteByGender();
+
     // Keep button-matched window bg, with default FONT_NORMAL fg/shadow.
-    LoadPalette(&sStartMenuButtonPalette[2],                  BG_PLTT_ID(START_MENU_TEXT_PAL_SLOT) + 1, PLTT_SIZEOF(1)); // idx 1 bg
+    LoadPalette(&sStartMenuButtonPaletteDynamic[2],           BG_PLTT_ID(START_MENU_TEXT_PAL_SLOT) + 1, PLTT_SIZEOF(1)); // idx 1 bg
     LoadPalette(&gStandardMenuPalette[TEXT_COLOR_DARK_GRAY],  BG_PLTT_ID(START_MENU_TEXT_PAL_SLOT) + 2, PLTT_SIZEOF(1)); // idx 2 fg
     LoadPalette(&gStandardMenuPalette[TEXT_COLOR_LIGHT_GRAY], BG_PLTT_ID(START_MENU_TEXT_PAL_SLOT) + 3, PLTT_SIZEOF(1)); // idx 3 shadow
+}
+
+static void StartMenu_BuildButtonPaletteByGender(void)
+{
+    u32 i;
+    bool8 isMale;
+
+    for (i = 0; i < ARRAY_COUNT(sStartMenuButtonPalette); i++)
+        sStartMenuButtonPaletteDynamic[i] = sStartMenuButtonPalette[i];
+
+    isMale = (gSaveBlock2Ptr->playerGender == MALE);
+
+    if (isMale)
+    {
+        // Replace old gray shades: #B3B3B3, #7D7D7D, #444444
+        sStartMenuButtonPaletteDynamic[1] = RGB(16, 21, 31); // #84ADFF
+        sStartMenuButtonPaletteDynamic[2] = RGB(8,  9,  22); // #424AB5
+        sStartMenuButtonPaletteDynamic[4] = RGB(5,  4,  12); // #292163
+    }
+    else
+    {
+        sStartMenuButtonPaletteDynamic[1] = RGB(31, 18, 16); // #FF9782
+        sStartMenuButtonPaletteDynamic[2] = RGB(22, 9,  9);  // #B34D47
+        sStartMenuButtonPaletteDynamic[4] = RGB(12, 5,  5);  // #612929
+    }
 }
 
 static void StartMenu_DrawButtonText(void)
@@ -1841,7 +1870,8 @@ static void StartMenu_EnableScrollingBg(void)
     FillBgTilemapBufferRect_Palette0(0, 0, 0, 0, 32, 32);
     LoadBgTiles(0, sStartMenuButtonTiles, sizeof(sStartMenuButtonTiles), START_MENU_BUTTON_BASE_TILE);
     LoadBgTiles(0, sStartMenuButtonSelectedTiles, sizeof(sStartMenuButtonSelectedTiles), START_MENU_BUTTON_SELECTED_BASE_TILE);
-    LoadPalette(sStartMenuButtonPalette, BG_PLTT_ID(START_MENU_BUTTON_PAL_SLOT), sizeof(sStartMenuButtonPalette));
+    StartMenu_BuildButtonPaletteByGender();
+    LoadPalette(sStartMenuButtonPaletteDynamic, BG_PLTT_ID(START_MENU_BUTTON_PAL_SLOT), sizeof(sStartMenuButtonPaletteDynamic));
     LoadPalette(&sStartMenuCursorPalette[1], BG_PLTT_ID(START_MENU_BUTTON_PAL_SLOT) + 6, PLTT_SIZEOF(1));
     // Load text fg/shadow in reserved button palette entries.
     StartMenu_LoadTextPalette();
@@ -1925,7 +1955,8 @@ void StartMenu_RefreshForReturnFade(void)
 
     LoadBgTiles(0, sStartMenuButtonTiles, sizeof(sStartMenuButtonTiles), START_MENU_BUTTON_BASE_TILE);
     LoadBgTiles(0, sStartMenuButtonSelectedTiles, sizeof(sStartMenuButtonSelectedTiles), START_MENU_BUTTON_SELECTED_BASE_TILE);
-    LoadPalette(sStartMenuButtonPalette, BG_PLTT_ID(START_MENU_BUTTON_PAL_SLOT), sizeof(sStartMenuButtonPalette));
+    StartMenu_BuildButtonPaletteByGender();
+    LoadPalette(sStartMenuButtonPaletteDynamic, BG_PLTT_ID(START_MENU_BUTTON_PAL_SLOT), sizeof(sStartMenuButtonPaletteDynamic));
     LoadPalette(&sStartMenuCursorPalette[1], BG_PLTT_ID(START_MENU_BUTTON_PAL_SLOT) + 6, PLTT_SIZEOF(1));
     StartMenu_LoadTextPalette();
     StartMenu_RefreshCustomMenuVisuals();
