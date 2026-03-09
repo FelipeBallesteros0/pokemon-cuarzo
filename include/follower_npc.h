@@ -28,7 +28,8 @@ enum FollowerNPCDataTypes
     FNPC_DATA_EVENT_FLAG,
     FNPC_DATA_GFX_ID,
     FNPC_DATA_FOLLOWER_FLAGS,
-    FNPC_DATA_BATTLE_PARTNER
+    FNPC_DATA_BATTLE_PARTNER,
+    FNPC_DATA_HAIR_COLOR
 };
 
 enum FollowerNPCSpriteTypes
@@ -138,6 +139,7 @@ bool32 IsNPCFollowerWildBattle(void);
 void PrepareForFollowerNPCBattle(void);
 void RestorePartyAfterFollowerNPCBattle(void);
 void FollowerNPC_TryRemoveFollowerOnWhiteOut(void);
+void FollowerNPC_ApplyHairColorToCurrentSprite(void);
 
 void Task_MoveNPCFollowerAfterForcedMovement(u8 taskId);
 void Task_HideNPCFollowerAfterMovementFinish(u8 taskId);

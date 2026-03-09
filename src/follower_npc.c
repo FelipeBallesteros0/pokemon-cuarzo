@@ -29,12 +29,14 @@
 #include "sound.h"
 #include "task.h"
 #include "trig.h"
+#include "palette.h"
 #include "constants/event_object_movement.h"
 #include "constants/event_objects.h"
 #include "constants/field_effects.h"
 #include "constants/frontier_util.h"
 #include "constants/map_types.h"
 #include "constants/metatile_behaviors.h"
+#include "constants/rgb.h"
 #include "constants/species.h"
 #include "constants/songs.h"
 
@@ -77,6 +79,7 @@ static void Task_FollowerNPCHandleEscalator(u8 taskId);
 static void Task_FollowerNPCHandleEscalatorFinish(u8 taskId);
 static void CalculateFollowerNPCEscalatorTrajectoryUp(struct Task *task);
 static void CalculateFollowerNPCEscalatorTrajectoryDown(struct Task *task);
+static void ApplyFollowerNPCHairPalette(struct ObjectEvent *follower);
 
 void SetFollowerNPCData(enum FollowerNPCDataTypes type, u32 value)
 {
@@ -118,6 +121,9 @@ void SetFollowerNPCData(enum FollowerNPCDataTypes type, u32 value)
         break;
     case FNPC_DATA_BATTLE_PARTNER:
         gSaveBlock3Ptr->NPCfollower.battlePartner = value;
+        break;
+    case FNPC_DATA_HAIR_COLOR:
+        gSaveBlock3Ptr->NPCfollower.padding.padding1 = value;
         break;
     }
 #endif
@@ -177,6 +183,8 @@ u32 GetFollowerNPCData(enum FollowerNPCDataTypes type)
         return gSaveBlock3Ptr->NPCfollower.flags;
     case FNPC_DATA_BATTLE_PARTNER:
         return gSaveBlock3Ptr->NPCfollower.battlePartner;
+    case FNPC_DATA_HAIR_COLOR:
+        return gSaveBlock3Ptr->NPCfollower.padding.padding1;
     }
 #endif
     return 0;
@@ -377,6 +385,12 @@ static bool32 IsStateMovement(u32 state)
     }
 
     return TRUE;
+}
+
+// Recolors May's hair for the follower only: original reds <-> blonde tones.
+static void ApplyFollowerNPCHairPalette(struct ObjectEvent *follower)
+{
+    (void)follower;
 }
 
 // Because we want the NPC follower's movements to happen simultaneously with the player's,
@@ -1338,6 +1352,7 @@ void SetFollowerNPCSprite(u32 spriteIndex)
         follower->spriteId = newSpriteId;
         MoveObjectEventToMapCoords(follower, follower->currentCoords.x, follower->currentCoords.y);
         ObjectEventTurn(follower, follower->facingDirection);
+        ApplyFollowerNPCHairPalette(follower);
     }
     else
     {
@@ -1429,6 +1444,7 @@ void NPCFollow(struct ObjectEvent *npc, u32 state, bool32 ignoreScriptActive)
         MoveObjectEventToMapCoords(follower, player->currentCoords.x, player->currentCoords.y);
         // The follower should be facing the same direction as the player when it comes out of hiding.
         ObjectEventTurn(follower, player->facingDirection);
+        ApplyFollowerNPCHairPalette(follower);
 
         // Recreate the surf blob if needed.
         if (GetFollowerNPCData(FNPC_DATA_SURF_BLOB) == FNPC_SURF_BLOB_RECREATE && FNPC_SHOW_SURF_BLOB == TRUE)
@@ -1451,6 +1467,7 @@ void NPCFollow(struct ObjectEvent *npc, u32 state, bool32 ignoreScriptActive)
     if (FindTaskIdByFunc(Task_FollowerSurfFieldMovePose) != TASK_NONE)
     {
         ObjectEventClearHeldMovementIfFinished(follower);
+        ApplyFollowerNPCHairPalette(follower);
         return;
     }
 
@@ -1485,6 +1502,7 @@ void NPCFollow(struct ObjectEvent *npc, u32 state, bool32 ignoreScriptActive)
             follower->disableAnim = FALSE;
             follower->enableAnim = FALSE;
             gSprites[follower->spriteId].animPaused = FALSE;
+            ApplyFollowerNPCHairPalette(follower);
             ObjectEventSetHeldMovement(follower, MOVEMENT_ACTION_START_ANIM_IN_DIRECTION);
             CreateTask(Task_FollowerSurfFieldMovePose, 1);
         }
@@ -1508,6 +1526,7 @@ void NPCFollow(struct ObjectEvent *npc, u32 state, bool32 ignoreScriptActive)
 
     ObjectEventClearHeldMovementIfActive(follower);
     ObjectEventSetHeldMovement(follower, newState);
+    ApplyFollowerNPCHairPalette(follower);
     PlayerLogCoordinates(player);
 
     switch (newState)
@@ -1564,6 +1583,7 @@ void CreateFollowerNPCAvatar(void)
     if (gMapHeader.mapType == MAP_TYPE_UNDERWATER)
         SetFollowerNPCData(FNPC_DATA_SURF_BLOB, FNPC_SURF_BLOB_NONE);
 
+    ApplyFollowerNPCHairPalette(&gObjectEvents[GetFollowerNPCData(FNPC_DATA_OBJ_ID)]);
     gObjectEvents[GetFollowerNPCData(FNPC_DATA_OBJ_ID)].invisible = TRUE;
 }
 
@@ -1866,6 +1886,7 @@ void FollowerNPCReappearAfterLeaveMap(struct ObjectEvent *follower, struct Objec
         follower->invisible = FALSE;
         MoveObjectEventToMapCoords(follower, player->currentCoords.x, player->currentCoords.y);
         ObjectEventTurn(follower, DIR_SOUTH);
+        ApplyFollowerNPCHairPalette(follower);
         follower->singleMovementActive = FALSE;
         follower->heldMovementActive = FALSE;
 
@@ -1890,7 +1911,16 @@ void FollowerNPCFaceAfterLeaveMap(void)
         return;
 
     ObjectEventTurn(follower, DetermineFollowerNPCDirection(player, follower));
+    ApplyFollowerNPCHairPalette(follower);
     SetFollowerNPCData(FNPC_DATA_WARP_END, FNPC_WARP_NONE);
+}
+
+void FollowerNPC_ApplyHairColorToCurrentSprite(void)
+{
+    if (!PlayerHasFollowerNPC())
+        return;
+
+    ApplyFollowerNPCHairPalette(&gObjectEvents[GetFollowerNPCObjectId()]);
 }
 
 bool32 FollowerNPCIsBattlePartner(void)

@@ -17,6 +17,7 @@
 #include "m4a.h"
 #include "palette.h"
 #include "party_menu.h"
+#include "follower_npc.h"
 #include "pokeball.h"
 #include "pokemon.h"
 #include "reshow_battle_screen.h"
@@ -324,13 +325,22 @@ static void PlayerPartnerHandleIntroTrainerBallThrow(u32 battler)
 {
     const u16 *trainerPal;
     enum DifficultyLevel difficulty = GetBattlePartnerDifficultyLevel(gPartnerTrainerId);
+    u16 trainerBackPic = GetTrainerBackPicFromId(gPartnerTrainerId);
 
     if (gPartnerTrainerId > TRAINER_PARTNER(PARTNER_NONE))
+    {
+        trainerBackPic = gBattlePartners[difficulty][gPartnerTrainerId - TRAINER_PARTNER(PARTNER_NONE)].trainerBackPic;
         trainerPal = gTrainerBacksprites[gBattlePartners[difficulty][gPartnerTrainerId - TRAINER_PARTNER(PARTNER_NONE)].trainerBackPic].palette.data;
+    }
     else if (IsAiVsAiBattle())
         trainerPal = gTrainerSprites[GetTrainerBackPicFromId(gPartnerTrainerId)].palette.data;
     else
         trainerPal = gTrainerSprites[GetFrontierTrainerFrontSpriteId(gPartnerTrainerId)].palette.data; // 2 vs 2 multi battle in Battle Frontier, load front sprite and pal.
+
+    if (trainerBackPic == TRAINER_BACK_PIC_MAY
+     && FollowerNPCIsBattlePartner()
+     && GetFollowerNPCData(FNPC_DATA_HAIR_COLOR))
+        trainerPal = gTrainerBackPicPalette_MayBlonde;
 
     BtlController_HandleIntroTrainerBallThrow(battler, 0xD6F9, trainerPal, 24, Controller_PlayerPartnerShowIntroHealthbox);
 }

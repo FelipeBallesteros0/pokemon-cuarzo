@@ -17,6 +17,7 @@
 #include "field_screen_effect.h"
 #include "field_specials.h"
 #include "field_weather.h"
+#include "follower_npc.h"
 #include "dynamic_weather.h"
 #include "graphics.h"
 #include "international_string_util.h"
@@ -4517,4 +4518,18 @@ void Special_FollowerPet(void)
     AdjustFriendship(mon, FRIENDSHIP_EVENT_WALKING);
     VarSet(VAR_0x8004, species);
     gSpecialVar_Result = TRUE;
+}
+
+u16 Special_IsFollowerNPCHairBlonde(void)
+{
+    return (u16)GetFollowerNPCData(FNPC_DATA_HAIR_COLOR);
+}
+
+void Special_ToggleFollowerNPCHairColor(void)
+{
+    if (!PlayerHasFollowerNPC())
+        return;
+
+    SetFollowerNPCData(FNPC_DATA_HAIR_COLOR, !GetFollowerNPCData(FNPC_DATA_HAIR_COLOR));
+    FollowerNPC_ApplyHairColorToCurrentSprite();
 }

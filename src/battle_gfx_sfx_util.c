@@ -24,10 +24,12 @@
 #include "palette.h"
 #include "contest.h"
 #include "trainer_pokemon_sprites.h"
+#include "follower_npc.h"
 #include "constants/songs.h"
 #include "constants/rgb.h"
 #include "constants/battle_palace.h"
 #include "constants/battle_move_effects.h"
+#include "constants/trainers.h"
 #include "constants/event_objects.h" // only for SHADOW_SIZE constants
 
 // this file's functions
@@ -699,9 +701,20 @@ void DecompressTrainerFrontPic(u16 frontPicId, u8 battler)
 void DecompressTrainerBackPic(u16 backPicId, u8 battler)
 {
     u8 position = GetBattlerPosition(battler);
+    const u16 *backPalette = gTrainerBacksprites[backPicId].palette.data;
+
+    // Follower hair toggle affects only partner May's backsprite palette in battle.
+    if (backPicId == TRAINER_BACK_PIC_MAY
+     && (gBattleTypeFlags & BATTLE_TYPE_INGAME_PARTNER)
+     && position == B_POSITION_PLAYER_RIGHT
+     && FollowerNPCIsBattlePartner()
+     && GetFollowerNPCData(FNPC_DATA_HAIR_COLOR))
+    {
+        backPalette = gTrainerBackPicPalette_MayBlonde;
+    }
+
     CopyTrainerBackspriteFramesToDest(backPicId, gMonSpritesGfxPtr->spritesGfx[position]);
-    LoadPalette(gTrainerBacksprites[backPicId].palette.data,
-                          OBJ_PLTT_ID(battler), PLTT_SIZE_4BPP);
+    LoadPalette(backPalette, OBJ_PLTT_ID(battler), PLTT_SIZE_4BPP);
 }
 
 void FreeTrainerFrontPicPalette(u16 frontPicId)

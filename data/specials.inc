@@ -574,3 +574,5 @@ gSpecials::
 	def_special Special_FollowerPet
 	def_special Special_EnsureWeatherGiftMonMoves
 	def_special Special_GetFirstBounceMonIndex
+	def_special Special_IsFollowerNPCHairBlonde
+	def_special Special_ToggleFollowerNPCHairColor
