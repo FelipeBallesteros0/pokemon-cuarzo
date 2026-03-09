@@ -167,3 +167,61 @@ TestIsland_Text_BouncePrompt:
 TestIsland_Text_BounceCant:
 	.string "una roca alta, un pokemon podria saltar\n"
 	.string "al otro lado.$"
+
+TestIsland_EventScript_FollowerNPCToggle::
+	lock
+	faceplayer
+	setflag FLAG_RECEIVED_RUNNING_SHOES
+	setflag FLAG_SYS_B_DASH
+	checkfollowernpc
+	goto_if_eq VAR_RESULT, TRUE, TestIsland_EventScript_FollowerNPCToggle_AlreadyActive
+	msgbox TestIsland_Text_FollowerNPC_Enable, MSGBOX_YESNO
+	goto_if_eq VAR_RESULT, NO, TestIsland_EventScript_FollowerNPCToggle_End
+	setfollowernpc 3, FNPC_ALL, TestIsland_EventScript_FollowerNPCTalk, PARTNER_STEVEN
+	msgbox TestIsland_Text_FollowerNPC_Enabled, MSGBOX_DEFAULT
+	release
+	end
+
+TestIsland_EventScript_FollowerNPCToggle_AlreadyActive:
+	msgbox TestIsland_Text_FollowerNPC_Disable_FromFollower, MSGBOX_DEFAULT
+	release
+	end
+
+TestIsland_EventScript_FollowerNPCToggle_End:
+	release
+	end
+
+TestIsland_EventScript_FollowerNPCTalk::
+	lock
+	facefollowernpc
+	msgbox TestIsland_Text_FollowerNPC_Disable, MSGBOX_YESNO
+	goto_if_eq VAR_RESULT, NO, TestIsland_EventScript_FollowerNPCTalk_Keep
+	hidefollowernpc 1
+	destroyfollowernpc
+	msgbox TestIsland_Text_FollowerNPC_Disabled, MSGBOX_DEFAULT
+	release
+	end
+
+TestIsland_EventScript_FollowerNPCTalk_Keep:
+	msgbox TestIsland_Text_FollowerNPC_Talk, MSGBOX_DEFAULT
+	release
+	end
+
+TestIsland_Text_FollowerNPC_Enable:
+	.string "activar follower npc de prueba?$"
+
+TestIsland_Text_FollowerNPC_Disable:
+	.string "desactivar follower npc de prueba?$"
+
+TestIsland_Text_FollowerNPC_Disable_FromFollower:
+	.string "para desactivar al seguidor, habla con\n"
+	.string "el mismo.$"
+
+TestIsland_Text_FollowerNPC_Enabled:
+	.string "follower npc activado.$"
+
+TestIsland_Text_FollowerNPC_Disabled:
+	.string "follower npc desactivado.$"
+
+TestIsland_Text_FollowerNPC_Talk:
+	.string "estoy siguiendote.$"

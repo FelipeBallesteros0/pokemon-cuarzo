@@ -15,32 +15,12 @@ Music: Male
 Back Pic: Steven
 AI: Basic Trainer
 
-Metang
-Brave Nature
-Level: 42
+Gyarados
+Jolly Nature
+Level: 30
 IVs: 31 HP / 31 Atk / 31 Def / 31 SpA / 31 SpD / 31 Spe
-EVs: 252 Atk / 252 Def / 6 SpA
-- Light Screen
-- Psychic
-- Reflect
-- Metal Claw
-
-Skarmory
-Impish Nature
-Level: 43
-IVs: 31 HP / 31 Atk / 31 Def / 31 SpA / 31 SpD / 31 Spe
-EVs: 252 HP / 6 SpA / 252 SpD
-- Toxic
-- Aerial Ace
-- Protect
-- Steel Wing
-
-Aggron
-Adamant Nature
-Level: 44
-IVs: 31 HP / 31 Atk / 31 Def / 31 SpA / 31 SpD / 31 Spe
-EVs: 252 Atk / 252 SpA / 6 SpD
-- Thunder
-- Protect
-- Solar Beam
-- Dragon Claw
+EVs: 252 HP / 252 Atk / 6 Spe
+- Surf
+- Bite
+- Dragon Rage
+- Ice Fang
