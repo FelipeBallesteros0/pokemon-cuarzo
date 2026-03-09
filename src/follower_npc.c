@@ -1477,7 +1477,14 @@ void NPCFollow(struct ObjectEvent *npc, u32 state, bool32 ignoreScriptActive)
         if (FNPC_SHOW_SURF_BLOB == FALSE && FNPC_USE_SURF_MOUNT_SPRITE == TRUE)
         {
             ObjectEventSetGraphicsId(follower, GetFollowerNPCFieldMoveSprite());
-            ObjectEventTurn(follower, follower->movementDirection);
+            // Set direction without overriding anim (ObjectEventTurn would replace ANIM_FIELD_MOVE).
+            SetObjectEventDirection(follower, dir);
+            // Match player setup for field moves: ensure animNum points to ANIM_FIELD_MOVE.
+            StartSpriteAnim(&gSprites[follower->spriteId], ANIM_FIELD_MOVE);
+            // Followers idle with paused anim state; force animation playback for field-move pose.
+            follower->disableAnim = FALSE;
+            follower->enableAnim = FALSE;
+            gSprites[follower->spriteId].animPaused = FALSE;
             ObjectEventSetHeldMovement(follower, MOVEMENT_ACTION_START_ANIM_IN_DIRECTION);
             CreateTask(Task_FollowerSurfFieldMovePose, 1);
         }
