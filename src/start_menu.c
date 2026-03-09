@@ -573,8 +573,9 @@ static bool32 InitStartMenuStep(void)
         AddStartMenuWindow(sNumStartMenuActions); // Kept for save/retire flows that remove this window.
         StartMenu_BuildGridActionMap();
         StartMenu_RefreshCustomMenuVisuals();
-        // Unblank only after all start menu visuals are fully prepared.
-        sStartMenuTransitionPendingUnblank = TRUE;
+        // Request unblank only if display is currently blank.
+        if (GetGpuReg(REG_OFFSET_DISPCNT) & DISPCNT_FORCED_BLANK)
+            sStartMenuTransitionPendingUnblank = TRUE;
         sInitStartMenuData[0]++;
         break;
     case 3:
@@ -1819,10 +1820,13 @@ static void StartMenu_EnableScrollingBg(void)
 {
     u16 i;
     u8 bg0CharBase;
+    bool8 alreadyActive = sStartMenuScrollBgActive;
 
-    // Keep display blank during setup; unblank is requested after visuals are ready.
+    // On submenu return, Start Menu can be reinitialized while already active.
+    // Re-forcing blank in that case causes visible flicker.
     sStartMenuTransitionPendingUnblank = FALSE;
-    SetGpuRegBits(REG_OFFSET_DISPCNT, DISPCNT_FORCED_BLANK);
+    if (!alreadyActive)
+        SetGpuRegBits(REG_OFFSET_DISPCNT, DISPCNT_FORCED_BLANK);
     sStartMenuSavedBg3TilemapBuffer = GetBgTilemapBuffer(3);
     SetBgTilemapBuffer(3, sStartMenuScrollBgTilemapBuffer);
     // BG3 uses mapBaseIndex 30 in overworld, so charbase 3 would overlap map VRAM.
