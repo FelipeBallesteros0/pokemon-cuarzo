@@ -277,7 +277,8 @@ static const u16 sStartMenuButtonPalette[] = INCBIN_U16("graphics/ui_startmenu_f
 static const u8 sStartMenuCursorTiles[] = INCBIN_U8("graphics/ui_startmenu_full/cursor.4bpp");
 static const u16 sStartMenuCursorPalette[] = INCBIN_U16("graphics/ui_startmenu_full/cursor.gbapal");
 
-static const u8 sStartMenuButtonTextColors[] = {TEXT_COLOR_TRANSPARENT, TEXT_COLOR_WHITE, TEXT_COLOR_DARK_GRAY};
+// Color indices in boton.gbapal: bg=2 (mid gray), fg=1 (light gray), shadow=4 (dark gray).
+static const u8 sStartMenuButtonTextColors[] = {2, 1, 4};
 
 // Local functions
 static void BuildStartMenuActions(void);
@@ -1679,12 +1680,12 @@ static void StartMenu_DrawButtonText(void)
         winTemplate.tilemapTop = tilemapTop;
         winTemplate.width = windowWidth;
         winTemplate.height = 2;
-        winTemplate.paletteNum = 15;
+        winTemplate.paletteNum = START_MENU_BUTTON_PAL_SLOT;
         winTemplate.baseBlock = baseBlock;
 
         windowId = AddWindow(&winTemplate);
         sStartMenuButtonTextWindowIds[sStartMenuButtonTextWindowCount++] = windowId;
-        FillWindowPixelBuffer(windowId, PIXEL_FILL(0));
+        FillWindowPixelBuffer(windowId, PIXEL_FILL(sStartMenuButtonTextColors[0]));
         AddTextPrinterParameterized3(windowId, FONT_NORMAL, textX, textY, sStartMenuButtonTextColors, TEXT_SKIP_DRAW, label);
         PutWindowTilemap(windowId);
         CopyWindowToVram(windowId, COPYWIN_FULL);
