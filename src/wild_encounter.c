@@ -4,6 +4,7 @@
 #include "battle_pyramid.h"
 #include "event_data.h"
 #include "fieldmap.h"
+#include "fishing_game.h"
 #include "fishing.h"
 #include "follower_npc.h"
 #include "random.h"
@@ -22,6 +23,7 @@
 #include "battle_debug.h"
 #include "battle_pike.h"
 #include "battle_pyramid.h"
+#include "config/fishing_game.h"
 #include "constants/abilities.h"
 #include "constants/game_stat.h"
 #include "constants/item.h"
@@ -57,6 +59,7 @@ static bool8 TryGetAbilityInfluencedWildMonIndex(const struct WildPokemon *wildM
 static bool8 TryGetAbilityInfluencedWildMonIndex(const struct WildPokemon *wildMon, enum Type type, enum Ability ability, u8 *monIndex);
 #endif
 static bool8 IsAbilityAllowingEncounter(u8 level);
+static bool8 IsFishingTestIsland(void);
 
 EWRAM_DATA static u8 sWildEncountersDisabled = 0;
 EWRAM_DATA static u32 sFeebasRngValue = 0;
@@ -970,6 +973,19 @@ void FishingWildEncounter(u8 rod)
     enum TimeOfDay timeOfDay;
 
     gIsFishingEncounter = TRUE;
+    if (IsFishingTestIsland())
+    {
+        species = SPECIES_MAGIKARP;
+        CreateWildMon(species, 10);
+        SetPokemonAnglerSpecies(species);
+        if (!FG_FISH_MINIGAME_ENABLED)
+        {
+            IncrementGameStat(GAME_STAT_FISHING_ENCOUNTERS);
+            BattleSetup_StartWildBattle();
+        }
+        return;
+    }
+
     if (CheckFeebas() == TRUE)
     {
         u8 level = ChooseWildMonLevel(&sWildFeebas, 0, WILD_AREA_FISHING);
@@ -984,9 +1000,18 @@ void FishingWildEncounter(u8 rod)
         species = GenerateFishingWildMon(gWildMonHeaders[headerId].encounterTypes[timeOfDay].fishingMonsInfo, rod);
     }
 
-    IncrementGameStat(GAME_STAT_FISHING_ENCOUNTERS);
     SetPokemonAnglerSpecies(species);
-    BattleSetup_StartWildBattle();
+    if (!FG_FISH_MINIGAME_ENABLED)
+    {
+        IncrementGameStat(GAME_STAT_FISHING_ENCOUNTERS);
+        BattleSetup_StartWildBattle();
+    }
+}
+
+static bool8 IsFishingTestIsland(void)
+{
+    return (gSaveBlock1Ptr->location.mapGroup == MAP_GROUP(MAP_TEST_ISLAND)
+         && gSaveBlock1Ptr->location.mapNum == MAP_NUM(MAP_TEST_ISLAND));
 }
 
 u16 GetLocalWildMon(bool8 *isWaterMon)

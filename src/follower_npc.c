@@ -1384,7 +1384,25 @@ static void ChooseFirstThreeEligibleMons(void)
 
 bool32 PlayerHasFollowerNPC(void)
 {
-    return GetFollowerNPCData(FNPC_DATA_IN_PROGRESS);
+    u32 objId;
+
+    if (!GetFollowerNPCData(FNPC_DATA_IN_PROGRESS))
+        return FALSE;
+
+    objId = GetFollowerNPCData(FNPC_DATA_OBJ_ID);
+    if (objId >= OBJECT_EVENTS_COUNT)
+    {
+        ClearFollowerNPCData();
+        return FALSE;
+    }
+
+    if (!gObjectEvents[objId].active || gObjectEvents[objId].localId != OBJ_EVENT_ID_NPC_FOLLOWER)
+    {
+        ClearFollowerNPCData();
+        return FALSE;
+    }
+
+    return TRUE;
 }
 
 void NPCFollow(struct ObjectEvent *npc, u32 state, bool32 ignoreScriptActive)
@@ -1727,6 +1745,15 @@ bool32 FollowerNPCCanBike(void)
 
 void FollowerNPC_HandleBike(void)
 {
+    u32 followerObjId;
+
+    if (!PlayerHasFollowerNPC())
+        return;
+
+    followerObjId = GetFollowerNPCObjectId();
+    if (followerObjId >= OBJECT_EVENTS_COUNT || gObjectEvents[followerObjId].invisible)
+        return;
+
     // Wait until after get off surf blob to start biking.
     if (GetFollowerNPCData(FNPC_DATA_CURRENT_SPRITE) == FOLLOWER_NPC_SPRITE_INDEX_SURF)
         return;

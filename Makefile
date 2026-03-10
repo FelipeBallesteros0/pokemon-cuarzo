@@ -1,6 +1,6 @@
-GAME_VERSION ?= EMERALD
-TITLE        ?= POKEMON EMER
-GAME_CODE    ?= BPEE
+GAME_VERSION ?= CUARZO
+TITLE        ?= POKEMON CUAR
+GAME_CODE    ?= BPEC
 BUILD_NAME   ?= emerald
 MAP_VERSION  ?= emerald
 
@@ -26,7 +26,7 @@ REVISION    := 0
 KEEP_TEMPS  ?= 0
 
 # `File name`.gba
-FILE_NAME := poke$(BUILD_NAME)
+FILE_NAME := pokemon_cuarzo
 BUILD_DIR := build
 
 # Compares the ROM to a checksum of the original - only makes sense using when non-modern

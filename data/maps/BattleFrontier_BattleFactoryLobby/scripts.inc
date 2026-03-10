@@ -152,6 +152,9 @@ BattleFrontier_BattleFactoryLobby_EventScript_RechargeableRepelGiver_BulbasaurTr
 
 BattleFrontier_BattleFactoryLobby_EventScript_RechargeableRepelGiver_GiveAll::
 	setflag FLAG_SYS_POKEMON_GET
+	giveitem ITEM_MACH_BIKE, 1
+	giveitem ITEM_ACRO_BIKE, 1
+	giveitem ITEM_OLD_ROD, 1
 	giveitem ITEM_REPELENTE_RECARGABLE, 1
 	giveitem ITEM_CARGA_DE_REPELENTE, 10
 	giveitem ITEM_BICICLETA_ELECTRICA, 1
@@ -181,6 +184,9 @@ BattleFrontier_BattleFactoryLobby_EventScript_ReceivedBulbasaurFanfare::
 
 BattleFrontier_BattleFactoryLobby_EventScript_RechargeableRepelGiver_After::
 	msgbox BattleFrontier_BattleFactoryLobby_Text_RechargeableRepelGiver_After, MSGBOX_DEFAULT
+	giveitem ITEM_MACH_BIKE, 1
+	giveitem ITEM_ACRO_BIKE, 1
+	giveitem ITEM_OLD_ROD, 1
 	call BattleFrontier_BattleFactoryLobby_EventScript_GiveDefogMonIfNeeded
 	call BattleFrontier_BattleFactoryLobby_EventScript_GiveSurfMonsIfNeeded
 	call BattleFrontier_BattleFactoryLobby_EventScript_GiveSurfHmIfNeeded
