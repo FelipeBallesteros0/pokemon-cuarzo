@@ -107,6 +107,7 @@ EWRAM_DATA static bool8 sStartMenuClockValueValid = FALSE;
 EWRAM_DATA static bool8 sStartMenuScrollBgActive = FALSE;
 EWRAM_DATA static bool8 sStartMenuObjWasEnabled = FALSE;
 EWRAM_DATA static bool8 sStartMenuTransitionPendingUnblank = FALSE;
+EWRAM_DATA static bool8 sStartMenuTransitionPendingDisable = FALSE;
 EWRAM_DATA static u16 sStartMenuScrollBgTilemapBuffer[32 * 32];
 EWRAM_DATA static void *sStartMenuSavedBg3TilemapBuffer = NULL;
 EWRAM_DATA static s8 sStartMenuGridActionIndices[9] = {0};
@@ -327,6 +328,7 @@ static void HideStartMenuDebug(void);
 static void StartMenu_EnableScrollingBg(void);
 static void StartMenu_UpdateScrollingBg(void);
 static void StartMenu_DisableScrollingBg(void);
+static void StartMenu_DisableScrollingBgForSubmenu(void);
 static void StartMenu_DrawButtonGrid(void);
 static void StartMenu_DrawEdgeBars(void);
 static void StartMenu_DrawButtonText(void);
@@ -882,9 +884,9 @@ static bool8 StartMenuSafariZoneRetireCallback(void)
 static void HideStartMenuDebug(void)
 {
     PlaySE(SE_SELECT);
-    StartMenu_DisableScrollingBg();
-    ClearStdWindowAndFrame(GetStartMenuWindowId(), TRUE);
+    ClearStdWindowAndFrame(GetStartMenuWindowId(), FALSE);
     RemoveStartMenuWindow();
+    StartMenu_DisableScrollingBgForSubmenu();
 }
 
 static bool8 StartMenuLinkModePlayerNameCallback(void)
@@ -1554,9 +1556,9 @@ void SaveForBattleTowerLink(void)
 
 static void HideStartMenuWindow(void)
 {
-    StartMenu_DisableScrollingBg();
-    ClearStdWindowAndFrame(GetStartMenuWindowId(), TRUE);
+    ClearStdWindowAndFrame(GetStartMenuWindowId(), FALSE);
     RemoveStartMenuWindow();
+    StartMenu_DisableScrollingBg();
     ScriptUnfreezeObjectEvents();
     UnlockPlayerFieldControls();
 }
@@ -1898,6 +1900,11 @@ static void StartMenu_EnableScrollingBg(void)
     u16 i;
     u8 bg0CharBase;
 
+    // Mark active before touching VRAM so overworld tile anim DMA can't overwrite
+    // freshly loaded start menu graphics during this frame.
+    sStartMenuScrollBgActive = TRUE;
+    sStartMenuTransitionPendingDisable = FALSE;
+
     // Avoid forced blank here: on hardware/emulators it shows as a white flash.
     sStartMenuTransitionPendingUnblank = FALSE;
     sStartMenuSavedBg3TilemapBuffer = GetBgTilemapBuffer(3);
@@ -1934,7 +1941,6 @@ static void StartMenu_EnableScrollingBg(void)
     sStartMenuObjWasEnabled = (GetGpuReg(REG_OFFSET_DISPCNT) & DISPCNT_OBJ_ON) != 0;
     if (sStartMenuObjWasEnabled)
         ClearGpuRegBits(REG_OFFSET_DISPCNT, DISPCNT_OBJ_ON);
-    sStartMenuScrollBgActive = TRUE;
 }
 
 static void StartMenu_UpdateScrollingBg(void)
@@ -1956,12 +1962,12 @@ static void StartMenu_DisableScrollingBg(void)
     if (!sStartMenuScrollBgActive)
         return;
 
-    sStartMenuScrollBgActive = FALSE;
     sStartMenuTransitionPendingUnblank = FALSE;
     if (sStartMenuObjWasEnabled)
         SetGpuRegBits(REG_OFFSET_DISPCNT, DISPCNT_OBJ_ON);
     HideBg(1);
     HideBg(2);
+    HideBg(3);
     if (sStartMenuSavedBg3TilemapBuffer != NULL)
     {
         SetBgTilemapBuffer(3, sStartMenuSavedBg3TilemapBuffer);
@@ -1973,7 +1979,6 @@ static void StartMenu_DisableScrollingBg(void)
     UpdateTilesetAnimations();
     TransferTilesetAnimsBuffer();
     SetBgAttribute(3, BG_ATTR_CHARBASEINDEX, 0);
-    ShowBg(3);
     ChangeBgY(3, 0, BG_COORD_SET);
 
     // Remove the temporary fixed button grid from BG0 when closing Start Menu.
@@ -1989,6 +1994,33 @@ static void StartMenu_DisableScrollingBg(void)
     CopyBgTilemapBufferToVram(3);
     ShowBg(1);
     ShowBg(2);
+    ShowBg(3);
+    // Deactivate on next safe tick to avoid one-frame overwrite from overworld
+    // tile animation DMA on the exact close frame.
+    sStartMenuTransitionPendingDisable = TRUE;
+}
+
+static void StartMenu_DisableScrollingBgForSubmenu(void)
+{
+    if (!sStartMenuScrollBgActive)
+        return;
+
+    sStartMenuTransitionPendingUnblank = FALSE;
+    if (sStartMenuObjWasEnabled)
+        SetGpuRegBits(REG_OFFSET_DISPCNT, DISPCNT_OBJ_ON);
+
+    if (sStartMenuSavedBg3TilemapBuffer != NULL)
+    {
+        SetBgTilemapBuffer(3, sStartMenuSavedBg3TilemapBuffer);
+        sStartMenuSavedBg3TilemapBuffer = NULL;
+    }
+
+    SetBgAttribute(3, BG_ATTR_CHARBASEINDEX, 0);
+    ChangeBgY(3, 0, BG_COORD_SET);
+    ShowBg(1);
+    ShowBg(2);
+    StartMenu_RemoveButtonTextWindow();
+    sStartMenuScrollBgActive = FALSE;
 }
 
 void HideStartMenu(void)
@@ -2031,6 +2063,12 @@ void StartMenu_ProcessTransition(void)
     {
         ClearGpuRegBits(REG_OFFSET_DISPCNT, DISPCNT_FORCED_BLANK);
         sStartMenuTransitionPendingUnblank = FALSE;
+    }
+
+    if (sStartMenuTransitionPendingDisable && !IsDma3ManagerBusyWithBgCopy())
+    {
+        sStartMenuScrollBgActive = FALSE;
+        sStartMenuTransitionPendingDisable = FALSE;
     }
 }
 
