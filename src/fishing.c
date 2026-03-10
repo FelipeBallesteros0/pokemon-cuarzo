@@ -52,7 +52,6 @@ static u32 CalculateFishingBiteOdds(u32, bool32);
 static u32 CalculateFishingFollowerBoost(void);
 static u32 CalculateFishingProximityBoost(void);
 static u32 CalculateFishingTimeOfDayBoost(void);
-static bool32 IsFishingTestIsland(void);
 
 #define FISHING_PROXIMITY_BOOST 20     //Active if config I_FISHING_PROXIMITY is TRUE
 #define FISHING_TIME_OF_DAY_BOOST 20   //Active if config I_FISHING_TIME_OF_DAY_BOOST is TRUE
@@ -211,13 +210,6 @@ static bool32 Fishing_InitDots(struct Task *task)
     u32 randVal;
 
     LoadMessageBoxAndFrameGfx(0, TRUE);
-    if (IsFishingTestIsland())
-    {
-        StartSpriteAnim(&gSprites[gPlayerAvatar.spriteId], GetFishingBiteDirectionAnimNum(GetPlayerFacingDirection()));
-        task->tStep = FISHING_MON_ON_HOOK;
-        return TRUE;
-    }
-
     if (FG_FISH_MINIGAME_ENABLED && !FG_DO_DOTS_GAME_BEFORE_MAIN_GAME && DoesCurrentMapHaveFishingMons())
     {
         StartSpriteAnim(&gSprites[gPlayerAvatar.spriteId], GetFishingBiteDirectionAnimNum(GetPlayerFacingDirection()));
@@ -282,12 +274,6 @@ static bool32 Fishing_CheckForBite(struct Task *task)
     AlignFishingAnimationFrames();
     task->tStep = FISHING_GOT_BITE;
     bite = FALSE;
-
-    if (IsFishingTestIsland())
-    {
-        StartSpriteAnim(&gSprites[gPlayerAvatar.spriteId], GetFishingBiteDirectionAnimNum(GetPlayerFacingDirection()));
-        return TRUE;
-    }
 
     if (!DoesCurrentMapHaveFishingMons())
     {
@@ -708,12 +694,6 @@ static u32 CalculateFishingTimeOfDayBoost()
     if (timeOfDay == TIME_MORNING || timeOfDay == TIME_EVENING)
         return FISHING_TIME_OF_DAY_BOOST;
     return 0;
-}
-
-static bool32 IsFishingTestIsland(void)
-{
-    return (gSaveBlock1Ptr->location.mapGroup == MAP_GROUP(MAP_TEST_ISLAND)
-         && gSaveBlock1Ptr->location.mapNum == MAP_NUM(MAP_TEST_ISLAND));
 }
 
 #undef tStep
