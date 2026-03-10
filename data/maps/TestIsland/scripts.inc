@@ -263,3 +263,27 @@ TestIsland_Text_FollowerNPC_Hair_Blonde_Done:
 TestIsland_Text_FollowerNPC_Hair_Original_Done:
 	.string "listo, volvi a mi color de pelo\n"
 	.string "original.$"
+
+TestIsland_EventScript_WarpToRoute101::
+	lock
+	faceplayer
+	msgbox TestIsland_Text_WarpToRoute101_Ask, MSGBOX_YESNO
+	goto_if_eq VAR_RESULT, NO, TestIsland_EventScript_WarpToRoute101_End
+	special Special_ResetWildEncounterBlockers
+	setvar VAR_ROUTE101_STATE, 3
+	msgbox TestIsland_Text_WarpToRoute101_Doing, MSGBOX_DEFAULT
+	closemessage
+	warp MAP_ROUTE101, 16, 9
+	waitstate
+	release
+	end
+
+TestIsland_EventScript_WarpToRoute101_End:
+	release
+	end
+
+TestIsland_Text_WarpToRoute101_Ask:
+	.string "quieres que te lleve a la ruta 101?$"
+
+TestIsland_Text_WarpToRoute101_Doing:
+	.string "vamos a ruta 101.$"

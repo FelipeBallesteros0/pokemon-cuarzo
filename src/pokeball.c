@@ -15,6 +15,7 @@
 #include "util.h"
 #include "data.h"
 #include "item.h"
+#include "palette.h"
 #include "constants/songs.h"
 
 static void Task_DoPokeballSendOutAnim(u8 taskId);
@@ -1593,11 +1594,14 @@ static void SpriteCB_HitAnimHealthoxEffect(struct Sprite *sprite)
 void LoadBallGfx(u8 ballId)
 {
     u16 var;
+    u8 paletteNum;
 
     if (GetSpriteTileStartByTag(gBallSpriteSheets[ballId].tag) == 0xFFFF)
     {
         LoadCompressedSpriteSheetUsingHeap(&gBallSpriteSheets[ballId]);
-        LoadSpritePalette(&gBallSpritePalettes[ballId]);
+        paletteNum = LoadSpritePalette(&gBallSpritePalettes[ballId]);
+        if (gMain.inBattle)
+            TimeMixBattleSpritePalette(OBJ_PLTT_ID(paletteNum));
     }
 
     switch (ballId)

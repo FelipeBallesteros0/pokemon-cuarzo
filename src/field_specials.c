@@ -14,6 +14,7 @@
 #include "field_effect.h"
 #include "field_message_box.h"
 #include "field_player_avatar.h"
+#include "field_control_avatar.h"
 #include "field_screen_effect.h"
 #include "field_specials.h"
 #include "field_weather.h"
@@ -67,6 +68,7 @@ static EWRAM_DATA struct FollowerPetTracker sFollowerPetTracker[FOLLOWER_PET_TRA
 #include "tv.h"
 #include "wallclock.h"
 #include "window.h"
+#include "wild_encounter.h"
 #include "constants/battle_frontier.h"
 #include "constants/battle_pyramid.h"
 #include "constants/battle_tower.h"
@@ -86,6 +88,7 @@ static EWRAM_DATA struct FollowerPetTracker sFollowerPetTracker[FOLLOWER_PET_TRA
 #include "constants/weather.h"
 #include "constants/metatile_labels.h"
 #include "constants/rgb.h"
+#include "constants/vars.h"
 #include "palette.h"
 #include "battle_util.h"
 #include "naming_screen.h"
@@ -4532,4 +4535,18 @@ void Special_ToggleFollowerNPCHairColor(void)
 
     SetFollowerNPCData(FNPC_DATA_HAIR_COLOR, !GetFollowerNPCData(FNPC_DATA_HAIR_COLOR));
     FollowerNPC_ApplyHairColorToCurrentSprite();
+}
+
+void Special_ClearAllRepelSteps(void)
+{
+    VarSet(VAR_REPEL_STEP_COUNT, 0);
+    gSaveBlock1Ptr->rechargeableRepelSteps = 0;
+}
+
+void Special_ResetWildEncounterBlockers(void)
+{
+    DisableWildEncounters(FALSE);
+    VarSet(VAR_REPEL_STEP_COUNT, 0);
+    gSaveBlock1Ptr->rechargeableRepelSteps = 0;
+    RestartWildEncounterImmunitySteps();
 }

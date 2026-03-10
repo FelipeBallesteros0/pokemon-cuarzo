@@ -385,4 +385,11 @@
 #define B_POOL_RULE_MEGA_STONE_CLAUSE       FALSE    // Pick only 1 mon with mega stone
 #define B_POOL_RULE_Z_CRYSTAL_CLAUSE        FALSE    // Pick only 1 mon with Z-crystal
 
+// Battle DNS settings
+// Requires OW_ENABLE_DNS to be set to TRUE in include/config/overworld.h
+#define B_APPLY_DNS_TO_BACKGROUND           TRUE     // Apply DNS tint to battle backgrounds.
+#define B_APPLY_DNS_TO_SPRITES              TRUE     // Apply DNS tint to battle sprites.
+#define B_SPRITE_BLEND_LEVEL                100      // DNS intensity for sprites: 0-100.
+#define B_BLEND_UI_EDGES                    TRUE     // Blend vanilla UI edge colors with DNS.
+
 #endif // GUARD_CONFIG_BATTLE_H

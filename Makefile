@@ -156,6 +156,12 @@ else
 O_LEVEL ?= 2
 endif
 CPPFLAGS := $(INCLUDE_CPP_ARGS) -Wno-trigraphs -DMODERN=1 -DTESTING=$(TEST) -D$(GAME_VERSION) -std=gnu17
+
+# Keep gameplay/data conditionals compatible with Emerald while using a custom ROM header version macro.
+ifeq ($(BUILD_NAME),emerald)
+ASFLAGS += --defsym EMERALD=1
+CPPFLAGS += -DEMERALD
+endif
 ifeq ($(RELEASE),1)
 	override CPPFLAGS += -DRELEASE
 	ifeq ($(USE_LTO_ON_RELEASE),1)

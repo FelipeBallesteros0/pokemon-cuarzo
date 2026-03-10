@@ -576,3 +576,5 @@ gSpecials::
 	def_special Special_GetFirstBounceMonIndex
 	def_special Special_IsFollowerNPCHairBlonde
 	def_special Special_ToggleFollowerNPCHairColor
+	def_special Special_ClearAllRepelSteps
+	def_special Special_ResetWildEncounterBlockers
