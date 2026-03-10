@@ -4547,6 +4547,26 @@ void Special_TogglePlayerBackHairColor(void)
     SetFollowerNPCData(FNPC_DATA_PLAYER_HAIR_COLOR, !GetFollowerNPCData(FNPC_DATA_PLAYER_HAIR_COLOR));
 }
 
+void Special_SetTimeMorning(void)
+{
+    SetTimeOfDay(7);
+}
+
+void Special_SetTimeDay(void)
+{
+    SetTimeOfDay(12);
+}
+
+void Special_SetTimeEvening(void)
+{
+    SetTimeOfDay(20);
+}
+
+void Special_SetTimeNight(void)
+{
+    SetTimeOfDay(22);
+}
+
 void Special_ClearAllRepelSteps(void)
 {
     VarSet(VAR_REPEL_STEP_COUNT, 0);

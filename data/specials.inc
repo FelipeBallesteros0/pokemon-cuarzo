@@ -578,5 +578,9 @@ gSpecials::
 	def_special Special_ToggleFollowerNPCHairColor
 	def_special Special_IsPlayerBackHairBlonde
 	def_special Special_TogglePlayerBackHairColor
+	def_special Special_SetTimeMorning
+	def_special Special_SetTimeDay
+	def_special Special_SetTimeEvening
+	def_special Special_SetTimeNight
 	def_special Special_ClearAllRepelSteps
 	def_special Special_ResetWildEncounterBlockers
