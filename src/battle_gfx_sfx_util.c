@@ -715,6 +715,12 @@ void DecompressTrainerBackPic(u16 backPicId, u8 battler)
     {
         backPalette = gTrainerBackPicPalette_MayBlonde;
     }
+    else if (backPicId == TRAINER_BACK_PIC_BRENDAN
+          && position == B_POSITION_PLAYER_LEFT
+          && GetFollowerNPCData(FNPC_DATA_PLAYER_HAIR_COLOR))
+    {
+        backPalette = gTrainerBackPicPalette_BrendanBlonde;
+    }
 
     CopyTrainerBackspriteFramesToDest(backPicId, gMonSpritesGfxPtr->spritesGfx[position]);
     LoadPalette(backPalette, OBJ_PLTT_ID(battler), PLTT_SIZE_4BPP);

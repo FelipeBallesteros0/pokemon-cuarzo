@@ -194,15 +194,45 @@ TestIsland_EventScript_FollowerNPCToggle_End:
 TestIsland_EventScript_FollowerNPCTalk::
 	lock
 	facefollowernpc
+	call TestIsland_EventScript_FollowerNPCTalk_HandleFollowerHair
+	call TestIsland_EventScript_FollowerNPCTalk_HandlePlayerHair
+	goto TestIsland_EventScript_FollowerNPCTalk_DisablePrompt
+
+TestIsland_EventScript_FollowerNPCTalk_HandleFollowerHair:
 	specialvar VAR_RESULT, Special_IsFollowerNPCHairBlonde
 	goto_if_eq VAR_RESULT, TRUE, TestIsland_EventScript_FollowerNPCTalk_AskOriginalHair
 	msgbox TestIsland_Text_FollowerNPC_Hair_Blonde_Ask, MSGBOX_YESNO
-	goto_if_eq VAR_RESULT, YES, TestIsland_EventScript_FollowerNPCTalk_DoBlondeHair
-	goto TestIsland_EventScript_FollowerNPCTalk_DisablePrompt
+	goto_if_eq VAR_RESULT, NO, TestIsland_EventScript_FollowerNPCTalk_FollowerHairDone
+	special Special_ToggleFollowerNPCHairColor
+	msgbox TestIsland_Text_FollowerNPC_Hair_Blonde_Done, MSGBOX_DEFAULT
+	return
 
 TestIsland_EventScript_FollowerNPCTalk_AskOriginalHair:
 	msgbox TestIsland_Text_FollowerNPC_Hair_Original_Ask, MSGBOX_YESNO
-	goto_if_eq VAR_RESULT, YES, TestIsland_EventScript_FollowerNPCTalk_DoOriginalHair
+	goto_if_eq VAR_RESULT, NO, TestIsland_EventScript_FollowerNPCTalk_FollowerHairDone
+	special Special_ToggleFollowerNPCHairColor
+	msgbox TestIsland_Text_FollowerNPC_Hair_Original_Done, MSGBOX_DEFAULT
+
+TestIsland_EventScript_FollowerNPCTalk_FollowerHairDone:
+	return
+
+TestIsland_EventScript_FollowerNPCTalk_HandlePlayerHair:
+	specialvar VAR_RESULT, Special_IsPlayerBackHairBlonde
+	goto_if_eq VAR_RESULT, TRUE, TestIsland_EventScript_FollowerNPCTalk_AskPlayerOriginalHair
+	msgbox TestIsland_Text_Player_Hair_Blonde_Ask, MSGBOX_YESNO
+	goto_if_eq VAR_RESULT, NO, TestIsland_EventScript_FollowerNPCTalk_PlayerHairDone
+	special Special_TogglePlayerBackHairColor
+	msgbox TestIsland_Text_Player_Hair_Blonde_Done, MSGBOX_DEFAULT
+	return
+
+TestIsland_EventScript_FollowerNPCTalk_AskPlayerOriginalHair:
+	msgbox TestIsland_Text_Player_Hair_Original_Ask, MSGBOX_YESNO
+	goto_if_eq VAR_RESULT, NO, TestIsland_EventScript_FollowerNPCTalk_PlayerHairDone
+	special Special_TogglePlayerBackHairColor
+	msgbox TestIsland_Text_Player_Hair_Original_Done, MSGBOX_DEFAULT
+
+TestIsland_EventScript_FollowerNPCTalk_PlayerHairDone:
+	return
 
 TestIsland_EventScript_FollowerNPCTalk_DisablePrompt:
 	msgbox TestIsland_Text_FollowerNPC_Disable, MSGBOX_YESNO
@@ -210,18 +240,6 @@ TestIsland_EventScript_FollowerNPCTalk_DisablePrompt:
 	hidefollowernpc 1
 	destroyfollowernpc
 	msgbox TestIsland_Text_FollowerNPC_Disabled, MSGBOX_DEFAULT
-	release
-	end
-
-TestIsland_EventScript_FollowerNPCTalk_DoBlondeHair:
-	special Special_ToggleFollowerNPCHairColor
-	msgbox TestIsland_Text_FollowerNPC_Hair_Blonde_Done, MSGBOX_DEFAULT
-	release
-	end
-
-TestIsland_EventScript_FollowerNPCTalk_DoOriginalHair:
-	special Special_ToggleFollowerNPCHairColor
-	msgbox TestIsland_Text_FollowerNPC_Hair_Original_Done, MSGBOX_DEFAULT
 	release
 	end
 
@@ -263,6 +281,22 @@ TestIsland_Text_FollowerNPC_Hair_Blonde_Done:
 TestIsland_Text_FollowerNPC_Hair_Original_Done:
 	.string "listo, volvi a mi color de pelo\n"
 	.string "original.$"
+
+TestIsland_Text_Player_Hair_Blonde_Ask:
+	.string "quieres cambiar tu color de pelo a\n"
+	.string "rubio en combate?$"
+
+TestIsland_Text_Player_Hair_Original_Ask:
+	.string "quieres volver tu color de pelo\n"
+	.string "original en combate?$"
+
+TestIsland_Text_Player_Hair_Blonde_Done:
+	.string "listo, tu pelo ahora se vera rubio\n"
+	.string "en combate.$"
+
+TestIsland_Text_Player_Hair_Original_Done:
+	.string "listo, volviste a tu color de pelo\n"
+	.string "original en combate.$"
 
 TestIsland_EventScript_WarpToRoute101::
 	lock

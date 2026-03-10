@@ -4537,6 +4537,16 @@ void Special_ToggleFollowerNPCHairColor(void)
     FollowerNPC_ApplyHairColorToCurrentSprite();
 }
 
+u16 Special_IsPlayerBackHairBlonde(void)
+{
+    return (u16)GetFollowerNPCData(FNPC_DATA_PLAYER_HAIR_COLOR);
+}
+
+void Special_TogglePlayerBackHairColor(void)
+{
+    SetFollowerNPCData(FNPC_DATA_PLAYER_HAIR_COLOR, !GetFollowerNPCData(FNPC_DATA_PLAYER_HAIR_COLOR));
+}
+
 void Special_ClearAllRepelSteps(void)
 {
     VarSet(VAR_REPEL_STEP_COUNT, 0);
