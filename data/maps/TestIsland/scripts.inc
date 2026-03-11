@@ -301,44 +301,7 @@ TestIsland_Text_Player_Hair_Original_Done:
 TestIsland_EventScript_WarpToRoute101::
 	lock
 	faceplayer
-	msgbox TestIsland_Text_SetTime_Intro, MSGBOX_DEFAULT
-	msgbox TestIsland_Text_SetTime_Morning, MSGBOX_YESNO
-	goto_if_eq VAR_RESULT, YES, TestIsland_EventScript_SetTime_Morning
-	msgbox TestIsland_Text_SetTime_Day, MSGBOX_YESNO
-	goto_if_eq VAR_RESULT, YES, TestIsland_EventScript_SetTime_Day
-	msgbox TestIsland_Text_SetTime_Evening, MSGBOX_YESNO
-	goto_if_eq VAR_RESULT, YES, TestIsland_EventScript_SetTime_Evening
-	msgbox TestIsland_Text_SetTime_Night, MSGBOX_YESNO
-	goto_if_eq VAR_RESULT, YES, TestIsland_EventScript_SetTime_Night
-	goto TestIsland_EventScript_WarpToRoute101_End
-
-TestIsland_EventScript_SetTime_Morning:
-	special Special_SetTimeMorning
-	msgbox TestIsland_Text_SetTime_DoneMorning, MSGBOX_DEFAULT
-	release
-	end
-
-TestIsland_EventScript_SetTime_Day:
-	special Special_SetTimeDay
-	msgbox TestIsland_Text_SetTime_DoneDay, MSGBOX_DEFAULT
-	release
-	end
-
-TestIsland_EventScript_SetTime_Evening:
-	special Special_SetTimeEvening
-	msgbox TestIsland_Text_SetTime_DoneEvening, MSGBOX_DEFAULT
-	release
-	end
-
-TestIsland_EventScript_SetTime_Night:
-	special Special_SetTimeNight
-	msgbox TestIsland_Text_SetTime_DoneNight, MSGBOX_DEFAULT
-	release
-	end
-
-TestIsland_EventScript_WarpToRoute101_End:
-	msgbox TestIsland_Text_SetTime_Cancel, MSGBOX_DEFAULT
-	release
+	warp MAP_PUEBLO_CIENDRA, 20, 20
 	end
 
 TestIsland_Text_SetTime_Intro:

@@ -1165,3 +1165,5 @@ EventScript_VsSeekerChargingDone::
 	.include "data/scripts/apricorn_tree.inc"
 
 	.include "data/maps/TestIsland/scripts.inc"
+
+	.include "data/maps/PuebloCiendra/scripts.inc"

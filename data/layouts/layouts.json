@@ -4420,6 +4420,16 @@
       "secondary_tileset": "gTileset_EdificioPokeball",
       "border_filepath": "data/layouts/TestIsland/border.bin",
       "blockdata_filepath": "data/layouts/TestIsland/map.bin"
+    },
+    {
+      "id": "LAYOUT_PUEBLO_CIENDRA",
+      "name": "PuebloCiendra_Layout",
+      "width": 40,
+      "height": 40,
+      "primary_tileset": "gTileset_General",
+      "secondary_tileset": "gTileset_BattleArena",
+      "border_filepath": "data/layouts/PuebloCiendra/border.bin",
+      "blockdata_filepath": "data/layouts/PuebloCiendra/map.bin"
     }
   ]
 }
