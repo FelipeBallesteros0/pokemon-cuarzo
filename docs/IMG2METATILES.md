@@ -9,6 +9,7 @@ También puede aplicar los archivos directamente a un tileset secundario para us
 
 Archivo:
 - `tools/img2metatiles.py`
+- `tools/img2metatiles_gui.py` (interfaz gráfica)
 
 ## Requisitos
 - Python 3
@@ -24,6 +25,21 @@ python3 tools/img2metatiles.py \
 Salida por defecto en:
 - `build/img2metatiles_out/`
 
+## Uso sin comandos (GUI)
+Ubuntu/Linux:
+```bash
+./tools/run_img2metatiles_gui.sh
+```
+
+Windows:
+- Ejecuta `tools\\run_img2metatiles_gui.bat`
+
+En la GUI:
+- seleccionas PNG de entrada
+- opcionalmente seleccionas `Background Metatile 16x16`
+- ajustas parámetros (tile base, paleta, animación, etc.)
+- pulsas `Generate Tileset`
+
 ## Parámetros importantes
 - `--mode keep-order|dedup`
   - `keep-order`: conserva el orden exacto (izq->der, arriba->abajo).
@@ -35,6 +51,9 @@ Salida por defecto en:
   - Slot de paleta que se codifica en cada metatile.
 - `--metatile-attr 0x0000`
   - Atributo base para todos los metatiles.
+- `--bg-metatile-png /ruta/fondo16x16.png`
+  - PNG opcional de `16x16` que se repite como fondo detrás de píxeles transparentes.
+  - Útil para flores/objetos animados sin fondo en la imagen original.
 
 ## Aplicar directo a un secondary tileset
 ```bash

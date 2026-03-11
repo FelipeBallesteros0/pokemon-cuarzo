@@ -73,10 +73,62 @@ def ensure_indexed_png(path: Path, quantize: bool) -> Image.Image:
             f"image size must be divisible by {METATILE_SIZE}. "
             f"Got {img.width}x{img.height}"
         )
-    used = set(img.getdata())
+    used = set(img.tobytes())
     if len(used) > MAX_COLORS:
         fail(f"image uses {len(used)} color indices; max allowed is {MAX_COLORS}")
     return img
+
+
+def ensure_indexed_image(img: Image.Image, quantize: bool) -> Image.Image:
+    if img.mode != "P":
+        if not quantize:
+            fail(
+                f"input image mode is '{img.mode}', expected indexed mode 'P'. "
+                "Use --quantize to force conversion."
+            )
+        img = img.convert("RGB").quantize(colors=MAX_COLORS, dither=Image.Dither.NONE)
+    if img.width % METATILE_SIZE != 0 or img.height % METATILE_SIZE != 0:
+        fail(
+            f"image size must be divisible by {METATILE_SIZE}. "
+            f"Got {img.width}x{img.height}"
+        )
+    used = set(img.tobytes())
+    if len(used) > MAX_COLORS:
+        fail(f"image uses {len(used)} color indices; max allowed is {MAX_COLORS}")
+    return img
+
+
+def composite_with_bg_tile(fg_path: Path, bg_tile_path: Path) -> Image.Image:
+    fg = Image.open(fg_path).convert("RGBA")
+    bg_tile = Image.open(bg_tile_path).convert("RGBA")
+    if bg_tile.size != (16, 16):
+        fail(f"background metatile PNG must be 16x16, got {bg_tile.size}")
+    bg = Image.new("RGBA", fg.size, (0, 0, 0, 0))
+    for y in range(0, fg.height, 16):
+        for x in range(0, fg.width, 16):
+            bg.alpha_composite(bg_tile, (x, y))
+    bg.alpha_composite(fg, (0, 0))
+    return bg
+
+
+def image_has_alpha(img: Image.Image) -> bool:
+    if img.mode in ("RGBA", "LA"):
+        return True
+    return img.mode == "P" and "transparency" in img.info
+
+
+def apply_transparent_key(img: Image.Image, key_rgb: Tuple[int, int, int]) -> Image.Image:
+    rgba = img.convert("RGBA")
+    src = list(rgba.getdata())
+    out: List[Tuple[int, int, int]] = []
+    for r, g, b, a in src:
+        if a == 0:
+            out.append(key_rgb)
+        else:
+            out.append((r, g, b))
+    rgb = Image.new("RGB", rgba.size)
+    rgb.putdata(out)
+    return rgb
 
 
 def get_palette_rgb(img: Image.Image) -> List[Tuple[int, int, int]]:
@@ -460,6 +512,18 @@ def main() -> None:
         help="Force quantization to indexed 16-color image if input is not mode 'P'",
     )
     parser.add_argument(
+        "--bg-metatile-png",
+        type=Path,
+        default=None,
+        help="Optional 16x16 PNG tiled as background behind transparent input pixels",
+    )
+    parser.add_argument(
+        "--transparent-key",
+        choices=["magenta", "none"],
+        default="magenta",
+        help="When input has alpha and no background is provided, reserve index 0 for this key color",
+    )
+    parser.add_argument(
         "--anim",
         action="store_true",
         help="Treat input as animation sheet and export anim frames",
@@ -485,12 +549,26 @@ def main() -> None:
     )
     parser.add_argument(
         "--avoid-index-zero",
-        action="store_true",
-        help="Remap visible palette index 0 to a non-zero slot (avoids BG transparency holes)",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Remap visible palette index 0 to a non-zero slot (default: enabled)",
     )
     args = parser.parse_args()
 
-    img = ensure_indexed_png(args.input, quantize=args.quantize)
+    src_img = Image.open(args.input)
+    reserved_key_rgb = None
+    if args.bg_metatile_png is not None:
+        if not args.bg_metatile_png.exists():
+            fail(f"--bg-metatile-png not found: {args.bg_metatile_png}")
+        composed = composite_with_bg_tile(args.input, args.bg_metatile_png)
+        img = ensure_indexed_image(composed, quantize=args.quantize)
+    elif args.transparent_key != "none" and image_has_alpha(src_img):
+        reserved_key_rgb = (255, 0, 255)
+        keyed = apply_transparent_key(src_img, reserved_key_rgb)
+        # Keyed input must be quantized with reserved index handling below.
+        img = ensure_indexed_image(keyed, quantize=True)
+    else:
+        img = ensure_indexed_png(args.input, quantize=args.quantize)
     anim_cfg = AnimConfig(
         enabled=args.anim,
         frames_x=args.frames_x,
@@ -501,12 +579,45 @@ def main() -> None:
     )
     frames = split_animation_frames(img, anim_cfg)
     base_img = frames[0]
-    palette_rgb = get_palette_rgb(base_img)
     remap_target = None
     remap_pixels = 0
-    if args.avoid_index_zero:
-        frames, palette_rgb, remap_target, remap_pixels = remap_visible_index_zero(frames, palette_rgb)
+    if reserved_key_rgb is not None:
+        # Reserve palette index 0 for transparent key color deterministically.
+        f0_15 = base_img.convert("RGB").quantize(colors=15, dither=Image.Dither.NONE)
+        p15 = (f0_15.getpalette() or [])[:45]
+        p15 += [0] * (45 - len(p15))
+        pal_flat = [reserved_key_rgb[0], reserved_key_rgb[1], reserved_key_rgb[2]] + p15
+        pal_flat += [0] * (768 - len(pal_flat))
+        pal_img = Image.new("P", (16, 16))
+        pal_img.putpalette(pal_flat)
+
+        keyed_frames: List[Image.Image] = []
+        for fr in frames:
+            rgb = fr.convert("RGB")
+            q = rgb.quantize(palette=pal_img, dither=Image.Dither.NONE)
+            rgb_data = list(rgb.getdata())
+            idx_data = list(q.getdata())
+            changed = False
+            for i, (c, idx) in enumerate(zip(rgb_data, idx_data)):
+                if c == reserved_key_rgb:
+                    if idx != 0:
+                        idx_data[i] = 0
+                        changed = True
+                elif idx == 0:
+                    idx_data[i] = 1
+                    changed = True
+            if changed:
+                q.putdata(idx_data)
+            q.putpalette(pal_flat)
+            keyed_frames.append(q)
+        frames = keyed_frames
         base_img = frames[0]
+        palette_rgb = [(pal_flat[i * 3], pal_flat[i * 3 + 1], pal_flat[i * 3 + 2]) for i in range(16)]
+    else:
+        palette_rgb = get_palette_rgb(base_img)
+        if args.avoid_index_zero:
+            frames, palette_rgb, remap_target, remap_pixels = remap_visible_index_zero(frames, palette_rgb)
+            base_img = frames[0]
     cfg = BuildConfig(
         mode=args.mode,
         tile_base=args.tile_base,
@@ -557,6 +668,8 @@ def main() -> None:
             "anim_name": anim_cfg.anim_name,
             "anim_dir": str(args.out_dir / "anim" / anim_cfg.anim_name),
         }
+    if reserved_key_rgb is not None:
+        report["transparent_key"] = {"mode": args.transparent_key, "rgb": list(reserved_key_rgb)}
     if args.avoid_index_zero:
         report["avoid_index_zero"] = {
             "enabled": True,
