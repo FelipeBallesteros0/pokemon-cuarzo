@@ -2,10 +2,13 @@
 from __future__ import annotations
 
 import json
+import io
 import subprocess
 import sys
 import threading
 import tkinter as tk
+from contextlib import redirect_stderr, redirect_stdout
+import importlib.util
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
@@ -32,11 +35,31 @@ else:
     CFG_FILE = REPO_ROOT / ".img2metatiles_gui.json"
 
 
+def load_cli_module():
+    try:
+        import img2metatiles as cli_mod
+        return cli_mod
+    except Exception:
+        pass
+    if not CLI_TOOL.exists():
+        return None
+    try:
+        spec = importlib.util.spec_from_file_location("img2metatiles_embedded", str(CLI_TOOL))
+        if spec is None or spec.loader is None:
+            return None
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+    except Exception:
+        return None
+
+
 class App(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
         self.title("IMG2Metatiles GUI")
         self.geometry("980x700")
+        self.cli_module = load_cli_module()
 
         self.vars = {
             "input": tk.StringVar(),
@@ -49,6 +72,7 @@ class App(tk.Tk):
             "metatile_attr": tk.StringVar(value="0x0"),
             "transparent_key": tk.StringVar(value="magenta"),
             "quantize": tk.BooleanVar(value=False),
+            "lock_input_palette": tk.BooleanVar(value=True),
             "write_palette": tk.BooleanVar(value=True),
             "anim": tk.BooleanVar(value=False),
             "frames_x": tk.StringVar(value="4"),
@@ -110,19 +134,24 @@ class App(tk.Tk):
         ttk.Checkbutton(frm, text="Quantize input if needed", variable=self.vars["quantize"]).grid(
             row=row, column=0, columnspan=2, sticky="w"
         )
-        ttk.Checkbutton(frm, text="Write palette into apply-to", variable=self.vars["write_palette"]).grid(
-            row=row, column=2, columnspan=2, sticky="w"
-        )
+        ttk.Checkbutton(
+            frm,
+            text="Lock input palette (exact colors)",
+            variable=self.vars["lock_input_palette"],
+        ).grid(row=row, column=2, columnspan=2, sticky="w")
         row += 1
 
-        ttk.Checkbutton(frm, text="Animation sheet mode", variable=self.vars["anim"]).grid(
+        ttk.Checkbutton(frm, text="Write palette into apply-to", variable=self.vars["write_palette"]).grid(
             row=row, column=0, columnspan=2, sticky="w"
+        )
+        ttk.Checkbutton(frm, text="Animation sheet mode", variable=self.vars["anim"]).grid(
+            row=row, column=2, columnspan=2, sticky="w"
         )
         ttk.Checkbutton(
             frm,
             text="Avoid visible index 0 (recommended for BG)",
             variable=self.vars["avoid_index_zero"],
-        ).grid(row=row, column=2, columnspan=2, sticky="w")
+        ).grid(row=row, column=0, columnspan=2, sticky="w")
         row += 1
 
         ttk.Label(frm, text="Frames X").grid(row=row, column=0, sticky="w")
@@ -185,10 +214,8 @@ class App(tk.Tk):
         self.log.see(tk.END)
         self.update_idletasks()
 
-    def _build_cmd(self) -> list[str]:
-        cmd = [
-            sys.executable,
-            str(CLI_TOOL),
+    def _build_args(self) -> list[str]:
+        args = [
             "--input",
             self.vars["input"].get().strip(),
             "--out-dir",
@@ -206,11 +233,13 @@ class App(tk.Tk):
         ]
         bg_metatile = self.vars["bg_metatile_png"].get().strip()
         if bg_metatile:
-            cmd += ["--bg-metatile-png", bg_metatile]
+            args += ["--bg-metatile-png", bg_metatile]
         if self.vars["quantize"].get():
-            cmd.append("--quantize")
+            args.append("--quantize")
+        if self.vars["lock_input_palette"].get():
+            args.append("--lock-input-palette")
         if self.vars["anim"].get():
-            cmd += [
+            args += [
                 "--anim",
                 "--frames-x",
                 self.vars["frames_x"].get().strip(),
@@ -224,13 +253,13 @@ class App(tk.Tk):
                 self.vars["anim_name"].get().strip(),
             ]
         if self.vars["avoid_index_zero"].get():
-            cmd.append("--avoid-index-zero")
+            args.append("--avoid-index-zero")
         apply_to = self.vars["apply_to"].get().strip()
         if apply_to:
-            cmd += ["--apply-to", apply_to]
+            args += ["--apply-to", apply_to]
             if self.vars["write_palette"].get():
-                cmd.append("--write-palette")
-        return cmd
+                args.append("--write-palette")
+        return args
 
     def run_generate(self) -> None:
         input_path = self.vars["input"].get().strip()
@@ -241,28 +270,53 @@ class App(tk.Tk):
             messagebox.showerror("Input not found", f"File does not exist:\n{input_path}")
             return
 
-        cmd = self._build_cmd()
+        args = self._build_args()
         self._append_log("\n=== Running ===\n")
-        self._append_log(" ".join(cmd) + "\n\n")
+        self._append_log("img2metatiles " + " ".join(args) + "\n\n")
 
         def worker() -> None:
             try:
-                proc = subprocess.run(
-                    cmd,
-                    cwd=str(ROOT),
-                    text=True,
-                    capture_output=True,
-                    check=False,
-                )
-                if proc.stdout:
-                    self._append_log(proc.stdout)
-                if proc.stderr:
-                    self._append_log(proc.stderr)
-                if proc.returncode == 0:
+                if self.cli_module is not None and hasattr(self.cli_module, "main"):
+                    old_argv = sys.argv[:]
+                    out = io.StringIO()
+                    err = io.StringIO()
+                    code = 0
+                    try:
+                        sys.argv = ["img2metatiles.py"] + args
+                        with redirect_stdout(out), redirect_stderr(err):
+                            self.cli_module.main()
+                    except SystemExit as e:
+                        try:
+                            code = int(e.code)
+                        except Exception:
+                            code = 1
+                    finally:
+                        sys.argv = old_argv
+                    stdout = out.getvalue()
+                    stderr = err.getvalue()
+                else:
+                    cmd = [sys.executable, str(CLI_TOOL)] + args
+                    proc = subprocess.run(
+                        cmd,
+                        cwd=str(ROOT),
+                        text=True,
+                        capture_output=True,
+                        check=False,
+                    )
+                    stdout = proc.stdout or ""
+                    stderr = proc.stderr or ""
+                    code = proc.returncode
+
+                if stdout:
+                    self._append_log(stdout)
+                if stderr:
+                    self._append_log(stderr)
+
+                if code == 0:
                     self._append_log("\nDone.\n")
                     messagebox.showinfo("Success", "Tileset generated successfully.")
                 else:
-                    self._append_log(f"\nFailed with exit code {proc.returncode}\n")
+                    self._append_log(f"\nFailed with exit code {code}\n")
                     messagebox.showerror("Failed", "Generation failed. Check the log.")
             except Exception as e:  # pragma: no cover
                 self._append_log(f"\nException: {e}\n")
@@ -306,9 +360,10 @@ class App(tk.Tk):
 
 
 def main() -> None:
-    if not CLI_TOOL.exists():
-        raise SystemExit(f"Missing tool: {CLI_TOOL}")
     app = App()
+    if app.cli_module is None and not CLI_TOOL.exists():
+        messagebox.showerror("Missing tool", f"Missing tool: {CLI_TOOL}")
+        raise SystemExit(1)
     app.mainloop()
 
 

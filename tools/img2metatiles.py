@@ -131,6 +131,48 @@ def apply_transparent_key(img: Image.Image, key_rgb: Tuple[int, int, int]) -> Im
     return rgb
 
 
+def frames_rgb_to_exact_indexed(
+    frames_rgb: Sequence[Image.Image],
+    reserve_index0: Tuple[int, int, int] | None = None,
+) -> Tuple[List[Image.Image], List[Tuple[int, int, int]]]:
+    palette: List[Tuple[int, int, int]] = []
+    color_to_idx: Dict[Tuple[int, int, int], int] = {}
+
+    if reserve_index0 is not None:
+        palette.append(reserve_index0)
+        color_to_idx[reserve_index0] = 0
+
+    # Stable first-seen ordering across frames/pixels.
+    for fr in frames_rgb:
+        for c in fr.getdata():
+            if c not in color_to_idx:
+                if len(palette) >= 16:
+                    fail(
+                        "lock-input-palette: combined frames use more than 16 colors "
+                        f"({len(palette) + 1}). Reduce colors in source image."
+                    )
+                color_to_idx[c] = len(palette)
+                palette.append(c)
+
+    if len(palette) < 16:
+        palette += [(0, 0, 0)] * (16 - len(palette))
+
+    pal_flat: List[int] = []
+    for r, g, b in palette[:16]:
+        pal_flat.extend([r, g, b])
+    pal_flat += [0] * (768 - len(pal_flat))
+
+    out_frames: List[Image.Image] = []
+    for fr in frames_rgb:
+        idx_data = [color_to_idx[c] for c in fr.getdata()]
+        p = Image.new("P", fr.size)
+        p.putdata(idx_data)
+        p.putpalette(pal_flat)
+        out_frames.append(p)
+
+    return out_frames, palette[:16]
+
+
 def get_palette_rgb(img: Image.Image) -> List[Tuple[int, int, int]]:
     raw = img.getpalette() or []
     raw = raw[: 3 * MAX_COLORS] + [0] * max(0, 3 * MAX_COLORS - len(raw))
@@ -198,10 +240,19 @@ def metatile_hash(tile_ids_local: Tuple[int, int, int, int]) -> str:
     return hashlib.sha1(struct.pack("<4H", *tile_ids_local)).hexdigest()
 
 
-def build_tiles_and_metatiles(
-    img: Image.Image, cfg: BuildConfig
-) -> Tuple[List[bytes], List[Tuple[int, int, int, int]], int, int]:
-    # Extract 8x8 tiles in deterministic scan order.
+def build_tiles_and_metatiles_with_layout(
+    img: Image.Image,
+    cfg: BuildConfig,
+    frames_for_dedup: Sequence[Image.Image] | None = None,
+) -> Tuple[
+    List[bytes],
+    List[Tuple[int, int, int, int]],
+    int,
+    int,
+    List[Tuple[int, int]],
+    List[List[Tuple[int, int]]],
+]:
+    # Extract 8x8 tiles in deterministic scan order from base frame.
     all_tiles: List[bytes] = []
     tile_coords: List[Tuple[int, int]] = []
     for y in range(0, img.height, TILE_SIZE):
@@ -213,16 +264,37 @@ def build_tiles_and_metatiles(
     unique_tiles: List[bytes] = []
     tile_index_by_pos: List[int] = []
 
+    first_pos_by_unique: List[Tuple[int, int]] = []
+    positions_by_unique: List[List[Tuple[int, int]]] = []
     if cfg.mode == "keep-order":
         unique_tiles = all_tiles[:]
         tile_index_by_pos = list(range(len(all_tiles)))
+        first_pos_by_unique = tile_coords[:]
+        positions_by_unique = [[xy] for xy in tile_coords]
     else:
-        for t in all_tiles:
-            h = tile_hash(t)
+        # For animated sheets, dedup must consider all frames to avoid
+        # collapsing tiles that diverge later and causing bad animation frames.
+        if frames_for_dedup:
+            for fr in frames_for_dedup:
+                if fr.size != img.size:
+                    fail(
+                        "internal error: frames_for_dedup size mismatch "
+                        f"(expected {img.size}, got {fr.size})"
+                    )
+        for i, t in enumerate(all_tiles):
+            if frames_for_dedup:
+                x, y = tile_coords[i]
+                sig = tuple(crop_tile(fr, x, y) for fr in frames_for_dedup)
+                h = hashlib.sha1(b"".join(sig)).hexdigest()
+            else:
+                h = tile_hash(t)
             if h not in tile_map:
                 tile_map[h] = len(unique_tiles)
                 unique_tiles.append(t)
+                first_pos_by_unique.append(tile_coords[i])
+                positions_by_unique.append([tile_coords[i]])
             tile_index_by_pos.append(tile_map[h])
+            positions_by_unique[tile_map[h]].append(tile_coords[i])
 
     tiles_per_row = img.width // TILE_SIZE
     metatiles_all: List[Tuple[int, int, int, int]] = []
@@ -246,7 +318,77 @@ def build_tiles_and_metatiles(
                 unique_metatiles.append(mt)
         metatiles_all = unique_metatiles
 
-    return unique_tiles, metatiles_all, img.width // METATILE_SIZE, img.height // METATILE_SIZE
+    return (
+        unique_tiles,
+        metatiles_all,
+        img.width // METATILE_SIZE,
+        img.height // METATILE_SIZE,
+        first_pos_by_unique,
+        positions_by_unique,
+    )
+
+
+def build_tiles_and_metatiles(
+    img: Image.Image, cfg: BuildConfig
+) -> Tuple[List[bytes], List[Tuple[int, int, int, int]], int, int]:
+    tiles, metatiles, mt_w, mt_h, _, _ = build_tiles_and_metatiles_with_layout(img, cfg)
+    return tiles, metatiles, mt_w, mt_h
+
+
+def frame_tiles_from_layout(frame: Image.Image, first_pos_by_unique: Sequence[Tuple[int, int]]) -> List[bytes]:
+    return [crop_tile(frame, x, y) for (x, y) in first_pos_by_unique]
+
+
+def validate_anim_layout(
+    base_tiles: Sequence[bytes],
+    frames: Sequence[Image.Image],
+    first_pos_by_unique: Sequence[Tuple[int, int]],
+    enabled: bool,
+) -> None:
+    if not enabled:
+        return
+    if len(first_pos_by_unique) != len(base_tiles):
+        fail(
+            "validation failed: layout tile count mismatch "
+            f"(layout={len(first_pos_by_unique)} base={len(base_tiles)})"
+        )
+    frame0_tiles = frame_tiles_from_layout(frames[0], first_pos_by_unique)
+    if frame0_tiles != list(base_tiles):
+        fail(
+            "validation failed: animation tile order mismatch against base frame. "
+            "This would produce wrong tiles in-game."
+        )
+
+
+def validate_dedup_anim_consistency(
+    frames: Sequence[Image.Image],
+    positions_by_unique: Sequence[Sequence[Tuple[int, int]]],
+    enabled: bool,
+    mode: str,
+) -> None:
+    if not enabled or mode != "dedup":
+        return
+    issues: List[str] = []
+    for frame_idx, fr in enumerate(frames):
+        for uidx, group in enumerate(positions_by_unique):
+            if len(group) <= 1:
+                continue
+            x0, y0 = group[0]
+            ref = crop_tile(fr, x0, y0)
+            for x, y in group[1:]:
+                if crop_tile(fr, x, y) != ref:
+                    issues.append(
+                        f"frame={frame_idx}, dedup_tile={uidx}, posA=({x0},{y0}), posB=({x},{y})"
+                    )
+    if issues:
+        preview = "\n".join(f"  - {s}" for s in issues[:20])
+        extra = "" if len(issues) <= 20 else f"\n  ... y {len(issues) - 20} conflictos mas"
+        fail(
+            "animation validation failed: dedup collapsed tiles that diverge across animation frames.\n"
+            f"Conflictos detectados: {len(issues)}\n"
+            f"{preview}{extra}\n"
+            "Use mode=keep-order for this animated sheet."
+        )
 
 
 def split_animation_frames(img: Image.Image, anim_cfg: AnimConfig) -> List[Image.Image]:
@@ -390,25 +532,15 @@ def write_files(
 
 def write_anim_frames(
     out_dir: Path,
-    frames: Sequence[Image.Image],
+    frame_tiles: Sequence[Sequence[bytes]],
     anim_cfg: AnimConfig,
 ) -> None:
     if not anim_cfg.enabled:
         return
     anim_dir = out_dir / "anim" / anim_cfg.anim_name
     anim_dir.mkdir(parents=True, exist_ok=True)
-    for i, frame in enumerate(frames):
-        frame_tiles, _, _, _ = build_tiles_and_metatiles(
-            frame,
-            BuildConfig(
-                mode="keep-order",
-                tile_base=0,
-                palette_slot=0,
-                attr=0,
-                metatile_base=0,
-            ),
-        )
-        (anim_dir / f"{i}.4bpp").write_bytes(tiles_to_4bpp_blob(frame_tiles))
+    for i, tiles in enumerate(frame_tiles):
+        (anim_dir / f"{i}.4bpp").write_bytes(tiles_to_4bpp_blob(tiles))
 
 
 def apply_to_tileset(
@@ -437,25 +569,15 @@ def apply_to_tileset(
 
 def apply_anim_to_tileset(
     apply_dir: Path,
-    frames: Sequence[Image.Image],
+    frame_tiles: Sequence[Sequence[bytes]],
     anim_cfg: AnimConfig,
 ) -> None:
     if not anim_cfg.enabled:
         return
     anim_dir = apply_dir / "anim" / anim_cfg.anim_name
     anim_dir.mkdir(parents=True, exist_ok=True)
-    for i, frame in enumerate(frames):
-        frame_tiles, _, _, _ = build_tiles_and_metatiles(
-            frame,
-            BuildConfig(
-                mode="keep-order",
-                tile_base=0,
-                palette_slot=0,
-                attr=0,
-                metatile_base=0,
-            ),
-        )
-        (anim_dir / f"{i}.4bpp").write_bytes(tiles_to_4bpp_blob(frame_tiles))
+    for i, tiles in enumerate(frame_tiles):
+        (anim_dir / f"{i}.4bpp").write_bytes(tiles_to_4bpp_blob(tiles))
 
 
 def parse_int(value: str) -> int:
@@ -553,6 +675,12 @@ def main() -> None:
         default=True,
         help="Remap visible palette index 0 to a non-zero slot (default: enabled)",
     )
+    parser.add_argument(
+        "--lock-input-palette",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Preserve exact input RGB colors (no palette re-optimization/quantize remap)",
+    )
     args = parser.parse_args()
 
     src_img = Image.open(args.input)
@@ -581,7 +709,11 @@ def main() -> None:
     base_img = frames[0]
     remap_target = None
     remap_pixels = 0
-    if reserved_key_rgb is not None:
+    if args.lock_input_palette:
+        rgb_frames = [fr.convert("RGB") for fr in frames]
+        frames, palette_rgb = frames_rgb_to_exact_indexed(rgb_frames, reserve_index0=reserved_key_rgb)
+        base_img = frames[0]
+    elif reserved_key_rgb is not None:
         # Reserve palette index 0 for transparent key color deterministically.
         f0_15 = base_img.convert("RGB").quantize(colors=15, dither=Image.Dither.NONE)
         p15 = (f0_15.getpalette() or [])[:45]
@@ -615,9 +747,11 @@ def main() -> None:
         palette_rgb = [(pal_flat[i * 3], pal_flat[i * 3 + 1], pal_flat[i * 3 + 2]) for i in range(16)]
     else:
         palette_rgb = get_palette_rgb(base_img)
-        if args.avoid_index_zero:
-            frames, palette_rgb, remap_target, remap_pixels = remap_visible_index_zero(frames, palette_rgb)
-            base_img = frames[0]
+    # If no transparent key is reserved, visible index 0 must be avoided
+    # to prevent full-tile transparency in BG maps (e.g. grass background).
+    if args.avoid_index_zero and reserved_key_rgb is None:
+        frames, palette_rgb, remap_target, remap_pixels = remap_visible_index_zero(frames, palette_rgb)
+        base_img = frames[0]
     cfg = BuildConfig(
         mode=args.mode,
         tile_base=args.tile_base,
@@ -626,12 +760,20 @@ def main() -> None:
         metatile_base=0,
     )
 
-    tiles, metatiles, mt_w, mt_h = build_tiles_and_metatiles(base_img, cfg)
+    tiles, metatiles, mt_w, mt_h, first_pos_by_unique, positions_by_unique = build_tiles_and_metatiles_with_layout(
+        base_img,
+        cfg,
+        frames_for_dedup=frames if anim_cfg.enabled else None,
+    )
     if cfg.tile_base + len(tiles) - 1 > MAX_TILE_ID:
         fail(
             "tile range exceeds 10-bit tile id limit in metatile words: "
             f"base={cfg.tile_base:#x}, count={len(tiles)}"
         )
+
+    anim_frame_tiles = [frame_tiles_from_layout(fr, first_pos_by_unique) for fr in frames]
+    validate_anim_layout(tiles, frames, first_pos_by_unique, anim_cfg.enabled)
+    validate_dedup_anim_consistency(frames, positions_by_unique, anim_cfg.enabled, cfg.mode)
 
     tiles_blob = tiles_to_4bpp_blob(tiles)
     metatiles_blob = metatiles_bin(metatiles, cfg.palette_slot, cfg.tile_base)
@@ -667,6 +809,7 @@ def main() -> None:
             "frame_count": len(frames),
             "anim_name": anim_cfg.anim_name,
             "anim_dir": str(args.out_dir / "anim" / anim_cfg.anim_name),
+            "validated_layout": True,
         }
     if reserved_key_rgb is not None:
         report["transparent_key"] = {"mode": args.transparent_key, "rgb": list(reserved_key_rgb)}
@@ -676,11 +819,13 @@ def main() -> None:
             "remap_target_index": remap_target,
             "remapped_pixels": remap_pixels,
         }
+    if args.lock_input_palette:
+        report["lock_input_palette"] = {"enabled": True}
 
     write_files(
         args.out_dir, tiles_blob, metatiles_blob, attrs_blob, sheet, palette_rgb, report
     )
-    write_anim_frames(args.out_dir, frames, anim_cfg)
+    write_anim_frames(args.out_dir, anim_frame_tiles, anim_cfg)
 
     if args.apply_to is not None:
         apply_to_tileset(
@@ -693,7 +838,7 @@ def main() -> None:
             cfg.palette_slot,
             args.write_palette,
         )
-        apply_anim_to_tileset(args.apply_to, frames, anim_cfg)
+        apply_anim_to_tileset(args.apply_to, anim_frame_tiles, anim_cfg)
 
     print(
         f"OK: tiles={len(tiles)} metatiles={len(metatiles)} "

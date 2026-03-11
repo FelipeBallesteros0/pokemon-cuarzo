@@ -1,71 +1,50 @@
 {
-  "input": "/mnt/c/Users/User/Desktop/pokemon_esmeralda/tiles/TILES/tiles repo word/pool_transparent.png",
-  "output": "data/tilesets/secondary/pool_transparent_auto",
-  "kept_metatiles": 61,
-  "dropped_metatiles": 3,
-  "kept_indices": [
-    1,
-    2,
-    3,
-    4,
-    5,
-    6,
+  "input": "C:\\Users\\User\\Desktop\\pokemon_esmeralda\\png2tileset\\input\\pool_transparent.png",
+  "mode": "dedup",
+  "image_size": [
+    128,
+    128
+  ],
+  "metatile_grid": [
     8,
-    9,
-    10,
-    11,
-    12,
-    13,
-    14,
-    15,
-    16,
-    17,
-    18,
-    19,
-    20,
-    21,
-    22,
-    23,
-    24,
-    25,
-    26,
-    27,
-    28,
-    29,
-    30,
-    31,
-    32,
-    33,
-    34,
-    35,
-    36,
-    37,
-    38,
-    39,
-    40,
-    41,
-    42,
-    43,
-    44,
-    45,
-    46,
-    47,
-    48,
-    49,
-    50,
-    51,
-    52,
-    53,
-    54,
-    55,
-    57,
-    58,
-    59,
-    60,
-    61,
-    62,
-    63
+    8
+  ],
+  "tile_count": 216,
+  "metatile_count": 62,
+  "tile_base": 512,
+  "tile_range": [
+    512,
+    727
   ],
   "palette_slot": 6,
-  "tile_base": 512
+  "metatile_attr": 0,
+  "outputs": {
+    "tiles_4bpp": "C:\\Users\\User\\Desktop\\pokemon_esmeralda\\png2tileset\\output\\tiles.4bpp",
+    "metatiles_bin": "C:\\Users\\User\\Desktop\\pokemon_esmeralda\\png2tileset\\output\\metatiles.bin",
+    "metatile_attributes_bin": "C:\\Users\\User\\Desktop\\pokemon_esmeralda\\png2tileset\\output\\metatile_attributes.bin",
+    "tiles_png": "C:\\Users\\User\\Desktop\\pokemon_esmeralda\\png2tileset\\output\\tiles.png",
+    "palette_gbapal": "C:\\Users\\User\\Desktop\\pokemon_esmeralda\\png2tileset\\output\\palette.gbapal",
+    "palette_pal": "C:\\Users\\User\\Desktop\\pokemon_esmeralda\\png2tileset\\output\\palette.pal"
+  },
+  "animation": {
+    "enabled": true,
+    "frames_x": 4,
+    "frames_y": 2,
+    "frame_size": [
+      128,
+      128
+    ],
+    "frame_count": 8,
+    "anim_name": "pool",
+    "anim_dir": "C:\\Users\\User\\Desktop\\pokemon_esmeralda\\png2tileset\\output\\anim\\pool",
+    "validated_layout": true
+  },
+  "avoid_index_zero": {
+    "enabled": true,
+    "remap_target_index": 15,
+    "remapped_pixels": 16256
+  },
+  "lock_input_palette": {
+    "enabled": true
+  }
 }
