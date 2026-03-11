@@ -111,6 +111,76 @@ def composite_with_bg_tile(fg_path: Path, bg_tile_path: Path) -> Image.Image:
     return bg
 
 
+def _parse_jasc_pal(path: Path) -> List[Tuple[int, int, int]]:
+    lines = [ln.strip() for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip()]
+    if len(lines) < 3 or lines[0] != "JASC-PAL":
+        fail(f"invalid JASC-PAL file: {path}")
+    try:
+        count = int(lines[2])
+    except ValueError:
+        fail(f"invalid JASC-PAL color count: {path}")
+    colors: List[Tuple[int, int, int]] = []
+    for ln in lines[3 : 3 + count]:
+        parts = ln.split()
+        if len(parts) != 3:
+            fail(f"invalid JASC-PAL color line in {path}: {ln}")
+        r, g, b = (int(parts[0]), int(parts[1]), int(parts[2]))
+        colors.append((max(0, min(255, r)), max(0, min(255, g)), max(0, min(255, b))))
+    if not colors:
+        fail(f"empty JASC-PAL file: {path}")
+    return colors[:16]
+
+
+def _parse_gbapal(path: Path) -> List[Tuple[int, int, int]]:
+    data = path.read_bytes()
+    if len(data) < 32:
+        fail(f"invalid gbapal size (expected >=32 bytes): {path}")
+    colors: List[Tuple[int, int, int]] = []
+    for i in range(16):
+        v = int.from_bytes(data[i * 2 : i * 2 + 2], "little")
+        r = (v & 0x1F) * 255 // 31
+        g = ((v >> 5) & 0x1F) * 255 // 31
+        b = ((v >> 10) & 0x1F) * 255 // 31
+        colors.append((r, g, b))
+    return colors
+
+
+def _load_palette_sidecar(img_path: Path) -> List[Tuple[int, int, int]] | None:
+    pal = img_path.with_suffix(".pal")
+    gbapal = img_path.with_suffix(".gbapal")
+    if pal.exists():
+        return _parse_jasc_pal(pal)
+    if gbapal.exists():
+        return _parse_gbapal(gbapal)
+    return None
+
+
+def _load_bg_tile_for_preview(bg_tile_path: Path) -> Image.Image:
+    bg = Image.open(bg_tile_path)
+    sidecar = _load_palette_sidecar(bg_tile_path)
+    if sidecar and bg.mode == "P":
+        raw = []
+        for r, g, b in sidecar[:16]:
+            raw.extend([r, g, b])
+        raw += [0] * (768 - len(raw))
+        bg = bg.copy()
+        bg.putpalette(raw)
+    return bg.convert("RGBA")
+
+
+def composite_with_bg_tile_preview(fg_path: Path, bg_tile_path: Path) -> Image.Image:
+    fg = Image.open(fg_path).convert("RGBA")
+    bg_tile = _load_bg_tile_for_preview(bg_tile_path)
+    if bg_tile.size != (16, 16):
+        fail(f"background metatile PNG must be 16x16, got {bg_tile.size}")
+    bg = Image.new("RGBA", fg.size, (0, 0, 0, 0))
+    for y in range(0, fg.height, 16):
+        for x in range(0, fg.width, 16):
+            bg.alpha_composite(bg_tile, (x, y))
+    bg.alpha_composite(fg, (0, 0))
+    return bg
+
+
 def image_has_alpha(img: Image.Image) -> bool:
     if img.mode in ("RGBA", "LA"):
         return True
@@ -412,6 +482,18 @@ def split_animation_frames(img: Image.Image, anim_cfg: AnimConfig) -> List[Image
     return frames
 
 
+def build_preview_source_image(
+    input_path: Path,
+    bg_metatile_png: Path | None,
+) -> Image.Image:
+    src = Image.open(input_path)
+    if bg_metatile_png is None:
+        return src.convert("RGBA")
+    if not bg_metatile_png.exists():
+        fail(f"--bg-metatile-png not found: {bg_metatile_png}")
+    return composite_with_bg_tile_preview(input_path, bg_metatile_png).convert("RGBA")
+
+
 def remap_visible_index_zero(
     frames: Sequence[Image.Image],
     palette_rgb: Sequence[Tuple[int, int, int]],
@@ -533,14 +615,19 @@ def write_files(
 def write_anim_frames(
     out_dir: Path,
     frame_tiles: Sequence[Sequence[bytes]],
+    preview_frames: Sequence[Image.Image],
     anim_cfg: AnimConfig,
 ) -> None:
     if not anim_cfg.enabled:
         return
     anim_dir = out_dir / "anim" / anim_cfg.anim_name
     anim_dir.mkdir(parents=True, exist_ok=True)
+    preview_dir = out_dir / "anim_preview" / anim_cfg.anim_name
+    preview_dir.mkdir(parents=True, exist_ok=True)
     for i, tiles in enumerate(frame_tiles):
         (anim_dir / f"{i}.4bpp").write_bytes(tiles_to_4bpp_blob(tiles))
+    for i, fr in enumerate(preview_frames):
+        fr.save(preview_dir / f"{i}.png")
 
 
 def apply_to_tileset(
@@ -705,6 +792,8 @@ def main() -> None:
         frame_h=args.frame_height,
         anim_name=args.anim_name,
     )
+    preview_source_img = build_preview_source_image(args.input, args.bg_metatile_png)
+    preview_source_frames = split_animation_frames(preview_source_img, anim_cfg)
     frames = split_animation_frames(img, anim_cfg)
     base_img = frames[0]
     remap_target = None
@@ -809,6 +898,7 @@ def main() -> None:
             "frame_count": len(frames),
             "anim_name": anim_cfg.anim_name,
             "anim_dir": str(args.out_dir / "anim" / anim_cfg.anim_name),
+            "preview_dir": str(args.out_dir / "anim_preview" / anim_cfg.anim_name),
             "validated_layout": True,
         }
     if reserved_key_rgb is not None:
@@ -825,7 +915,7 @@ def main() -> None:
     write_files(
         args.out_dir, tiles_blob, metatiles_blob, attrs_blob, sheet, palette_rgb, report
     )
-    write_anim_frames(args.out_dir, anim_frame_tiles, anim_cfg)
+    write_anim_frames(args.out_dir, anim_frame_tiles, preview_source_frames, anim_cfg)
 
     if args.apply_to is not None:
         apply_to_tileset(
