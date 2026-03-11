@@ -11,5 +11,7 @@ extern const struct Tileset gTileset_Building;
 extern const struct Tileset gTileset_BrendansMaysHouse;
 extern const struct Tileset gTileset_EdificioPokeball;
 extern const struct Tileset gTileset_PuebloCiendraPool;
+extern const struct Tileset gTileset_PuebloCiendraPoolAuto;
+extern const struct Tileset gTileset_PoolTransparentAuto;
 
 #endif //GUARD_tilesets_H

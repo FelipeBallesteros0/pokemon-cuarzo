@@ -744,6 +744,28 @@ const struct Tileset gTileset_PuebloCiendraPool =
     .callback = InitTilesetAnim_PuebloCiendraPool,
 };
 
+const struct Tileset gTileset_PuebloCiendraPoolAuto =
+{
+    .isCompressed = FALSE,
+    .isSecondary = TRUE,
+    .tiles = gTilesetTiles_PuebloCiendraPoolAuto,
+    .palettes = gTilesetPalettes_PuebloCiendraPoolAuto,
+    .metatiles = gMetatiles_PuebloCiendraPoolAuto,
+    .metatileAttributes = gMetatileAttributes_PuebloCiendraPoolAuto,
+    .callback = InitTilesetAnim_PuebloCiendraPool,
+};
+
+const struct Tileset gTileset_PoolTransparentAuto =
+{
+    .isCompressed = FALSE,
+    .isSecondary = TRUE,
+    .tiles = gTilesetTiles_PoolTransparentAuto,
+    .palettes = gTilesetPalettes_PoolTransparentAuto,
+    .metatiles = gMetatiles_PoolTransparentAuto,
+    .metatileAttributes = gMetatileAttributes_PoolTransparentAuto,
+    .callback = InitTilesetAnim_PoolTransparentAuto,
+};
+
 const struct Tileset gTileset_BattlePyramid =
 {
     .isCompressed = TRUE,

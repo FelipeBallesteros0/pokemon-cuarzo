@@ -1,0 +1,595 @@
+#!/usr/bin/env python3
+"""
+Deterministic PNG -> tiles/metatiles converter for pokeemerald-expansion workflows.
+
+Features:
+- Deterministic ordering with two modes:
+  - keep-order: preserve every 8x8 tile in scanline order (no dedup)
+  - dedup: stable dedup for 8x8 tiles and 16x16 metatiles (first occurrence wins)
+- Exports:
+  - tiles.4bpp
+  - metatiles.bin
+  - metatile_attributes.bin
+  - tiles.png (tilesheet preview)
+  - report.json
+- Optional direct apply to an existing secondary tileset directory.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import math
+import struct
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Dict, List, Sequence, Tuple
+
+from PIL import Image
+
+TILE_SIZE = 8
+METATILE_SIZE = 16
+MAX_COLORS = 16
+MAX_TILE_ID = 0x3FF  # 10-bit tile index in metatile words
+
+
+@dataclass(frozen=True)
+class BuildConfig:
+    mode: str
+    tile_base: int
+    palette_slot: int
+    attr: int
+    metatile_base: int
+
+
+@dataclass(frozen=True)
+class AnimConfig:
+    enabled: bool
+    frames_x: int
+    frames_y: int
+    frame_w: int
+    frame_h: int
+    anim_name: str
+
+
+def fail(msg: str) -> None:
+    print(f"error: {msg}", file=sys.stderr)
+    raise SystemExit(1)
+
+
+def ensure_indexed_png(path: Path, quantize: bool) -> Image.Image:
+    img = Image.open(path)
+    if img.mode != "P":
+        if not quantize:
+            fail(
+                f"{path} is mode '{img.mode}', expected indexed PNG mode 'P'. "
+                "Use --quantize to force conversion."
+            )
+        img = img.convert("RGB").quantize(colors=MAX_COLORS, dither=Image.Dither.NONE)
+    if img.width % METATILE_SIZE != 0 or img.height % METATILE_SIZE != 0:
+        fail(
+            f"image size must be divisible by {METATILE_SIZE}. "
+            f"Got {img.width}x{img.height}"
+        )
+    used = set(img.getdata())
+    if len(used) > MAX_COLORS:
+        fail(f"image uses {len(used)} color indices; max allowed is {MAX_COLORS}")
+    return img
+
+
+def get_palette_rgb(img: Image.Image) -> List[Tuple[int, int, int]]:
+    raw = img.getpalette() or []
+    raw = raw[: 3 * MAX_COLORS] + [0] * max(0, 3 * MAX_COLORS - len(raw))
+    out: List[Tuple[int, int, int]] = []
+    for i in range(MAX_COLORS):
+        out.append((raw[i * 3], raw[i * 3 + 1], raw[i * 3 + 2]))
+    return out
+
+
+def rgb_to_bgr15(rgb: Tuple[int, int, int]) -> int:
+    r, g, b = rgb
+    r5 = (r * 31 + 127) // 255
+    g5 = (g * 31 + 127) // 255
+    b5 = (b * 31 + 127) // 255
+    return (b5 << 10) | (g5 << 5) | r5
+
+
+def gba_palette_bytes(palette_rgb: Sequence[Tuple[int, int, int]]) -> bytes:
+    vals = [rgb_to_bgr15(c) for c in palette_rgb[:MAX_COLORS]]
+    vals += [0] * (MAX_COLORS - len(vals))
+    return struct.pack("<16H", *vals)
+
+
+def jasc_pal_text(palette_rgb: Sequence[Tuple[int, int, int]]) -> str:
+    lines = ["JASC-PAL", "0100", str(MAX_COLORS)]
+    for i in range(MAX_COLORS):
+        r, g, b = palette_rgb[i]
+        lines.append(f"{r} {g} {b}")
+    return "\n".join(lines) + "\n"
+
+
+def crop_tile(img: Image.Image, x: int, y: int) -> bytes:
+    tile = img.crop((x, y, x + TILE_SIZE, y + TILE_SIZE))
+    return bytes(tile.getdata())
+
+
+def encode_tile_4bpp(tile_idx_bytes: bytes) -> bytes:
+    # Tile data is row-major indexes (64 bytes). Pack two 4-bit pixels per byte.
+    if len(tile_idx_bytes) != 64:
+        fail(f"internal error: tile byte length is {len(tile_idx_bytes)}, expected 64")
+    out = bytearray(32)
+    j = 0
+    for i in range(0, 64, 2):
+        a = tile_idx_bytes[i] & 0xF
+        b = tile_idx_bytes[i + 1] & 0xF
+        out[j] = a | (b << 4)
+        j += 1
+    return bytes(out)
+
+
+def pack_metatile_word(tile_id: int, palette_slot: int) -> int:
+    if tile_id < 0 or tile_id > MAX_TILE_ID:
+        fail(f"tile id out of range for metatile word: {tile_id:#x}")
+    if palette_slot < 0 or palette_slot > 0xF:
+        fail(f"palette slot must be 0..15, got {palette_slot}")
+    # hflip/vflip = 0, priority handled elsewhere
+    return tile_id | (palette_slot << 12)
+
+
+def tile_hash(tile_idx_bytes: bytes) -> str:
+    return hashlib.sha1(tile_idx_bytes).hexdigest()
+
+
+def metatile_hash(tile_ids_local: Tuple[int, int, int, int]) -> str:
+    return hashlib.sha1(struct.pack("<4H", *tile_ids_local)).hexdigest()
+
+
+def build_tiles_and_metatiles(
+    img: Image.Image, cfg: BuildConfig
+) -> Tuple[List[bytes], List[Tuple[int, int, int, int]], int, int]:
+    # Extract 8x8 tiles in deterministic scan order.
+    all_tiles: List[bytes] = []
+    tile_coords: List[Tuple[int, int]] = []
+    for y in range(0, img.height, TILE_SIZE):
+        for x in range(0, img.width, TILE_SIZE):
+            all_tiles.append(crop_tile(img, x, y))
+            tile_coords.append((x, y))
+
+    tile_map: Dict[str, int] = {}
+    unique_tiles: List[bytes] = []
+    tile_index_by_pos: List[int] = []
+
+    if cfg.mode == "keep-order":
+        unique_tiles = all_tiles[:]
+        tile_index_by_pos = list(range(len(all_tiles)))
+    else:
+        for t in all_tiles:
+            h = tile_hash(t)
+            if h not in tile_map:
+                tile_map[h] = len(unique_tiles)
+                unique_tiles.append(t)
+            tile_index_by_pos.append(tile_map[h])
+
+    tiles_per_row = img.width // TILE_SIZE
+    metatiles_all: List[Tuple[int, int, int, int]] = []
+    for my in range(0, img.height // METATILE_SIZE):
+        for mx in range(0, img.width // METATILE_SIZE):
+            tx = mx * 2
+            ty = my * 2
+            tl = tile_index_by_pos[(ty * tiles_per_row) + tx]
+            tr = tile_index_by_pos[(ty * tiles_per_row) + tx + 1]
+            bl = tile_index_by_pos[((ty + 1) * tiles_per_row) + tx]
+            br = tile_index_by_pos[((ty + 1) * tiles_per_row) + tx + 1]
+            metatiles_all.append((tl, tr, bl, br))
+
+    if cfg.mode == "dedup":
+        metatile_map: Dict[str, int] = {}
+        unique_metatiles: List[Tuple[int, int, int, int]] = []
+        for mt in metatiles_all:
+            h = metatile_hash(mt)
+            if h not in metatile_map:
+                metatile_map[h] = len(unique_metatiles)
+                unique_metatiles.append(mt)
+        metatiles_all = unique_metatiles
+
+    return unique_tiles, metatiles_all, img.width // METATILE_SIZE, img.height // METATILE_SIZE
+
+
+def split_animation_frames(img: Image.Image, anim_cfg: AnimConfig) -> List[Image.Image]:
+    if not anim_cfg.enabled:
+        return [img]
+    expected_w = anim_cfg.frames_x * anim_cfg.frame_w
+    expected_h = anim_cfg.frames_y * anim_cfg.frame_h
+    if img.width != expected_w or img.height != expected_h:
+        fail(
+            "image size does not match animation grid: "
+            f"expected {expected_w}x{expected_h} from "
+            f"{anim_cfg.frames_x}x{anim_cfg.frames_y} frames of "
+            f"{anim_cfg.frame_w}x{anim_cfg.frame_h}, got {img.width}x{img.height}"
+        )
+    frames: List[Image.Image] = []
+    for fy in range(anim_cfg.frames_y):
+        for fx in range(anim_cfg.frames_x):
+            x = fx * anim_cfg.frame_w
+            y = fy * anim_cfg.frame_h
+            frames.append(img.crop((x, y, x + anim_cfg.frame_w, y + anim_cfg.frame_h)))
+    return frames
+
+
+def remap_visible_index_zero(
+    frames: Sequence[Image.Image],
+    palette_rgb: Sequence[Tuple[int, int, int]],
+) -> Tuple[List[Image.Image], List[Tuple[int, int, int]], int, int]:
+    # In BG tiles, palette index 0 is transparent. This remaps any visible index-0
+    # pixels to a non-zero slot while preserving color via palette relocation.
+    used = set()
+    for f in frames:
+        used.update(f.getdata())
+    if 0 not in used:
+        return list(frames), list(palette_rgb), 0, 0
+
+    free = [i for i in range(1, 16) if i not in used]
+    target = free[0] if free else 15
+
+    remapped_frames: List[Image.Image] = []
+    changed_px = 0
+    for f in frames:
+        g = f.copy()
+        data = list(g.getdata())
+        frame_changes = 0
+        for i, px in enumerate(data):
+            if px == 0:
+                data[i] = target
+                frame_changes += 1
+        if frame_changes:
+            g.putdata(data)
+            changed_px += frame_changes
+        remapped_frames.append(g)
+
+    pal = list(palette_rgb[:16])
+    if len(pal) < 16:
+        pal += [(0, 0, 0)] * (16 - len(pal))
+    old0 = pal[0]
+    pal[target] = old0
+    pal[0] = pal[1]
+    return remapped_frames, pal, target, changed_px
+
+
+def tiles_to_4bpp_blob(tiles: Sequence[bytes]) -> bytes:
+    out = bytearray()
+    for tile in tiles:
+        out.extend(encode_tile_4bpp(tile))
+    return bytes(out)
+
+
+def tilesheet_png(tiles: Sequence[bytes], palette_rgb: Sequence[Tuple[int, int, int]]) -> Image.Image:
+    if not tiles:
+        return Image.new("P", (8, 8))
+    cols = 16
+    rows = math.ceil(len(tiles) / cols)
+    img = Image.new("P", (cols * 8, rows * 8))
+    flat_pal: List[int] = []
+    for r, g, b in palette_rgb[:MAX_COLORS]:
+        flat_pal.extend([r, g, b])
+    flat_pal += [0] * (768 - len(flat_pal))
+    img.putpalette(flat_pal)
+    for i, t in enumerate(tiles):
+        tx = (i % cols) * 8
+        ty = (i // cols) * 8
+        tile_img = Image.frombytes("P", (8, 8), t)
+        tile_img.putpalette(flat_pal)
+        img.paste(tile_img, (tx, ty))
+    return img
+
+
+def metatiles_bin(
+    metatiles: Sequence[Tuple[int, int, int, int]],
+    palette_slot: int,
+    tile_base: int,
+) -> bytes:
+    out = bytearray()
+    for tl_l, tr_l, bl_l, br_l in metatiles:
+        tl = tile_base + tl_l
+        tr = tile_base + tr_l
+        bl = tile_base + bl_l
+        br = tile_base + br_l
+        words = [
+            pack_metatile_word(tl, palette_slot),
+            pack_metatile_word(tr, palette_slot),
+            pack_metatile_word(bl, palette_slot),
+            pack_metatile_word(br, palette_slot),
+            0,
+            0,
+            0,
+            0,
+        ]
+        out.extend(struct.pack("<8H", *words))
+    return bytes(out)
+
+
+def metatile_attributes_bin(count: int, attr: int) -> bytes:
+    if attr < 0 or attr > 0xFFFF:
+        fail(f"metatile attribute must be 0..0xFFFF, got {attr:#x}")
+    return struct.pack(f"<{count}H", *([attr] * count))
+
+
+def write_files(
+    out_dir: Path,
+    tiles_blob: bytes,
+    metatiles_blob: bytes,
+    attrs_blob: bytes,
+    tiles_png: Image.Image,
+    palette_rgb: Sequence[Tuple[int, int, int]],
+    report: dict,
+) -> None:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "tiles.4bpp").write_bytes(tiles_blob)
+    (out_dir / "metatiles.bin").write_bytes(metatiles_blob)
+    (out_dir / "metatile_attributes.bin").write_bytes(attrs_blob)
+    tiles_png.save(out_dir / "tiles.png")
+    (out_dir / "palette.gbapal").write_bytes(gba_palette_bytes(palette_rgb))
+    (out_dir / "palette.pal").write_text(jasc_pal_text(palette_rgb), encoding="utf-8")
+    (out_dir / "report.json").write_text(
+        json.dumps(report, ensure_ascii=True, indent=2) + "\n", encoding="utf-8"
+    )
+
+
+def write_anim_frames(
+    out_dir: Path,
+    frames: Sequence[Image.Image],
+    anim_cfg: AnimConfig,
+) -> None:
+    if not anim_cfg.enabled:
+        return
+    anim_dir = out_dir / "anim" / anim_cfg.anim_name
+    anim_dir.mkdir(parents=True, exist_ok=True)
+    for i, frame in enumerate(frames):
+        frame_tiles, _, _, _ = build_tiles_and_metatiles(
+            frame,
+            BuildConfig(
+                mode="keep-order",
+                tile_base=0,
+                palette_slot=0,
+                attr=0,
+                metatile_base=0,
+            ),
+        )
+        (anim_dir / f"{i}.4bpp").write_bytes(tiles_to_4bpp_blob(frame_tiles))
+
+
+def apply_to_tileset(
+    apply_dir: Path,
+    tiles_blob: bytes,
+    metatiles_blob: bytes,
+    attrs_blob: bytes,
+    tiles_png: Image.Image,
+    palette_rgb: Sequence[Tuple[int, int, int]],
+    palette_slot: int,
+    write_palette: bool,
+) -> None:
+    if not apply_dir.exists():
+        fail(f"--apply-to directory does not exist: {apply_dir}")
+    (apply_dir / "tiles.4bpp").write_bytes(tiles_blob)
+    (apply_dir / "metatiles.bin").write_bytes(metatiles_blob)
+    (apply_dir / "metatile_attributes.bin").write_bytes(attrs_blob)
+    tiles_png.save(apply_dir / "tiles.png")
+    if write_palette:
+        pal_dir = apply_dir / "palettes"
+        pal_dir.mkdir(parents=True, exist_ok=True)
+        slot = f"{palette_slot:02d}"
+        (pal_dir / f"{slot}.gbapal").write_bytes(gba_palette_bytes(palette_rgb))
+        (pal_dir / f"{slot}.pal").write_text(jasc_pal_text(palette_rgb), encoding="utf-8")
+
+
+def apply_anim_to_tileset(
+    apply_dir: Path,
+    frames: Sequence[Image.Image],
+    anim_cfg: AnimConfig,
+) -> None:
+    if not anim_cfg.enabled:
+        return
+    anim_dir = apply_dir / "anim" / anim_cfg.anim_name
+    anim_dir.mkdir(parents=True, exist_ok=True)
+    for i, frame in enumerate(frames):
+        frame_tiles, _, _, _ = build_tiles_and_metatiles(
+            frame,
+            BuildConfig(
+                mode="keep-order",
+                tile_base=0,
+                palette_slot=0,
+                attr=0,
+                metatile_base=0,
+            ),
+        )
+        (anim_dir / f"{i}.4bpp").write_bytes(tiles_to_4bpp_blob(frame_tiles))
+
+
+def parse_int(value: str) -> int:
+    return int(value, 0)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Deterministic PNG -> tiles/metatiles tool")
+    parser.add_argument("--input", required=True, type=Path, help="Indexed PNG input")
+    parser.add_argument(
+        "--out-dir",
+        type=Path,
+        default=Path("build/img2metatiles_out"),
+        help="Output folder for generated artifacts",
+    )
+    parser.add_argument(
+        "--mode",
+        choices=["keep-order", "dedup"],
+        default="keep-order",
+        help="Deterministic conversion mode",
+    )
+    parser.add_argument(
+        "--tile-base",
+        type=parse_int,
+        default=0x200,
+        help="Tile index base written into metatiles.bin (default: 0x200)",
+    )
+    parser.add_argument(
+        "--palette-slot",
+        type=parse_int,
+        default=6,
+        help="Palette slot for generated metatile words (0..15)",
+    )
+    parser.add_argument(
+        "--metatile-attr",
+        type=parse_int,
+        default=0x0000,
+        help="Attribute value for each generated metatile entry",
+    )
+    parser.add_argument(
+        "--apply-to",
+        type=Path,
+        default=None,
+        help="Apply generated files directly to a tileset directory",
+    )
+    parser.add_argument(
+        "--write-palette",
+        action="store_true",
+        help="When using --apply-to, also write palettes/<slot>.gbapal and .pal",
+    )
+    parser.add_argument(
+        "--quantize",
+        action="store_true",
+        help="Force quantization to indexed 16-color image if input is not mode 'P'",
+    )
+    parser.add_argument(
+        "--anim",
+        action="store_true",
+        help="Treat input as animation sheet and export anim frames",
+    )
+    parser.add_argument("--frames-x", type=int, default=4, help="Animation frames per row")
+    parser.add_argument("--frames-y", type=int, default=2, help="Animation frame rows")
+    parser.add_argument(
+        "--frame-width",
+        type=int,
+        default=128,
+        help="Width of each animation frame in pixels",
+    )
+    parser.add_argument(
+        "--frame-height",
+        type=int,
+        default=128,
+        help="Height of each animation frame in pixels",
+    )
+    parser.add_argument(
+        "--anim-name",
+        default="pool",
+        help="Animation folder name (written to anim/<name>/N.4bpp)",
+    )
+    parser.add_argument(
+        "--avoid-index-zero",
+        action="store_true",
+        help="Remap visible palette index 0 to a non-zero slot (avoids BG transparency holes)",
+    )
+    args = parser.parse_args()
+
+    img = ensure_indexed_png(args.input, quantize=args.quantize)
+    anim_cfg = AnimConfig(
+        enabled=args.anim,
+        frames_x=args.frames_x,
+        frames_y=args.frames_y,
+        frame_w=args.frame_width,
+        frame_h=args.frame_height,
+        anim_name=args.anim_name,
+    )
+    frames = split_animation_frames(img, anim_cfg)
+    base_img = frames[0]
+    palette_rgb = get_palette_rgb(base_img)
+    remap_target = None
+    remap_pixels = 0
+    if args.avoid_index_zero:
+        frames, palette_rgb, remap_target, remap_pixels = remap_visible_index_zero(frames, palette_rgb)
+        base_img = frames[0]
+    cfg = BuildConfig(
+        mode=args.mode,
+        tile_base=args.tile_base,
+        palette_slot=args.palette_slot,
+        attr=args.metatile_attr,
+        metatile_base=0,
+    )
+
+    tiles, metatiles, mt_w, mt_h = build_tiles_and_metatiles(base_img, cfg)
+    if cfg.tile_base + len(tiles) - 1 > MAX_TILE_ID:
+        fail(
+            "tile range exceeds 10-bit tile id limit in metatile words: "
+            f"base={cfg.tile_base:#x}, count={len(tiles)}"
+        )
+
+    tiles_blob = tiles_to_4bpp_blob(tiles)
+    metatiles_blob = metatiles_bin(metatiles, cfg.palette_slot, cfg.tile_base)
+    attrs_blob = metatile_attributes_bin(len(metatiles), cfg.attr)
+    sheet = tilesheet_png(tiles, palette_rgb)
+
+    report = {
+        "input": str(args.input),
+        "mode": cfg.mode,
+        "image_size": [base_img.width, base_img.height],
+        "metatile_grid": [mt_w, mt_h],
+        "tile_count": len(tiles),
+        "metatile_count": len(metatiles),
+        "tile_base": cfg.tile_base,
+        "tile_range": [cfg.tile_base, cfg.tile_base + len(tiles) - 1],
+        "palette_slot": cfg.palette_slot,
+        "metatile_attr": cfg.attr,
+        "outputs": {
+            "tiles_4bpp": str(args.out_dir / "tiles.4bpp"),
+            "metatiles_bin": str(args.out_dir / "metatiles.bin"),
+            "metatile_attributes_bin": str(args.out_dir / "metatile_attributes.bin"),
+            "tiles_png": str(args.out_dir / "tiles.png"),
+            "palette_gbapal": str(args.out_dir / "palette.gbapal"),
+            "palette_pal": str(args.out_dir / "palette.pal"),
+        },
+    }
+    if anim_cfg.enabled:
+        report["animation"] = {
+            "enabled": True,
+            "frames_x": anim_cfg.frames_x,
+            "frames_y": anim_cfg.frames_y,
+            "frame_size": [anim_cfg.frame_w, anim_cfg.frame_h],
+            "frame_count": len(frames),
+            "anim_name": anim_cfg.anim_name,
+            "anim_dir": str(args.out_dir / "anim" / anim_cfg.anim_name),
+        }
+    if args.avoid_index_zero:
+        report["avoid_index_zero"] = {
+            "enabled": True,
+            "remap_target_index": remap_target,
+            "remapped_pixels": remap_pixels,
+        }
+
+    write_files(
+        args.out_dir, tiles_blob, metatiles_blob, attrs_blob, sheet, palette_rgb, report
+    )
+    write_anim_frames(args.out_dir, frames, anim_cfg)
+
+    if args.apply_to is not None:
+        apply_to_tileset(
+            args.apply_to,
+            tiles_blob,
+            metatiles_blob,
+            attrs_blob,
+            sheet,
+            palette_rgb,
+            cfg.palette_slot,
+            args.write_palette,
+        )
+        apply_anim_to_tileset(args.apply_to, frames, anim_cfg)
+
+    print(
+        f"OK: tiles={len(tiles)} metatiles={len(metatiles)} "
+        f"mode={cfg.mode} tile_base={cfg.tile_base:#x} palette_slot={cfg.palette_slot}"
+    )
+    print(f"Output: {args.out_dir}")
+    if args.apply_to:
+        print(f"Applied to: {args.apply_to}")
+
+
+if __name__ == "__main__":
+    main()
