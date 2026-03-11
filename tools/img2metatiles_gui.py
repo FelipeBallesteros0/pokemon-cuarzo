@@ -11,11 +11,18 @@ from tkinter import filedialog, messagebox, ttk
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
+EXE_DIR = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else SCRIPT_DIR
 REPO_ROOT = SCRIPT_DIR.parent
 
-# Portable mode: if img2metatiles.py is next to this GUI, use it.
-# Repo mode: fallback to repo/tools/img2metatiles.py.
-if (SCRIPT_DIR / "img2metatiles.py").exists():
+# Resolution order:
+# 1) portable next to EXE (works for PyInstaller onefile/onedir)
+# 2) portable next to script
+# 3) repo fallback
+if (EXE_DIR / "img2metatiles.py").exists():
+    ROOT = EXE_DIR
+    CLI_TOOL = EXE_DIR / "img2metatiles.py"
+    CFG_FILE = EXE_DIR / ".img2metatiles_gui.json"
+elif (SCRIPT_DIR / "img2metatiles.py").exists():
     ROOT = SCRIPT_DIR
     CLI_TOOL = SCRIPT_DIR / "img2metatiles.py"
     CFG_FILE = SCRIPT_DIR / ".img2metatiles_gui.json"
