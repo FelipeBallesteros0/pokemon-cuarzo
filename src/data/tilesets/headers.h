@@ -733,6 +733,17 @@ const struct Tileset gTileset_BattleArena =
     .callback = NULL,
 };
 
+const struct Tileset gTileset_PuebloCiendraPool =
+{
+    .isCompressed = FALSE,
+    .isSecondary = TRUE,
+    .tiles = gTilesetTiles_PuebloCiendraPool,
+    .palettes = gTilesetPalettes_PuebloCiendraPool,
+    .metatiles = gMetatiles_PuebloCiendraPool,
+    .metatileAttributes = gMetatileAttributes_PuebloCiendraPool,
+    .callback = InitTilesetAnim_PuebloCiendraPool,
+};
+
 const struct Tileset gTileset_BattlePyramid =
 {
     .isCompressed = TRUE,

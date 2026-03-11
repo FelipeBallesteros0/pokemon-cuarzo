@@ -1442,6 +1442,28 @@ const u16 gTilesetPalettes_BattleArena[][16] =
     INCBIN_U16("data/tilesets/secondary/battle_arena/palettes/15.gbapal"),
 };
 
+const u32 gTilesetTiles_PuebloCiendraPool[] = INCBIN_U32("data/tilesets/secondary/pueblo_ciendra_pool/tiles.4bpp");
+
+const u16 gTilesetPalettes_PuebloCiendraPool[][16] =
+{
+    INCBIN_U16("data/tilesets/secondary/pueblo_ciendra_pool/palettes/00.gbapal"),
+    INCBIN_U16("data/tilesets/secondary/pueblo_ciendra_pool/palettes/01.gbapal"),
+    INCBIN_U16("data/tilesets/secondary/pueblo_ciendra_pool/palettes/02.gbapal"),
+    INCBIN_U16("data/tilesets/secondary/pueblo_ciendra_pool/palettes/03.gbapal"),
+    INCBIN_U16("data/tilesets/secondary/pueblo_ciendra_pool/palettes/04.gbapal"),
+    INCBIN_U16("data/tilesets/secondary/pueblo_ciendra_pool/palettes/05.gbapal"),
+    INCBIN_U16("data/tilesets/secondary/pueblo_ciendra_pool/palettes/06.gbapal"),
+    INCBIN_U16("data/tilesets/secondary/pueblo_ciendra_pool/palettes/07.gbapal"),
+    INCBIN_U16("data/tilesets/secondary/pueblo_ciendra_pool/palettes/08.gbapal"),
+    INCBIN_U16("data/tilesets/secondary/pueblo_ciendra_pool/palettes/09.gbapal"),
+    INCBIN_U16("data/tilesets/secondary/pueblo_ciendra_pool/palettes/10.gbapal"),
+    INCBIN_U16("data/tilesets/secondary/pueblo_ciendra_pool/palettes/11.gbapal"),
+    INCBIN_U16("data/tilesets/secondary/pueblo_ciendra_pool/palettes/12.gbapal"),
+    INCBIN_U16("data/tilesets/secondary/pueblo_ciendra_pool/palettes/13.gbapal"),
+    INCBIN_U16("data/tilesets/secondary/pueblo_ciendra_pool/palettes/14.gbapal"),
+    INCBIN_U16("data/tilesets/secondary/pueblo_ciendra_pool/palettes/15.gbapal"),
+};
+
 const u32 gTilesetTiles_BattlePyramid[] = INCBIN_U32("data/tilesets/secondary/battle_pyramid/tiles.4bpp.fastSmol");
 
 const u16 gTilesetPalettes_BattlePyramid[][16] =

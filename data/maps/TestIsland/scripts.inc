@@ -301,7 +301,7 @@ TestIsland_Text_Player_Hair_Original_Done:
 TestIsland_EventScript_WarpToRoute101::
 	lock
 	faceplayer
-	warp MAP_PUEBLO_CIENDRA, 20, 20
+	warp MAP_PUEBLO_CIENDRA, 13, 38
 	end
 
 TestIsland_Text_SetTime_Intro:

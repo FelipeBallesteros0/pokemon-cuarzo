@@ -43,6 +43,7 @@ static void TilesetAnim_MauvilleGym(u16);
 static void TilesetAnim_BikeShop(u16);
 static void TilesetAnim_BattlePyramid(u16);
 static void TilesetAnim_BattleDome(u16);
+static void TilesetAnim_PuebloCiendraPool(u16);
 static void QueueAnimTiles_General_Flower(u16);
 static void QueueAnimTiles_General_Water(u16);
 static void QueueAnimTiles_General_SandWaterEdge(u16);
@@ -73,6 +74,7 @@ static void QueueAnimTiles_MauvilleGym_ElectricGates(u16);
 static void QueueAnimTiles_SootopolisGym_Waterfalls(u16);
 static void QueueAnimTiles_EliteFour_GroundLights(u16);
 static void QueueAnimTiles_EliteFour_WallLights(u16);
+static void QueueAnimTiles_PuebloCiendraPool(u16);
 
 const u16 gTilesetAnims_General_Flower_Frame1[] = INCBIN_U16("data/tilesets/primary/general/anim/flower/1.4bpp");
 const u16 gTilesetAnims_General_Flower_Frame0[] = INCBIN_U16("data/tilesets/primary/general/anim/flower/0.4bpp");
@@ -525,6 +527,26 @@ const u16 tileset_anims_space_11[224] = {};
 
 const u16 gTilesetAnims_Unused2_Frame1[] = INCBIN_U16("data/tilesets/secondary/unused_2/1.4bpp");
 
+const u16 gTilesetAnims_PuebloCiendraPool_Frame0[] = INCBIN_U16("data/tilesets/secondary/pueblo_ciendra_pool/anim/pool/0.4bpp");
+const u16 gTilesetAnims_PuebloCiendraPool_Frame1[] = INCBIN_U16("data/tilesets/secondary/pueblo_ciendra_pool/anim/pool/1.4bpp");
+const u16 gTilesetAnims_PuebloCiendraPool_Frame2[] = INCBIN_U16("data/tilesets/secondary/pueblo_ciendra_pool/anim/pool/2.4bpp");
+const u16 gTilesetAnims_PuebloCiendraPool_Frame3[] = INCBIN_U16("data/tilesets/secondary/pueblo_ciendra_pool/anim/pool/3.4bpp");
+const u16 gTilesetAnims_PuebloCiendraPool_Frame4[] = INCBIN_U16("data/tilesets/secondary/pueblo_ciendra_pool/anim/pool/4.4bpp");
+const u16 gTilesetAnims_PuebloCiendraPool_Frame5[] = INCBIN_U16("data/tilesets/secondary/pueblo_ciendra_pool/anim/pool/5.4bpp");
+const u16 gTilesetAnims_PuebloCiendraPool_Frame6[] = INCBIN_U16("data/tilesets/secondary/pueblo_ciendra_pool/anim/pool/6.4bpp");
+const u16 gTilesetAnims_PuebloCiendraPool_Frame7[] = INCBIN_U16("data/tilesets/secondary/pueblo_ciendra_pool/anim/pool/7.4bpp");
+
+const u16 *const gTilesetAnims_PuebloCiendraPool[] = {
+    gTilesetAnims_PuebloCiendraPool_Frame0,
+    gTilesetAnims_PuebloCiendraPool_Frame1,
+    gTilesetAnims_PuebloCiendraPool_Frame2,
+    gTilesetAnims_PuebloCiendraPool_Frame3,
+    gTilesetAnims_PuebloCiendraPool_Frame4,
+    gTilesetAnims_PuebloCiendraPool_Frame5,
+    gTilesetAnims_PuebloCiendraPool_Frame6,
+    gTilesetAnims_PuebloCiendraPool_Frame7
+};
+
 const u16 *const gTilesetAnims_BattlePyramid_Torch[] = {
     gTilesetAnims_BattlePyramid_Torch_Frame0,
     gTilesetAnims_BattlePyramid_Torch_Frame1,
@@ -834,6 +856,14 @@ void InitTilesetAnim_BattleDome(void)
     sSecondaryTilesetAnimCallback = TilesetAnim_BattleDome;
 }
 
+void InitTilesetAnim_PuebloCiendraPool(void)
+{
+    sSecondaryTilesetAnimCounter = 0;
+    sSecondaryTilesetAnimCounterMax = 256;
+    sSecondaryTilesetAnimCallback = TilesetAnim_PuebloCiendraPool;
+    QueueAnimTiles_PuebloCiendraPool(0);
+}
+
 static void TilesetAnim_Rustboro(u16 timer)
 {
     if (timer % 8 == 0)
@@ -1104,6 +1134,12 @@ static void TilesetAnim_BattleDome(u16 timer)
         BlendAnimPalette_BattleDome_FloorLights(timer / 4);
 }
 
+static void TilesetAnim_PuebloCiendraPool(u16 timer)
+{
+    if (timer % 12 == 0)
+        QueueAnimTiles_PuebloCiendraPool(timer / 12);
+}
+
 static void TilesetAnim_BattleDome2(u16 timer)
 {
     if (timer % 4 == 0)
@@ -1163,6 +1199,12 @@ static void QueueAnimTiles_BattlePyramid_StatueShadow(u16 timer)
 {
     u16 i = timer % ARRAY_COUNT(gTilesetAnims_BattlePyramid_StatueShadow);
     AppendTilesetAnimToBuffer(gTilesetAnims_BattlePyramid_StatueShadow[i], (u16 *)(BG_VRAM + TILE_OFFSET_4BPP(NUM_TILES_IN_PRIMARY + 135)), 8 * TILE_SIZE_4BPP);
+}
+
+static void QueueAnimTiles_PuebloCiendraPool(u16 timer)
+{
+    u16 i = timer % ARRAY_COUNT(gTilesetAnims_PuebloCiendraPool);
+    AppendTilesetAnimToBuffer(gTilesetAnims_PuebloCiendraPool[i], (u16 *)(BG_VRAM + TILE_OFFSET_4BPP(NUM_TILES_IN_PRIMARY + 270)), 213 * TILE_SIZE_4BPP);
 }
 
 static void BlendAnimPalette_BattleDome_FloorLights(u16 timer)

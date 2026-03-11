@@ -185,6 +185,8 @@ const u16 gMetatileAttributes_BattlePike[] = INCBIN_U16("data/tilesets/secondary
 
 const u16 gMetatiles_BattleArena[] = INCBIN_U16("data/tilesets/secondary/battle_arena/metatiles.bin");
 const u16 gMetatileAttributes_BattleArena[] = INCBIN_U16("data/tilesets/secondary/battle_arena/metatile_attributes.bin");
+const u16 gMetatiles_PuebloCiendraPool[] = INCBIN_U16("data/tilesets/secondary/pueblo_ciendra_pool/metatiles.bin");
+const u16 gMetatileAttributes_PuebloCiendraPool[] = INCBIN_U16("data/tilesets/secondary/pueblo_ciendra_pool/metatile_attributes.bin");
 
 const u16 gMetatiles_BattlePyramid[] = INCBIN_U16("data/tilesets/secondary/battle_pyramid/metatiles.bin");
 const u16 gMetatileAttributes_BattlePyramid[] = INCBIN_U16("data/tilesets/secondary/battle_pyramid/metatile_attributes.bin");
