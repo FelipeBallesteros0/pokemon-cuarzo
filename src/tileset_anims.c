@@ -1204,7 +1204,9 @@ static void QueueAnimTiles_BattlePyramid_StatueShadow(u16 timer)
 static void QueueAnimTiles_PuebloCiendraPool(u16 timer)
 {
     u16 i = timer % ARRAY_COUNT(gTilesetAnims_PuebloCiendraPool);
-    AppendTilesetAnimToBuffer(gTilesetAnims_PuebloCiendraPool[i], (u16 *)(BG_VRAM + TILE_OFFSET_4BPP(NUM_TILES_IN_PRIMARY + 270)), 213 * TILE_SIZE_4BPP);
+    // The pool secondary tileset uses the standard secondary range (0x200..0x2FF),
+    // so animated tiles must start at the beginning of the secondary block.
+    AppendTilesetAnimToBuffer(gTilesetAnims_PuebloCiendraPool[i], (u16 *)(BG_VRAM + TILE_OFFSET_4BPP(NUM_TILES_IN_PRIMARY + 0)), 256 * TILE_SIZE_4BPP);
 }
 
 static void BlendAnimPalette_BattleDome_FloorLights(u16 timer)
