@@ -63,6 +63,8 @@ enum WindowIds
 {
     WINDOW_HEADER,
     WINDOW_MIDDLE,
+    WINDOW_NOSAVE_LEFT,
+    WINDOW_NOSAVE_RIGHT,
 };
 
 enum {
@@ -114,6 +116,9 @@ static void PrintToWindow(u8 windowId, u8 colorIdx);
 static void Task_MainMenuWaitFadeIn(u8 taskId);
 static void Task_MainMenuMain(u8 taskId);
 static void MainMenu_InitializeGPUWindows(void);
+static void MainMenu_ApplyNoSaveBgMask(void);
+static void MainMenu_SetNoSaveHighlightWindow(void);
+static void MainMenu_PrintNoSaveLabels(void);
 
 static void CreateMugshot();
 static void DestroyMugshot();
@@ -170,6 +175,28 @@ static const struct WindowTemplate sMainMenuWindowTemplates[] =
         .paletteNum = 0,           // palette index to use for text
         .baseBlock = 1 + (18 * 2), // tile start in VRAM
     },
+
+    [WINDOW_NOSAVE_LEFT] =
+    {
+        .bg = 0,
+        .tilemapLeft = 1,
+        .tilemapTop = 11,
+        .width = 14,
+        .height = 3,
+        .paletteNum = 0,
+        .baseBlock = 1 + (18 * 2) + (18 * 6),
+    },
+
+    [WINDOW_NOSAVE_RIGHT] =
+    {
+        .bg = 0,
+        .tilemapLeft = 16,
+        .tilemapTop = 11,
+        .width = 14,
+        .height = 3,
+        .paletteNum = 0,
+        .baseBlock = 1 + (18 * 2) + (18 * 6) + (14 * 3),
+    },
     DUMMY_WIN_TEMPLATE
 };
 
@@ -195,6 +222,12 @@ static const struct HWWindowPosition HWinCoords[6] =
     [HW_WIN_MYSTERY_BOTH]    = {{7, 233},   {135, 154}},
 };
 
+static const struct HWWindowPosition sNoSaveHWinCoords[] =
+{
+    [0] = {{8, 120},   {96, 120}},   // NEW GAME
+    [1] = {{128, 240}, {96, 120}},   // OPTIONS
+};
+
 
 //
 //  Graphic and Tilemap Pointers for Bgs and Mughsots
@@ -210,6 +243,10 @@ static const u16 sMainBgPaletteFem[] = INCBIN_U16("graphics/ui_main_menu/main_ti
 static const u32 sScrollBgTiles[] = INCBIN_U32("graphics/ui_main_menu/scroll_tiles.4bpp.lz");
 static const u32 sScrollBgTilemap[] = INCBIN_U32("graphics/ui_main_menu/scroll_tiles.bin.lz");
 static const u16 sScrollBgPalette[] = INCBIN_U16("graphics/ui_main_menu/scroll_tiles.gbapal");
+static const u16 sSmallButtonPalette[] = INCBIN_U16("graphics/ui_main_menu/main_bg_grande.gbapal");
+static const u32 sSmallButtonTiles[] = INCBIN_U32("graphics/ui_main_menu/main_bg_pequeno.4bpp");
+static const u8 sText_NoSaveNewGame[] = _("NUEVA PARTIDA");
+static const u8 sText_NoSaveOptions[] = _("OPCIONES");
 
 static const u16 sIconBox_Pal[] = INCBIN_U16("graphics/ui_main_menu/icon_shadow.gbapal");
 static const u32 sIconBox_Gfx[] = INCBIN_U32("graphics/ui_main_menu/icon_shadow.4bpp.lz");
@@ -316,6 +353,14 @@ static const struct SpritePalette sSpritePal_IconBoxFem =
     .tag = TAG_ICON_BOX
 };
 
+#define NOSAVE_BUTTON_PAL_SLOT     2
+#define NOSAVE_BUTTON_BASE_TILE    0x20
+#define NOSAVE_BUTTON_WIDTH        14
+#define NOSAVE_BUTTON_HEIGHT       3
+#define NOSAVE_BUTTON_LEFT_X       1
+#define NOSAVE_BUTTON_RIGHT_X      16
+#define NOSAVE_BUTTON_Y            12
+
 static const union AnimCmd sSpriteAnim_IconBox0[] =
 {
     ANIMCMD_FRAME(0, 32),
@@ -379,6 +424,7 @@ void MainMenu_Init(MainCallback callback)
     // initialize stuff
     sMainMenuDataPtr->gfxLoadState = 0;
     sMainMenuDataPtr->savedCallback = callback;
+    sMainMenuDataPtr->mugshotSpriteId = SPRITE_NONE;
     for(i = 0; i < 6; i++)
     {
         sMainMenuDataPtr->iconBoxSpriteIds[i] = SPRITE_NONE;
@@ -518,10 +564,17 @@ static bool8 MainMenu_DoGfxSetup(void)
         break;
     case 5: // Here is where the sprites are drawn and text is printed
     {
-        PrintToWindow(WINDOW_HEADER, FONT_WHITE);
-        CreateIconShadow();
-        CreatePartyMonIcons();
-        CreateMugshot();
+        if (menuType != HAS_NO_SAVED_GAME)
+        {
+            PrintToWindow(WINDOW_HEADER, FONT_WHITE);
+            CreateIconShadow();
+            CreatePartyMonIcons();
+            CreateMugshot();
+        }
+        else
+        {
+            MainMenu_PrintNoSaveLabels();
+        }
         CreateTask(Task_MainMenuWaitFadeIn, 0);
         BlendPalettes(0xFFFFFFFF, 16, RGB_BLACK);
         gMain.state++;
@@ -568,8 +621,13 @@ static bool8 MainMenu_InitBgs(void)
 static void MainMenu_InitializeGPUWindows(void) // This function creates the windows that highlight an option and cover mystery options when not enabled
 {
     SetGpuReg(REG_OFFSET_DISPCNT, DISPCNT_WIN1_ON | DISPCNT_WIN0_ON | DISPCNT_OBJ_ON | DISPCNT_OBJ_1D_MAP); // Turn on Windows 0 and 1 and Enable Sprites
-    SetGpuReg(REG_OFFSET_WIN0H, WIN_RANGE(HWinCoords[sSelectedOption].winh.left, HWinCoords[sSelectedOption].winh.right));  // Set Window 0 width/height Which defines the not darkened space
-    SetGpuReg(REG_OFFSET_WIN0V, WIN_RANGE(HWinCoords[sSelectedOption].winv.left, HWinCoords[sSelectedOption].winv.right));
+    if (menuType == HAS_NO_SAVED_GAME)
+        MainMenu_SetNoSaveHighlightWindow();
+    else
+    {
+        SetGpuReg(REG_OFFSET_WIN0H, WIN_RANGE(HWinCoords[sSelectedOption].winh.left, HWinCoords[sSelectedOption].winh.right));  // Set Window 0 width/height Which defines the not darkened space
+        SetGpuReg(REG_OFFSET_WIN0V, WIN_RANGE(HWinCoords[sSelectedOption].winv.left, HWinCoords[sSelectedOption].winv.right));
+    }
     switch(menuType)
     {
             case HAS_NO_SAVED_GAME:
@@ -589,10 +647,81 @@ static void MainMenu_InitializeGPUWindows(void) // This function creates the win
     SetGpuReg(REG_OFFSET_BLDY, 7);  // Set Level of Darken effect, can be changed 0-16
 }
 
+static void MainMenu_ApplyNoSaveBgMask(void)
+{
+    // No-save flow draws only the two selectable buttons on BG1.
+    u16 *tilemap = (u16 *)sBg1TilemapBuffer;
+    u8 x;
+    u8 y;
+    u16 tile;
+
+    CpuFill16(0, tilemap, 0x800);
+
+    for (y = 0; y < NOSAVE_BUTTON_HEIGHT; y++)
+    {
+        for (x = 0; x < NOSAVE_BUTTON_WIDTH; x++)
+        {
+            tile = NOSAVE_BUTTON_BASE_TILE + y * NOSAVE_BUTTON_WIDTH + x;
+            tilemap[(NOSAVE_BUTTON_Y + y) * 32 + (NOSAVE_BUTTON_LEFT_X + x)] =
+                (tile & 0x03FF) | (NOSAVE_BUTTON_PAL_SLOT << 12);
+            tilemap[(NOSAVE_BUTTON_Y + y) * 32 + (NOSAVE_BUTTON_RIGHT_X + x)] =
+                (tile & 0x03FF) | (NOSAVE_BUTTON_PAL_SLOT << 12);
+        }
+    }
+}
+
+static void MainMenu_PrintNoSaveLabels(void)
+{
+    const u8 colors[3] = {TEXT_COLOR_TRANSPARENT, TEXT_COLOR_WHITE, TEXT_COLOR_DARK_GRAY};
+
+    FillWindowPixelBuffer(WINDOW_NOSAVE_LEFT, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
+    FillWindowPixelBuffer(WINDOW_NOSAVE_RIGHT, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
+
+    AddTextPrinterParameterized4(
+        WINDOW_NOSAVE_LEFT,
+        FONT_NORMAL,
+        GetStringCenterAlignXOffset(FONT_NORMAL, sText_NoSaveNewGame, 14 * 8) - 3,
+        9,
+        0,
+        0,
+        colors,
+        TEXT_SKIP_DRAW,
+        sText_NoSaveNewGame
+    );
+    AddTextPrinterParameterized4(
+        WINDOW_NOSAVE_RIGHT,
+        FONT_NORMAL,
+        GetStringCenterAlignXOffset(FONT_NORMAL, sText_NoSaveOptions, 14 * 8) - 4,
+        9,
+        0,
+        0,
+        colors,
+        TEXT_SKIP_DRAW,
+        sText_NoSaveOptions
+    );
+
+    PutWindowTilemap(WINDOW_NOSAVE_LEFT);
+    CopyWindowToVram(WINDOW_NOSAVE_LEFT, COPYWIN_GFX);
+    PutWindowTilemap(WINDOW_NOSAVE_RIGHT);
+    CopyWindowToVram(WINDOW_NOSAVE_RIGHT, COPYWIN_GFX);
+}
+
 static void MoveHWindowsWithInput(void) // Update GPU windows after selection is changed
 {
-    SetGpuReg(REG_OFFSET_WIN0H, WIN_RANGE(HWinCoords[sSelectedOption].winh.left, HWinCoords[sSelectedOption].winh.right));
-    SetGpuReg(REG_OFFSET_WIN0V, WIN_RANGE(HWinCoords[sSelectedOption].winv.left, HWinCoords[sSelectedOption].winv.right));
+    if (menuType == HAS_NO_SAVED_GAME)
+        MainMenu_SetNoSaveHighlightWindow();
+    else
+    {
+        SetGpuReg(REG_OFFSET_WIN0H, WIN_RANGE(HWinCoords[sSelectedOption].winh.left, HWinCoords[sSelectedOption].winh.right));
+        SetGpuReg(REG_OFFSET_WIN0V, WIN_RANGE(HWinCoords[sSelectedOption].winv.left, HWinCoords[sSelectedOption].winv.right));
+    }
+}
+
+static void MainMenu_SetNoSaveHighlightWindow(void)
+{
+    u8 idx = (sSelectedOption == HW_WIN_OPTIONS) ? 1 : 0;
+    SetGpuReg(REG_OFFSET_WIN0H, WIN_RANGE(sNoSaveHWinCoords[idx].winh.left, sNoSaveHWinCoords[idx].winh.right));
+    SetGpuReg(REG_OFFSET_WIN0V, WIN_RANGE(sNoSaveHWinCoords[idx].winv.left, sNoSaveHWinCoords[idx].winv.right));
 }
 
 static bool8 MainMenu_LoadGraphics(void) // Load all the tilesets, tilemaps, spritesheets, and palettes
@@ -601,7 +730,11 @@ static bool8 MainMenu_LoadGraphics(void) // Load all the tilesets, tilemaps, spr
     {
     case 0:
         ResetTempTileDataBuffers();
-        if (gSaveBlock2Ptr->playerGender == MALE)
+        if (menuType == HAS_NO_SAVED_GAME)
+        {
+            LoadBgTiles(1, sSmallButtonTiles, sizeof(sSmallButtonTiles), NOSAVE_BUTTON_BASE_TILE);
+        }
+        else if (gSaveBlock2Ptr->playerGender == MALE)
         {
             DecompressAndCopyTileDataToVram(1, sMainBgTiles, 0, 0, 0);
         }
@@ -614,7 +747,11 @@ static bool8 MainMenu_LoadGraphics(void) // Load all the tilesets, tilemaps, spr
     case 1:
         if (FreeTempTileDataBuffersIfPossible() != TRUE)
         {
-            if (gSaveBlock2Ptr->playerGender == MALE)
+            if (menuType == HAS_NO_SAVED_GAME)
+            {
+                MainMenu_ApplyNoSaveBgMask();
+            }
+            else if (gSaveBlock2Ptr->playerGender == MALE)
             {
                 LZ77UnCompWram(sMainBgTilemap, sBg1TilemapBuffer);
             }
@@ -639,7 +776,11 @@ static bool8 MainMenu_LoadGraphics(void) // Load all the tilesets, tilemaps, spr
         break;
     case 4:
     {
-        if(gSaveBlock2Ptr->playerGender == MALE)
+        if (menuType == HAS_NO_SAVED_GAME)
+        {
+            LoadPalette(sSmallButtonPalette, BG_PLTT_ID(NOSAVE_BUTTON_PAL_SLOT), sizeof(sSmallButtonPalette));
+        }
+        else if(gSaveBlock2Ptr->playerGender == MALE)
         {
             LoadCompressedSpriteSheet(&sSpriteSheet_IconBox);
             LoadSpritePalette(&sSpritePal_IconBox);
@@ -698,7 +839,8 @@ static void CreateMugshot()
 
 static void DestroyMugshot()
 {
-    DestroySprite(&gSprites[sMainMenuDataPtr->mugshotSpriteId]);
+    if (sMainMenuDataPtr->mugshotSpriteId != SPRITE_NONE)
+        DestroySprite(&gSprites[sMainMenuDataPtr->mugshotSpriteId]);
     sMainMenuDataPtr->mugshotSpriteId = SPRITE_NONE;
 }
 
@@ -734,9 +876,10 @@ static void CreateIconShadow()
 static void DestroyIconShadow()
 {
     u8 i = 0;
-    for(i = 0; i < gPlayerPartyCount; i++)
+    for(i = 0; i < 6; i++)
     {
-        DestroySprite(&gSprites[sMainMenuDataPtr->iconBoxSpriteIds[i]]);
+        if (sMainMenuDataPtr->iconBoxSpriteIds[i] != SPRITE_NONE)
+            DestroySprite(&gSprites[sMainMenuDataPtr->iconBoxSpriteIds[i]]);
         sMainMenuDataPtr->iconBoxSpriteIds[i] = SPRITE_NONE;
     }
 }
@@ -807,7 +950,8 @@ static void DestroyMonIcons()
     u8 i = 0;
     for(i = 0; i < 6; i++)
     {
-        DestroySprite(&gSprites[sMainMenuDataPtr->iconMonSpriteIds[i]]);
+        if (sMainMenuDataPtr->iconMonSpriteIds[i] != SPRITE_NONE)
+            DestroySprite(&gSprites[sMainMenuDataPtr->iconMonSpriteIds[i]]);
         sMainMenuDataPtr->iconMonSpriteIds[i] = SPRITE_NONE;
     }
 }

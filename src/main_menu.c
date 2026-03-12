@@ -18,6 +18,7 @@
 #include "list_menu.h"
 #include "mystery_event_menu.h"
 #include "naming_screen.h"
+#include "oak_speech.h"
 #include "option_menu.h"
 #include "overworld.h"
 #include "palette.h"
@@ -36,6 +37,7 @@
 #include "text.h"
 #include "text_window.h"
 #include "title_screen.h"
+#include "ui_main_menu.h"
 #include "window.h"
 #include "mystery_gift_menu.h"
 
@@ -144,9 +146,16 @@
  * Task_NewGameBirchSpeech_SoItsPlayerName
  * Task_NewGameBirchSpeech_CreateNameYesNo
  * Task_NewGameBirchSpeech_ProcessNameYesNoMenu
- *  - If confirmed, fade out and proceed to CB2_NewGame.
+ *  - If confirmed, advance to Task_NewGameBirchSpeech_SlidePlatformAway2.
  *  - Otherwise, return to Task_NewGameBirchSpeech_BoyOrGirl.
  *
+ * Task_NewGameBirchSpeech_SlidePlatformAway2
+ * Task_NewGameBirchSpeech_ReshowBirchLotad
+ * Task_NewGameBirchSpeech_WaitForSpriteFadeInAndTextPrinter
+ * Task_NewGameBirchSpeech_AreYouReady
+ * Task_NewGameBirchSpeech_ShrinkPlayer
+ * Task_NewGameBirchSpeech_WaitForPlayerShrink
+ * Task_NewGameBirchSpeech_FadePlayerToWhite
  * Task_NewGameBirchSpeech_Cleanup
  *  - Advances to CB2_NewGame.
  *
@@ -189,7 +198,6 @@ static void Task_NewGameBirchSpeech_WaitToShowBirch(u8);
 static void NewGameBirchSpeech_StartFadeInTarget1OutTarget2(u8, u8);
 static void NewGameBirchSpeech_StartFadePlatformOut(u8, u8);
 static void Task_NewGameBirchSpeech_WaitForSpriteFadeInWelcome(u8);
-static void NewGameBirchSpeech_ShowDialogueWindow(u8, u8);
 static void NewGameBirchSpeech_ClearWindow(u8);
 static void Task_NewGameBirchSpeech_ThisIsAPokemon(u8);
 static void Task_NewGameBirchSpeech_MainSpeech(u8);
@@ -221,6 +229,14 @@ static void CB2_NewGameBirchSpeech_ReturnFromNamingScreen(void);
 static void Task_NewGameBirchSpeech_CreateNameYesNo(u8);
 static void Task_NewGameBirchSpeech_ProcessNameYesNoMenu(u8);
 void CreateYesNoMenuParameterized(u8, u8, u16, u16, u8, u8);
+static void Task_NewGameBirchSpeech_SlidePlatformAway2(u8);
+static void Task_NewGameBirchSpeech_ReshowBirchLotad(u8);
+static void Task_NewGameBirchSpeech_WaitForSpriteFadeInAndTextPrinter(u8);
+static void Task_NewGameBirchSpeech_AreYouReady(u8);
+static void Task_NewGameBirchSpeech_ShrinkPlayer(u8);
+static void SpriteCB_MovePlayerDownWhileShrinking(struct Sprite *);
+static void Task_NewGameBirchSpeech_WaitForPlayerShrink(u8);
+static void Task_NewGameBirchSpeech_FadePlayerToWhite(u8);
 static void Task_NewGameBirchSpeech_Cleanup(u8);
 static void SpriteCB_Null(struct Sprite *);
 static void Task_NewGameBirchSpeech_ReturnFromNamingScreenShowTextbox(u8);
@@ -228,8 +244,6 @@ static void MainMenu_FormatSavegamePlayer(void);
 static void MainMenu_FormatSavegamePokedex(void);
 static void MainMenu_FormatSavegameTime(void);
 static void MainMenu_FormatSavegameBadges(void);
-static void CustomMenu_RebuildBgWithCustomButtons(void);
-static void NewGameBirchSpeech_CreateDialogueWindowBorder(u8, u8, u8, u8, u8, u8);
 
 // .rodata
 
@@ -242,25 +256,25 @@ static const u32 sBirchSpeechShadowGfx[] = INCBIN_U32("graphics/birch_speech/sha
 static const u32 sBirchSpeechBgMap[] = INCBIN_U32("graphics/birch_speech/map.bin.smolTM");
 static const u16 sBirchSpeechBgGradientPal[] = INCBIN_U16("graphics/birch_speech/bg2.gbapal");
 
-static const u8 gText_SaveFileCorrupted[] = _("El archivo guardado está dañado.\nSe cargará el guardado anterior.");
-static const u8 gText_SaveFileErased[] = _("El archivo guardado se ha borrado\npor corrupción o daños.");
+static const u8 gText_SaveFileCorrupted[] = _("The save file is corrupted. The\nprevious save file will be loaded.");
+static const u8 gText_SaveFileErased[] = _("The save file has been erased\ndue to corruption or damage.");
 static const u8 gJPText_No1MSubCircuit[] = _("1Mサブきばんが ささっていません！");
-static const u8 gText_BatteryRunDry[] = _("La pila interna se ha agotado.\nPuedes jugar.\pSin embargo, los eventos basados en el reloj\nya no ocurrirán.");
+static const u8 gText_BatteryRunDry[] = _("The internal battery has run dry.\nThe game can be played.\pHowever, clock-based events will\nno longer occur.");
 
-static const u8 gText_MainMenuNewGame[] = _("NUEVA PARTIDA");
-static const u8 gText_MainMenuContinue[] = _("CONTINUAR");
-static const u8 gText_MainMenuOption[] = _("OPCIONES");
-static const u8 gText_MainMenuMysteryGift[] = _("REGALO MISTERIOSO");
-static const u8 gText_MainMenuMysteryGift2[] = _("REGALO MISTERIOSO");
-static const u8 gText_MainMenuMysteryEvents[] = _("EVENTOS MISTERIOSOS");
-static const u8 gText_WirelessNotConnected[] = _("El Adaptador Inalámbrico no\nestá conectado.");
-static const u8 gText_MysteryGiftCantUse[] = _("REGALO MISTERIOSO no se puede usar\ncon el Adaptador Inalámbrico conectado.");
-static const u8 gText_MysteryEventsCantUse[] = _("EVENTOS MISTERIOSOS no se pueden usar\ncon el Adaptador Inalámbrico conectado.");
+static const u8 gText_MainMenuNewGame[] = _("NEW GAME");
+static const u8 gText_MainMenuContinue[] = _("CONTINUE");
+static const u8 gText_MainMenuOption[] = _("OPTION");
+static const u8 gText_MainMenuMysteryGift[] = _("MYSTERY GIFT");
+static const u8 gText_MainMenuMysteryGift2[] = _("MYSTERY GIFT");
+static const u8 gText_MainMenuMysteryEvents[] = _("MYSTERY EVENTS");
+static const u8 gText_WirelessNotConnected[] = _("The Wireless Adapter is not\nconnected.");
+static const u8 gText_MysteryGiftCantUse[] = _("MYSTERY GIFT can't be used while\nthe Wireless Adapter is attached.");
+static const u8 gText_MysteryEventsCantUse[] = _("MYSTERY EVENTS can't be used while\nthe Wireless Adapter is attached.");
 
-static const u8 gText_ContinueMenuPlayer[] = _("JUGADOR");
-static const u8 gText_ContinueMenuTime[] = _("TIEMPO");
+static const u8 gText_ContinueMenuPlayer[] = _("PLAYER");
+static const u8 gText_ContinueMenuTime[] = _("TIME");
 static const u8 gText_ContinueMenuPokedex[] = _("POKéDEX");
-static const u8 gText_ContinueMenuBadges[] = _("MEDALLAS");
+static const u8 gText_ContinueMenuBadges[] = _("BADGES");
 
 #define MENU_LEFT 2
 #define MENU_TOP_WIN0 1
@@ -411,14 +425,6 @@ static const struct WindowTemplate sNewGameBirchSpeechTextWindows[] =
 
 static const u16 sMainMenuBgPal[] = INCBIN_U16("graphics/interface/main_menu_bg.gbapal");
 static const u16 sMainMenuTextPal[] = INCBIN_U16("graphics/interface/main_menu_text.gbapal");
-static const u32 sBlankTransparentTile[] = {0, 0, 0, 0, 0, 0, 0, 0};
-static const u32 sCustomMainMenuBgTiles[] = INCBIN_U32("graphics/ui_main_menu/scroll_tiles.4bpp");
-static const u32 sCustomMainMenuBgTilemap[] = INCBIN_U32("graphics/ui_main_menu/scroll_tiles.bin");
-static const u16 sCustomMainMenuBgPal[] = INCBIN_U16("graphics/ui_main_menu/scroll_tiles.gbapal");
-static const u16 sCustomMainMenuLargeButtonPal[] = INCBIN_U16("graphics/ui_main_menu/main_bg_grande.gbapal");
-static const u32 sCustomMainMenuLargeButtonTiles[] = INCBIN_U32("graphics/ui_main_menu/main_bg_grande.4bpp");
-static const u32 sCustomMainMenuSmallButtonTiles[] = INCBIN_U32("graphics/ui_main_menu/main_bg_pequeno.4bpp");
-static EWRAM_DATA u16 sCustomMainMenuBgTilemapBuffer[0x400];
 
 static const u8 sTextColor_Headers[] = {TEXT_DYNAMIC_COLOR_1, TEXT_DYNAMIC_COLOR_2, TEXT_DYNAMIC_COLOR_3};
 static const u8 sTextColor_MenuInfo[] = {TEXT_DYNAMIC_COLOR_1, TEXT_COLOR_WHITE, TEXT_DYNAMIC_COLOR_3};
@@ -437,15 +443,6 @@ static const struct BgTemplate sMainMenuBgTemplates[] = {
         .bg = 1,
         .charBaseIndex = 0,
         .mapBaseIndex = 7,
-        .screenSize = 0,
-        .paletteMode = 0,
-        .priority = 2,
-        .baseTile = 0
-    },
-    {
-        .bg = 2,
-        .charBaseIndex = 1,
-        .mapBaseIndex = 29,
         .screenSize = 0,
         .paletteMode = 0,
         .priority = 3,
@@ -476,8 +473,8 @@ static const union AffineAnimCmd *const sSpriteAffineAnimTable_PlayerShrink[] =
 };
 
 static const struct MenuAction sMenuActions_Gender[] = {
-    {COMPOUND_STRING("CHICO"), {NULL}},
-    {COMPOUND_STRING("CHICA"), {NULL}}
+    {gText_Boy, {NULL}},
+    {gText_Girl, {NULL}}
 };
 
 static const u8 *const sMalePresetNames[] = {
@@ -551,61 +548,6 @@ enum
 
 #define MAIN_MENU_BORDER_TILE   0x1D5
 #define BIRCH_DLG_BASE_TILE_NUM 0xFC
-#define CUSTOM_BUTTON_PAL_SLOT      2
-#define CUSTOM_BUTTON_LARGE_BASE    0x20
-#define CUSTOM_BUTTON_LARGE_WIDTH   29
-#define CUSTOM_BUTTON_LARGE_HEIGHT  12
-#define CUSTOM_BUTTON_LARGE_X       1
-#define CUSTOM_BUTTON_LARGE_Y       0
-#define CUSTOM_BUTTON_SMALL_BASE    (CUSTOM_BUTTON_LARGE_BASE + (sizeof(sCustomMainMenuLargeButtonTiles) / TILE_SIZE_4BPP))
-#define CUSTOM_BUTTON_SMALL_WIDTH   14
-#define CUSTOM_BUTTON_SMALL_HEIGHT  3
-#define CUSTOM_BUTTON_SMALL_TL_X    1
-#define CUSTOM_BUTTON_SMALL_TL_Y    12
-#define CUSTOM_BUTTON_SMALL_TR_X    16
-#define CUSTOM_BUTTON_SMALL_TR_Y    12
-#define CUSTOM_BUTTON_SMALL_BL_X    1
-#define CUSTOM_BUTTON_SMALL_BL_Y    16
-#define CUSTOM_BUTTON_SMALL_BR_X    16
-#define CUSTOM_BUTTON_SMALL_BR_Y    16
-#define CUSTOM_BUTTON_BG_Y_OFFSET   (-0x700)
-
-static void CustomMenu_DrawButtonStamp(u8 baseX, u8 baseY, u8 width, u8 height, u16 baseTile)
-{
-    u8 y;
-    u8 x;
-
-    for (y = 0; y < height; y++)
-    {
-        for (x = 0; x < width; x++)
-        {
-            u16 tile = baseTile + y * width + x;
-            sCustomMainMenuBgTilemapBuffer[(baseY + y) * 32 + (baseX + x)] =
-                (tile & 0x03FF) | (CUSTOM_BUTTON_PAL_SLOT << 12);
-        }
-    }
-}
-
-static void CustomMenu_RebuildBgWithCustomButtons(void)
-{
-    CpuFill16(0, sCustomMainMenuBgTilemapBuffer, sizeof(sCustomMainMenuBgTilemapBuffer));
-
-    CustomMenu_DrawButtonStamp(CUSTOM_BUTTON_LARGE_X, CUSTOM_BUTTON_LARGE_Y,
-                               CUSTOM_BUTTON_LARGE_WIDTH, CUSTOM_BUTTON_LARGE_HEIGHT,
-                               CUSTOM_BUTTON_LARGE_BASE);
-    CustomMenu_DrawButtonStamp(CUSTOM_BUTTON_SMALL_TL_X, CUSTOM_BUTTON_SMALL_TL_Y,
-                               CUSTOM_BUTTON_SMALL_WIDTH, CUSTOM_BUTTON_SMALL_HEIGHT,
-                               CUSTOM_BUTTON_SMALL_BASE);
-    CustomMenu_DrawButtonStamp(CUSTOM_BUTTON_SMALL_TR_X, CUSTOM_BUTTON_SMALL_TR_Y,
-                               CUSTOM_BUTTON_SMALL_WIDTH, CUSTOM_BUTTON_SMALL_HEIGHT,
-                               CUSTOM_BUTTON_SMALL_BASE);
-    CustomMenu_DrawButtonStamp(CUSTOM_BUTTON_SMALL_BL_X, CUSTOM_BUTTON_SMALL_BL_Y,
-                               CUSTOM_BUTTON_SMALL_WIDTH, CUSTOM_BUTTON_SMALL_HEIGHT,
-                               CUSTOM_BUTTON_SMALL_BASE);
-    CustomMenu_DrawButtonStamp(CUSTOM_BUTTON_SMALL_BR_X, CUSTOM_BUTTON_SMALL_BR_Y,
-                               CUSTOM_BUTTON_SMALL_WIDTH, CUSTOM_BUTTON_SMALL_HEIGHT,
-                               CUSTOM_BUTTON_SMALL_BASE);
-}
 
 static void CB2_MainMenu(void)
 {
@@ -617,8 +559,6 @@ static void CB2_MainMenu(void)
 
 static void VBlankCB_MainMenu(void)
 {
-    // Scroll custom background slowly (8.8 fixed-point) for continuous loop effect.
-    ChangeBgY(2, 128, BG_COORD_SUB);
     LoadOam();
     ProcessSpriteCopyRequests();
     TransferPlttBuffer();
@@ -654,15 +594,7 @@ static u32 InitMainMenu(bool8 returningFromOptionsMenu)
     DmaFill16(3, 0, (void *)(PLTT + 2), PLTT_SIZE - 2);
 
     ResetPaletteFade();
-    // Ensure palette 0 color 0 is deterministic (BG0 clear tile uses this color).
-    {
-        u16 black = RGB_BLACK;
-        LoadPalette(&black, BG_PLTT_ID(0), PLTT_SIZEOF(1));
-    }
-    LoadPalette(sCustomMainMenuBgPal, BG_PLTT_ID(1), PLTT_SIZE_4BPP);
-    // BG color 0 cannot be transparent on tile BGs; avoid visible magenta key color.
-    LoadPalette(&sCustomMainMenuBgPal[1], BG_PLTT_ID(1), PLTT_SIZEOF(1));
-    LoadPalette(sCustomMainMenuLargeButtonPal, BG_PLTT_ID(CUSTOM_BUTTON_PAL_SLOT), sizeof(sCustomMainMenuLargeButtonPal));
+    LoadPalette(sMainMenuBgPal, BG_PLTT_ID(0), PLTT_SIZE_4BPP);
     LoadPalette(sMainMenuTextPal, BG_PLTT_ID(15), PLTT_SIZE_4BPP);
     ScanlineEffect_Stop();
     ResetTasks();
@@ -674,20 +606,12 @@ static u32 InitMainMenu(bool8 returningFromOptionsMenu)
         BeginNormalPaletteFade(PALETTES_ALL, 0, 0x10, 0, RGB_WHITEALPHA); // fade to white
     ResetBgsAndClearDma3BusyFlags(0);
     InitBgsFromTemplates(0, sMainMenuBgTemplates, ARRAY_COUNT(sMainMenuBgTemplates));
-    // Ensure tile 0 on BG0 is truly empty/transparent to avoid garbage checker tiles.
-    LoadBgTiles(0, sBlankTransparentTile, sizeof(sBlankTransparentTile), 0);
-    LoadBgTiles(2, sCustomMainMenuBgTiles, sizeof(sCustomMainMenuBgTiles), 0);
-    LoadBgTilemap(2, sCustomMainMenuBgTilemap, sizeof(sCustomMainMenuBgTilemap), 0);
-    LoadBgTiles(1, sCustomMainMenuLargeButtonTiles, sizeof(sCustomMainMenuLargeButtonTiles), CUSTOM_BUTTON_LARGE_BASE);
-    LoadBgTiles(1, sCustomMainMenuSmallButtonTiles, sizeof(sCustomMainMenuSmallButtonTiles), CUSTOM_BUTTON_SMALL_BASE);
-    CustomMenu_RebuildBgWithCustomButtons();
-    LoadBgTilemap(1, sCustomMainMenuBgTilemapBuffer, sizeof(sCustomMainMenuBgTilemapBuffer), 0);
     ChangeBgX(0, 0, BG_COORD_SET);
     ChangeBgY(0, 0, BG_COORD_SET);
     ChangeBgX(1, 0, BG_COORD_SET);
-    ChangeBgY(1, CUSTOM_BUTTON_BG_Y_OFFSET, BG_COORD_SET);
-    ChangeBgX(2, 0, BG_COORD_SET);
-    ChangeBgY(2, 0, BG_COORD_SET);
+    ChangeBgY(1, 0, BG_COORD_SET);
+    // Ensure no stale window allocations survive reset/reentry paths.
+    FreeAllWindowBuffers();
     InitWindows(sWindowTemplates_MainMenu);
     DeactivateAllTextPrinters();
     LoadMainMenuWindowFrameTiles(0, MAIN_MENU_BORDER_TILE);
@@ -705,8 +629,7 @@ static u32 InitMainMenu(bool8 returningFromOptionsMenu)
     SetMainCallback2(CB2_MainMenu);
     SetGpuReg(REG_OFFSET_DISPCNT, DISPCNT_WIN0_ON | DISPCNT_OBJ_ON | DISPCNT_OBJ_1D_MAP);
     ShowBg(0);
-    ShowBg(1);
-    ShowBg(2);
+    HideBg(1);
     CreateTask(Task_MainMenuCheckSaveFile, 0);
 
     return 0;
@@ -729,9 +652,9 @@ static void Task_MainMenuCheckSaveFile(u8 taskId)
     {
         SetGpuReg(REG_OFFSET_WIN0H, 0);
         SetGpuReg(REG_OFFSET_WIN0V, 0);
-        SetGpuReg(REG_OFFSET_WININ, WININ_WIN0_BG0 | WININ_WIN0_BG1 | WININ_WIN0_BG2 | WININ_WIN0_OBJ);
-        SetGpuReg(REG_OFFSET_WINOUT, WINOUT_WIN01_BG0 | WINOUT_WIN01_BG1 | WINOUT_WIN01_BG2 | WINOUT_WIN01_OBJ | WINOUT_WIN01_CLR);
-        SetGpuReg(REG_OFFSET_BLDCNT, BLDCNT_EFFECT_DARKEN | BLDCNT_TGT1_BG0 | BLDCNT_TGT1_BG1 | BLDCNT_TGT1_BG2);
+        SetGpuReg(REG_OFFSET_WININ, WININ_WIN0_BG0 | WININ_WIN0_OBJ);
+        SetGpuReg(REG_OFFSET_WINOUT, WINOUT_WIN01_BG0 | WINOUT_WIN01_OBJ | WINOUT_WIN01_CLR);
+        SetGpuReg(REG_OFFSET_BLDCNT, BLDCNT_EFFECT_DARKEN | BLDCNT_TGT1_BG0);
         SetGpuReg(REG_OFFSET_BLDALPHA, 0);
         SetGpuReg(REG_OFFSET_BLDY, 7);
 
@@ -739,49 +662,49 @@ static void Task_MainMenuCheckSaveFile(u8 taskId)
             tWirelessAdapterConnected = TRUE;
         switch (gSaveFileStatus)
         {
-            case SAVE_STATUS_OK:
-                tMenuType = HAS_SAVED_GAME;
-                if (IsMysteryGiftEnabled())
-                    tMenuType++;
-                gTasks[taskId].func = Task_MainMenuCheckBattery;
-                break;
-            case SAVE_STATUS_CORRUPT:
-                CreateMainMenuErrorWindow(gText_SaveFileErased);
-                tMenuType = HAS_NO_SAVED_GAME;
-                gTasks[taskId].func = Task_WaitForSaveFileErrorWindow;
-                break;
-            case SAVE_STATUS_ERROR:
-                CreateMainMenuErrorWindow(gText_SaveFileCorrupted);
-                gTasks[taskId].func = Task_WaitForSaveFileErrorWindow;
-                tMenuType = HAS_SAVED_GAME;
-                if (IsMysteryGiftEnabled() == TRUE)
-                    tMenuType++;
-                break;
-            case SAVE_STATUS_EMPTY:
-            default:
-                tMenuType = HAS_NO_SAVED_GAME;
-                gTasks[taskId].func = Task_MainMenuCheckBattery;
-                break;
-            case SAVE_STATUS_NO_FLASH:
-                CreateMainMenuErrorWindow(gJPText_No1MSubCircuit);
-                gTasks[taskId].tMenuType = HAS_NO_SAVED_GAME;
-                gTasks[taskId].func = Task_WaitForSaveFileErrorWindow;
-                break;
+        case SAVE_STATUS_OK:
+            tMenuType = HAS_SAVED_GAME;
+            if (IsMysteryGiftEnabled())
+                tMenuType++;
+            gTasks[taskId].func = Task_MainMenuCheckBattery;
+            break;
+        case SAVE_STATUS_CORRUPT:
+            CreateMainMenuErrorWindow(gText_SaveFileErased);
+            tMenuType = HAS_NO_SAVED_GAME;
+            gTasks[taskId].func = Task_WaitForSaveFileErrorWindow;
+            break;
+        case SAVE_STATUS_ERROR:
+            CreateMainMenuErrorWindow(gText_SaveFileCorrupted);
+            gTasks[taskId].func = Task_WaitForSaveFileErrorWindow;
+            tMenuType = HAS_SAVED_GAME;
+            if (IsMysteryGiftEnabled() == TRUE)
+                tMenuType++;
+            break;
+        case SAVE_STATUS_EMPTY:
+        default:
+            tMenuType = HAS_NO_SAVED_GAME;
+            gTasks[taskId].func = Task_MainMenuCheckBattery;
+            break;
+        case SAVE_STATUS_NO_FLASH:
+            CreateMainMenuErrorWindow(gJPText_No1MSubCircuit);
+            gTasks[taskId].tMenuType = HAS_NO_SAVED_GAME;
+            gTasks[taskId].func = Task_WaitForSaveFileErrorWindow;
+            break;
         }
         if (sCurrItemAndOptionMenuCheck & OPTION_MENU_FLAG)   // are we returning from the options menu?
         {
             switch (tMenuType)  // if so, highlight the OPTIONS item
             {
-                case HAS_NO_SAVED_GAME:
-                case HAS_SAVED_GAME:
-                    sCurrItemAndOptionMenuCheck = tMenuType + 1;
-                    break;
-                case HAS_MYSTERY_GIFT:
-                    sCurrItemAndOptionMenuCheck = 3;
-                    break;
-                case HAS_MYSTERY_EVENTS:
-                    sCurrItemAndOptionMenuCheck = 4;
-                    break;
+            case HAS_NO_SAVED_GAME:
+            case HAS_SAVED_GAME:
+                sCurrItemAndOptionMenuCheck = tMenuType + 1;
+                break;
+            case HAS_MYSTERY_GIFT:
+                sCurrItemAndOptionMenuCheck = 3;
+                break;
+            case HAS_MYSTERY_EVENTS:
+                sCurrItemAndOptionMenuCheck = 4;
+                break;
             }
         }
         sCurrItemAndOptionMenuCheck &= ~OPTION_MENU_FLAG;  // turn off the "returning from options menu" flag
@@ -793,7 +716,7 @@ static void Task_MainMenuCheckSaveFile(u8 taskId)
 static void Task_WaitForSaveFileErrorWindow(u8 taskId)
 {
     RunTextPrinters();
-    if (!IsTextPrinterActive(7) && (JOY_NEW(A_BUTTON)))
+    if (!IsTextPrinterActiveOnWindow(7) && (JOY_NEW(A_BUTTON)))
     {
         ClearWindowTilemap(7);
         ClearMainMenuWindowTilemap(&sWindowTemplates_MainMenu[7]);
@@ -807,9 +730,9 @@ static void Task_MainMenuCheckBattery(u8 taskId)
     {
         SetGpuReg(REG_OFFSET_WIN0H, 0);
         SetGpuReg(REG_OFFSET_WIN0V, 0);
-        SetGpuReg(REG_OFFSET_WININ, WININ_WIN0_BG0 | WININ_WIN0_BG1 | WININ_WIN0_BG2 | WININ_WIN0_OBJ);
-        SetGpuReg(REG_OFFSET_WINOUT, WINOUT_WIN01_BG0 | WINOUT_WIN01_BG1 | WINOUT_WIN01_BG2 | WINOUT_WIN01_OBJ | WINOUT_WIN01_CLR);
-        SetGpuReg(REG_OFFSET_BLDCNT, BLDCNT_EFFECT_DARKEN | BLDCNT_TGT1_BG0 | BLDCNT_TGT1_BG1 | BLDCNT_TGT1_BG2);
+        SetGpuReg(REG_OFFSET_WININ, WININ_WIN0_BG0 | WININ_WIN0_OBJ);
+        SetGpuReg(REG_OFFSET_WINOUT, WINOUT_WIN01_BG0 | WINOUT_WIN01_OBJ | WINOUT_WIN01_CLR);
+        SetGpuReg(REG_OFFSET_BLDCNT, BLDCNT_EFFECT_DARKEN | BLDCNT_TGT1_BG0);
         SetGpuReg(REG_OFFSET_BLDALPHA, 0);
         SetGpuReg(REG_OFFSET_BLDY, 7);
 
@@ -828,7 +751,7 @@ static void Task_MainMenuCheckBattery(u8 taskId)
 static void Task_WaitForBatteryDryErrorWindow(u8 taskId)
 {
     RunTextPrinters();
-    if (!IsTextPrinterActive(7) && (JOY_NEW(A_BUTTON)))
+    if (!IsTextPrinterActiveOnWindow(7) && (JOY_NEW(A_BUTTON)))
     {
         ClearWindowTilemap(7);
         ClearMainMenuWindowTilemap(&sWindowTemplates_MainMenu[7]);
@@ -843,11 +766,17 @@ static void Task_DisplayMainMenu(u8 taskId)
 
     if (!gPaletteFade.active)
     {
+        gTasks[taskId].func = Task_OpenMainMenu;
+        return;
+    }
+
+    if (!gPaletteFade.active)
+    {
         SetGpuReg(REG_OFFSET_WIN0H, 0);
         SetGpuReg(REG_OFFSET_WIN0V, 0);
-        SetGpuReg(REG_OFFSET_WININ, WININ_WIN0_BG0 | WININ_WIN0_BG1 | WININ_WIN0_BG2 | WININ_WIN0_OBJ);
-        SetGpuReg(REG_OFFSET_WINOUT, WINOUT_WIN01_BG0 | WINOUT_WIN01_BG1 | WINOUT_WIN01_BG2 | WINOUT_WIN01_OBJ | WINOUT_WIN01_CLR);
-        SetGpuReg(REG_OFFSET_BLDCNT, BLDCNT_EFFECT_DARKEN | BLDCNT_TGT1_BG0 | BLDCNT_TGT1_BG1 | BLDCNT_TGT1_BG2);
+        SetGpuReg(REG_OFFSET_WININ, WININ_WIN0_BG0 | WININ_WIN0_OBJ);
+        SetGpuReg(REG_OFFSET_WINOUT, WINOUT_WIN01_BG0 | WINOUT_WIN01_OBJ | WINOUT_WIN01_CLR);
+        SetGpuReg(REG_OFFSET_BLDCNT, BLDCNT_EFFECT_DARKEN | BLDCNT_TGT1_BG0);
         SetGpuReg(REG_OFFSET_BLDALPHA, 0);
         SetGpuReg(REG_OFFSET_BLDY, 7);
 
@@ -876,91 +805,99 @@ static void Task_DisplayMainMenu(u8 taskId)
             LoadPalette(&palette, BG_PLTT_ID(15) + 1, PLTT_SIZEOF(1));
         }
 
-        // Keep BG0 enabled for composition, but clear vanilla menu tiles/text.
-        FillBgTilemapBufferRect_Palette0(0, 0, 0, 0, 32, 32);
-        CopyBgTilemapBufferToVram(0);
-        gTasks[taskId].func = Task_HighlightSelectedMainMenuItem;
-        return;
-
         switch (gTasks[taskId].tMenuType)
         {
-            case HAS_NO_SAVED_GAME:
-            default:
-                FillWindowPixelBuffer(0, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
-                FillWindowPixelBuffer(1, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
-                AddTextPrinterParameterized3(0, FONT_NORMAL, 0, 1, sTextColor_Headers, TEXT_SKIP_DRAW, gText_MainMenuNewGame);
-                AddTextPrinterParameterized3(1, FONT_NORMAL, 0, 1, sTextColor_Headers, TEXT_SKIP_DRAW, gText_MainMenuOption);
-                PutWindowTilemap(0);
-                PutWindowTilemap(1);
-                CopyWindowToVram(0, COPYWIN_GFX);
-                CopyWindowToVram(1, COPYWIN_GFX);
-                break;
-            case HAS_SAVED_GAME:
-                FillWindowPixelBuffer(2, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
-                FillWindowPixelBuffer(3, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
-                FillWindowPixelBuffer(4, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
-                AddTextPrinterParameterized3(2, FONT_NORMAL, 0, 1, sTextColor_Headers, TEXT_SKIP_DRAW, gText_MainMenuContinue);
-                AddTextPrinterParameterized3(3, FONT_NORMAL, 0, 1, sTextColor_Headers, TEXT_SKIP_DRAW, gText_MainMenuNewGame);
-                AddTextPrinterParameterized3(4, FONT_NORMAL, 0, 1, sTextColor_Headers, TEXT_SKIP_DRAW, gText_MainMenuOption);
-                MainMenu_FormatSavegameText();
-                PutWindowTilemap(2);
-                PutWindowTilemap(3);
-                PutWindowTilemap(4);
-                CopyWindowToVram(2, COPYWIN_GFX);
-                CopyWindowToVram(3, COPYWIN_GFX);
-                CopyWindowToVram(4, COPYWIN_GFX);
-                break;
-            case HAS_MYSTERY_GIFT:
-                FillWindowPixelBuffer(2, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
-                FillWindowPixelBuffer(3, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
-                FillWindowPixelBuffer(4, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
-                FillWindowPixelBuffer(5, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
-                AddTextPrinterParameterized3(2, FONT_NORMAL, 0, 1, sTextColor_Headers, TEXT_SKIP_DRAW, gText_MainMenuContinue);
-                AddTextPrinterParameterized3(3, FONT_NORMAL, 0, 1, sTextColor_Headers, TEXT_SKIP_DRAW, gText_MainMenuNewGame);
-                AddTextPrinterParameterized3(4, FONT_NORMAL, 0, 1, sTextColor_Headers, TEXT_SKIP_DRAW, gText_MainMenuMysteryGift);
-                AddTextPrinterParameterized3(5, FONT_NORMAL, 0, 1, sTextColor_Headers, TEXT_SKIP_DRAW, gText_MainMenuOption);
-                MainMenu_FormatSavegameText();
-                PutWindowTilemap(2);
-                PutWindowTilemap(3);
-                PutWindowTilemap(4);
-                PutWindowTilemap(5);
-                CopyWindowToVram(2, COPYWIN_GFX);
-                CopyWindowToVram(3, COPYWIN_GFX);
-                CopyWindowToVram(4, COPYWIN_GFX);
-                CopyWindowToVram(5, COPYWIN_GFX);
-                break;
-            case HAS_MYSTERY_EVENTS:
-                FillWindowPixelBuffer(2, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
-                FillWindowPixelBuffer(3, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
-                FillWindowPixelBuffer(4, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
-                FillWindowPixelBuffer(5, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
-                FillWindowPixelBuffer(6, PIXEL_FILL(TEXT_COLOR_TRANSPARENT));
-                AddTextPrinterParameterized3(2, FONT_NORMAL, 0, 1, sTextColor_Headers, TEXT_SKIP_DRAW, gText_MainMenuContinue);
-                AddTextPrinterParameterized3(3, FONT_NORMAL, 0, 1, sTextColor_Headers, TEXT_SKIP_DRAW, gText_MainMenuNewGame);
-                AddTextPrinterParameterized3(4, FONT_NORMAL, 0, 1, sTextColor_Headers, TEXT_SKIP_DRAW, gText_MainMenuMysteryGift2);
-                AddTextPrinterParameterized3(5, FONT_NORMAL, 0, 1, sTextColor_Headers, TEXT_SKIP_DRAW, gText_MainMenuMysteryEvents);
-                AddTextPrinterParameterized3(6, FONT_NORMAL, 0, 1, sTextColor_Headers, TEXT_SKIP_DRAW, gText_MainMenuOption);
-                MainMenu_FormatSavegameText();
-                PutWindowTilemap(2);
-                PutWindowTilemap(3);
-                PutWindowTilemap(4);
-                PutWindowTilemap(5);
-                PutWindowTilemap(6);
-                CopyWindowToVram(2, COPYWIN_GFX);
-                CopyWindowToVram(3, COPYWIN_GFX);
-                CopyWindowToVram(4, COPYWIN_GFX);
-                CopyWindowToVram(5, COPYWIN_GFX);
-                CopyWindowToVram(6, COPYWIN_GFX);
-                tScrollArrowTaskId = AddScrollIndicatorArrowPair(&sScrollArrowsTemplate_MainMenu, &sCurrItemAndOptionMenuCheck);
-                gTasks[tScrollArrowTaskId].func = Task_ScrollIndicatorArrowPairOnMainMenu;
-                if (sCurrItemAndOptionMenuCheck == 4)
-                {
-                    ChangeBgY(0, 0x2000, BG_COORD_ADD);
-                    ChangeBgY(1, 0x2000, BG_COORD_ADD);
-                    tIsScrolled = TRUE;
-                    gTasks[tScrollArrowTaskId].tArrowTaskIsScrolled = TRUE;
-                }
-                break;
+        case HAS_NO_SAVED_GAME:
+        default:
+            FillWindowPixelBuffer(0, PIXEL_FILL(0xA));
+            FillWindowPixelBuffer(1, PIXEL_FILL(0xA));
+            AddTextPrinterParameterized3(0, FONT_NORMAL, 0, 1, sTextColor_Headers, TEXT_SKIP_DRAW, gText_MainMenuNewGame);
+            AddTextPrinterParameterized3(1, FONT_NORMAL, 0, 1, sTextColor_Headers, TEXT_SKIP_DRAW, gText_MainMenuOption);
+            PutWindowTilemap(0);
+            PutWindowTilemap(1);
+            CopyWindowToVram(0, COPYWIN_GFX);
+            CopyWindowToVram(1, COPYWIN_GFX);
+            DrawMainMenuWindowBorder(&sWindowTemplates_MainMenu[0], MAIN_MENU_BORDER_TILE);
+            DrawMainMenuWindowBorder(&sWindowTemplates_MainMenu[1], MAIN_MENU_BORDER_TILE);
+            break;
+        case HAS_SAVED_GAME:
+            FillWindowPixelBuffer(2, PIXEL_FILL(0xA));
+            FillWindowPixelBuffer(3, PIXEL_FILL(0xA));
+            FillWindowPixelBuffer(4, PIXEL_FILL(0xA));
+            AddTextPrinterParameterized3(2, FONT_NORMAL, 0, 1, sTextColor_Headers, TEXT_SKIP_DRAW, gText_MainMenuContinue);
+            AddTextPrinterParameterized3(3, FONT_NORMAL, 0, 1, sTextColor_Headers, TEXT_SKIP_DRAW, gText_MainMenuNewGame);
+            AddTextPrinterParameterized3(4, FONT_NORMAL, 0, 1, sTextColor_Headers, TEXT_SKIP_DRAW, gText_MainMenuOption);
+            MainMenu_FormatSavegameText();
+            PutWindowTilemap(2);
+            PutWindowTilemap(3);
+            PutWindowTilemap(4);
+            CopyWindowToVram(2, COPYWIN_GFX);
+            CopyWindowToVram(3, COPYWIN_GFX);
+            CopyWindowToVram(4, COPYWIN_GFX);
+            DrawMainMenuWindowBorder(&sWindowTemplates_MainMenu[2], MAIN_MENU_BORDER_TILE);
+            DrawMainMenuWindowBorder(&sWindowTemplates_MainMenu[3], MAIN_MENU_BORDER_TILE);
+            DrawMainMenuWindowBorder(&sWindowTemplates_MainMenu[4], MAIN_MENU_BORDER_TILE);
+            break;
+        case HAS_MYSTERY_GIFT:
+            FillWindowPixelBuffer(2, PIXEL_FILL(0xA));
+            FillWindowPixelBuffer(3, PIXEL_FILL(0xA));
+            FillWindowPixelBuffer(4, PIXEL_FILL(0xA));
+            FillWindowPixelBuffer(5, PIXEL_FILL(0xA));
+            AddTextPrinterParameterized3(2, FONT_NORMAL, 0, 1, sTextColor_Headers, TEXT_SKIP_DRAW, gText_MainMenuContinue);
+            AddTextPrinterParameterized3(3, FONT_NORMAL, 0, 1, sTextColor_Headers, TEXT_SKIP_DRAW, gText_MainMenuNewGame);
+            AddTextPrinterParameterized3(4, FONT_NORMAL, 0, 1, sTextColor_Headers, TEXT_SKIP_DRAW, gText_MainMenuMysteryGift);
+            AddTextPrinterParameterized3(5, FONT_NORMAL, 0, 1, sTextColor_Headers, TEXT_SKIP_DRAW, gText_MainMenuOption);
+            MainMenu_FormatSavegameText();
+            PutWindowTilemap(2);
+            PutWindowTilemap(3);
+            PutWindowTilemap(4);
+            PutWindowTilemap(5);
+            CopyWindowToVram(2, COPYWIN_GFX);
+            CopyWindowToVram(3, COPYWIN_GFX);
+            CopyWindowToVram(4, COPYWIN_GFX);
+            CopyWindowToVram(5, COPYWIN_GFX);
+            DrawMainMenuWindowBorder(&sWindowTemplates_MainMenu[2], MAIN_MENU_BORDER_TILE);
+            DrawMainMenuWindowBorder(&sWindowTemplates_MainMenu[3], MAIN_MENU_BORDER_TILE);
+            DrawMainMenuWindowBorder(&sWindowTemplates_MainMenu[4], MAIN_MENU_BORDER_TILE);
+            DrawMainMenuWindowBorder(&sWindowTemplates_MainMenu[5], MAIN_MENU_BORDER_TILE);
+            break;
+        case HAS_MYSTERY_EVENTS:
+            FillWindowPixelBuffer(2, PIXEL_FILL(0xA));
+            FillWindowPixelBuffer(3, PIXEL_FILL(0xA));
+            FillWindowPixelBuffer(4, PIXEL_FILL(0xA));
+            FillWindowPixelBuffer(5, PIXEL_FILL(0xA));
+            FillWindowPixelBuffer(6, PIXEL_FILL(0xA));
+            AddTextPrinterParameterized3(2, FONT_NORMAL, 0, 1, sTextColor_Headers, TEXT_SKIP_DRAW, gText_MainMenuContinue);
+            AddTextPrinterParameterized3(3, FONT_NORMAL, 0, 1, sTextColor_Headers, TEXT_SKIP_DRAW, gText_MainMenuNewGame);
+            AddTextPrinterParameterized3(4, FONT_NORMAL, 0, 1, sTextColor_Headers, TEXT_SKIP_DRAW, gText_MainMenuMysteryGift2);
+            AddTextPrinterParameterized3(5, FONT_NORMAL, 0, 1, sTextColor_Headers, TEXT_SKIP_DRAW, gText_MainMenuMysteryEvents);
+            AddTextPrinterParameterized3(6, FONT_NORMAL, 0, 1, sTextColor_Headers, TEXT_SKIP_DRAW, gText_MainMenuOption);
+            MainMenu_FormatSavegameText();
+            PutWindowTilemap(2);
+            PutWindowTilemap(3);
+            PutWindowTilemap(4);
+            PutWindowTilemap(5);
+            PutWindowTilemap(6);
+            CopyWindowToVram(2, COPYWIN_GFX);
+            CopyWindowToVram(3, COPYWIN_GFX);
+            CopyWindowToVram(4, COPYWIN_GFX);
+            CopyWindowToVram(5, COPYWIN_GFX);
+            CopyWindowToVram(6, COPYWIN_GFX);
+            DrawMainMenuWindowBorder(&sWindowTemplates_MainMenu[2], MAIN_MENU_BORDER_TILE);
+            DrawMainMenuWindowBorder(&sWindowTemplates_MainMenu[3], MAIN_MENU_BORDER_TILE);
+            DrawMainMenuWindowBorder(&sWindowTemplates_MainMenu[4], MAIN_MENU_BORDER_TILE);
+            DrawMainMenuWindowBorder(&sWindowTemplates_MainMenu[5], MAIN_MENU_BORDER_TILE);
+            DrawMainMenuWindowBorder(&sWindowTemplates_MainMenu[6], MAIN_MENU_BORDER_TILE);
+            tScrollArrowTaskId = AddScrollIndicatorArrowPair(&sScrollArrowsTemplate_MainMenu, &sCurrItemAndOptionMenuCheck);
+            gTasks[tScrollArrowTaskId].func = Task_ScrollIndicatorArrowPairOnMainMenu;
+            if (sCurrItemAndOptionMenuCheck == 4)
+            {
+                ChangeBgY(0, 0x2000, BG_COORD_ADD);
+                ChangeBgY(1, 0x2000, BG_COORD_ADD);
+                tIsScrolled = TRUE;
+                gTasks[tScrollArrowTaskId].tArrowTaskIsScrolled = TRUE;
+            }
+            break;
         }
         gTasks[taskId].func = Task_HighlightSelectedMainMenuItem;
     }
@@ -1044,150 +981,162 @@ static void Task_HandleMainMenuAPressed(u8 taskId)
         wirelessAdapterConnected = IsWirelessAdapterConnected();
         switch (gTasks[taskId].tMenuType)
         {
-            case HAS_NO_SAVED_GAME:
+        case HAS_NO_SAVED_GAME:
+        default:
+            switch (gTasks[taskId].tCurrItem)
+            {
+            case 0:
             default:
-                switch (gTasks[taskId].tCurrItem)
+                action = ACTION_NEW_GAME;
+                break;
+            case 1:
+                action = ACTION_OPTION;
+                break;
+            }
+            break;
+        case HAS_SAVED_GAME:
+            switch (gTasks[taskId].tCurrItem)
+            {
+            case 0:
+            default:
+                action = ACTION_CONTINUE;
+                break;
+            case 1:
+                action = ACTION_NEW_GAME;
+                break;
+            case 2:
+                action = ACTION_OPTION;
+                break;
+            }
+            break;
+        case HAS_MYSTERY_GIFT:
+            switch (gTasks[taskId].tCurrItem)
+            {
+            case 0:
+            default:
+                action = ACTION_CONTINUE;
+                break;
+            case 1:
+                action = ACTION_NEW_GAME;
+                break;
+            case 2:
+                action = ACTION_MYSTERY_GIFT;
+                if (!wirelessAdapterConnected)
                 {
-                    case 0:
-                    default:
-                        action = ACTION_NEW_GAME;
-                        break;
-                    case 1:
-                        action = ACTION_OPTION;
-                        break;
+                    action = ACTION_INVALID;
+                    gTasks[taskId].tMenuType = HAS_NO_SAVED_GAME;
                 }
                 break;
-            case HAS_SAVED_GAME:
-                switch (gTasks[taskId].tCurrItem)
+            case 3:
+                action = ACTION_OPTION;
+                break;
+            }
+            break;
+        case HAS_MYSTERY_EVENTS:
+            switch (gTasks[taskId].tCurrItem)
+            {
+            case 0:
+            default:
+                action = ACTION_CONTINUE;
+                break;
+            case 1:
+                action = ACTION_NEW_GAME;
+                break;
+            case 2:
+                if (gTasks[taskId].tWirelessAdapterConnected)
                 {
-                    case 0:
-                    default:
-                        action = ACTION_CONTINUE;
-                        break;
-                    case 1:
-                        action = ACTION_NEW_GAME;
-                        break;
-                    case 2:
-                        action = ACTION_OPTION;
-                        break;
+                    action = ACTION_MYSTERY_GIFT;
+                    if (!wirelessAdapterConnected)
+                    {
+                        action = ACTION_INVALID;
+                        gTasks[taskId].tMenuType = HAS_NO_SAVED_GAME;
+                    }
+                }
+                else if (wirelessAdapterConnected)
+                {
+                    action = ACTION_INVALID;
+                    gTasks[taskId].tMenuType = HAS_SAVED_GAME;
+                }
+                else
+                {
+                    action = ACTION_EREADER;
                 }
                 break;
-            case HAS_MYSTERY_GIFT:
-                switch (gTasks[taskId].tCurrItem)
+            case 3:
+                if (wirelessAdapterConnected)
                 {
-                    case 0:
-                    default:
-                        action = ACTION_CONTINUE;
-                        break;
-                    case 1:
-                        action = ACTION_NEW_GAME;
-                        break;
-                    case 2:
-                        action = ACTION_MYSTERY_GIFT;
-                        if (!wirelessAdapterConnected)
-                        {
-                            action = ACTION_INVALID;
-                            gTasks[taskId].tMenuType = HAS_NO_SAVED_GAME;
-                        }
-                        break;
-                    case 3:
-                        action = ACTION_OPTION;
-                        break;
+                    action = ACTION_INVALID;
+                    gTasks[taskId].tMenuType = HAS_MYSTERY_GIFT;
+                }
+                else
+                {
+                    action = ACTION_MYSTERY_EVENTS;
                 }
                 break;
-            case HAS_MYSTERY_EVENTS:
-                switch (gTasks[taskId].tCurrItem)
-                {
-                    case 0:
-                    default:
-                        action = ACTION_CONTINUE;
-                        break;
-                    case 1:
-                        action = ACTION_NEW_GAME;
-                        break;
-                    case 2:
-                        if (gTasks[taskId].tWirelessAdapterConnected)
-                        {
-                            action = ACTION_MYSTERY_GIFT;
-                            if (!wirelessAdapterConnected)
-                            {
-                                action = ACTION_INVALID;
-                                gTasks[taskId].tMenuType = HAS_NO_SAVED_GAME;
-                            }
-                        }
-                        else if (wirelessAdapterConnected)
-                        {
-                            action = ACTION_INVALID;
-                            gTasks[taskId].tMenuType = HAS_SAVED_GAME;
-                        }
-                        else
-                        {
-                            action = ACTION_EREADER;
-                        }
-                        break;
-                    case 3:
-                        if (wirelessAdapterConnected)
-                        {
-                            action = ACTION_INVALID;
-                            gTasks[taskId].tMenuType = HAS_MYSTERY_GIFT;
-                        }
-                        else
-                        {
-                            action = ACTION_MYSTERY_EVENTS;
-                        }
-                        break;
-                    case 4:
-                        action = ACTION_OPTION;
-                        break;
-                }
+            case 4:
+                action = ACTION_OPTION;
                 break;
+            }
+            break;
         }
         ChangeBgY(0, 0, BG_COORD_SET);
-        ChangeBgY(1, CUSTOM_BUTTON_BG_Y_OFFSET, BG_COORD_SET);
+        ChangeBgY(1, 0, BG_COORD_SET);
         switch (action)
         {
-            case ACTION_NEW_GAME:
-            default:
-                gPlttBufferUnfaded[0] = RGB_BLACK;
-                gPlttBufferFaded[0] = RGB_BLACK;
-                gTasks[taskId].func = Task_NewGameBirchSpeech_Init;
-                break;
-            case ACTION_CONTINUE:
-                gPlttBufferUnfaded[0] = RGB_BLACK;
-                gPlttBufferFaded[0] = RGB_BLACK;
-                SetMainCallback2(CB2_ContinueSavedGame);
+        case ACTION_NEW_GAME:
+        default:
+            if (IS_FRLG)
+            {
                 DestroyTask(taskId);
-                break;
-            case ACTION_OPTION:
-                gMain.savedCallback = CB2_ReinitMainMenu;
-                SetMainCallback2(CB2_InitOptionMenu);
-                DestroyTask(taskId);
-                break;
-            case ACTION_MYSTERY_GIFT:
-                SetMainCallback2(CB2_InitMysteryGift);
-                DestroyTask(taskId);
-                break;
-            case ACTION_MYSTERY_EVENTS:
-                SetMainCallback2(CB2_InitMysteryEventMenu);
-                DestroyTask(taskId);
-                break;
-            case ACTION_EREADER:
-                SetMainCallback2(CB2_InitEReader);
-                DestroyTask(taskId);
-                break;
-            case ACTION_INVALID:
-                gTasks[taskId].tCurrItem = 0;
-                gTasks[taskId].func = Task_DisplayMainMenuInvalidActionError;
-                gPlttBufferUnfaded[BG_PLTT_ID(15) + 1] = RGB_WHITE;
-                gPlttBufferFaded[BG_PLTT_ID(15) + 1] = RGB_WHITE;
-                SetGpuReg(REG_OFFSET_BG2HOFS, 0);
-                SetGpuReg(REG_OFFSET_BG2VOFS, 0);
-                SetGpuReg(REG_OFFSET_BG1HOFS, 0);
-                SetGpuReg(REG_OFFSET_BG1VOFS, 0);
-                SetGpuReg(REG_OFFSET_BG0HOFS, 0);
-                SetGpuReg(REG_OFFSET_BG0VOFS, 0);
-                BeginNormalPaletteFade(PALETTES_ALL, 0, 16, 0, RGB_BLACK);
+                FreeAllWindowBuffers();
+                if (action != ACTION_OPTION)
+                    sCurrItemAndOptionMenuCheck = 0;
+                else
+                    sCurrItemAndOptionMenuCheck |= OPTION_MENU_FLAG;  // entering the options menu
+                StartNewGameSceneFrlg();
                 return;
+            }
+
+            gPlttBufferUnfaded[0] = RGB_BLACK;
+            gPlttBufferFaded[0] = RGB_BLACK;
+            gTasks[taskId].func = Task_NewGameBirchSpeech_Init;
+            break;
+        case ACTION_CONTINUE:
+            gPlttBufferUnfaded[0] = RGB_BLACK;
+            gPlttBufferFaded[0] = RGB_BLACK;
+            SetMainCallback2(CB2_ContinueSavedGame);
+            DestroyTask(taskId);
+            break;
+        case ACTION_OPTION:
+            gMain.savedCallback = CB2_ReinitMainMenu;
+            SetMainCallback2(CB2_InitOptionMenu);
+            DestroyTask(taskId);
+            break;
+        case ACTION_MYSTERY_GIFT:
+            SetMainCallback2(CB2_InitMysteryGift);
+            DestroyTask(taskId);
+            break;
+        case ACTION_MYSTERY_EVENTS:
+            SetMainCallback2(CB2_InitMysteryEventMenu);
+            DestroyTask(taskId);
+            break;
+        case ACTION_EREADER:
+            SetMainCallback2(CB2_InitEReader);
+            DestroyTask(taskId);
+            break;
+        case ACTION_INVALID:
+            gTasks[taskId].tCurrItem = 0;
+            gTasks[taskId].func = Task_DisplayMainMenuInvalidActionError;
+            gPlttBufferUnfaded[BG_PLTT_ID(15) + 1] = RGB_WHITE;
+            gPlttBufferFaded[BG_PLTT_ID(15) + 1] = RGB_WHITE;
+            SetGpuReg(REG_OFFSET_BG2HOFS, 0);
+            SetGpuReg(REG_OFFSET_BG2VOFS, 0);
+            SetGpuReg(REG_OFFSET_BG1HOFS, 0);
+            SetGpuReg(REG_OFFSET_BG1VOFS, 0);
+            SetGpuReg(REG_OFFSET_BG0HOFS, 0);
+            SetGpuReg(REG_OFFSET_BG0VOFS, 0);
+            BeginNormalPaletteFade(PALETTES_ALL, 0, 16, 0, RGB_BLACK);
+            return;
         }
         FreeAllWindowBuffers();
         if (action != ACTION_OPTION)
@@ -1214,38 +1163,38 @@ static void Task_DisplayMainMenuInvalidActionError(u8 taskId)
 {
     switch (gTasks[taskId].tCurrItem)
     {
+    case 0:
+        FillBgTilemapBufferRect_Palette0(0, 0, 0, 0, DISPLAY_TILE_WIDTH, DISPLAY_TILE_HEIGHT);
+        switch (gTasks[taskId].tMenuType)
+        {
         case 0:
-            FillBgTilemapBufferRect_Palette0(0, 0, 0, 0, DISPLAY_TILE_WIDTH, DISPLAY_TILE_HEIGHT);
-            switch (gTasks[taskId].tMenuType)
-            {
-                case 0:
-                    CreateMainMenuErrorWindow(gText_WirelessNotConnected);
-                    break;
-                case 1:
-                    CreateMainMenuErrorWindow(gText_MysteryGiftCantUse);
-                    break;
-                case 2:
-                    CreateMainMenuErrorWindow(gText_MysteryEventsCantUse);
-                    break;
-            }
-            gTasks[taskId].tCurrItem++;
+            CreateMainMenuErrorWindow(gText_WirelessNotConnected);
             break;
         case 1:
-            if (!gPaletteFade.active)
-                gTasks[taskId].tCurrItem++;
+            CreateMainMenuErrorWindow(gText_MysteryGiftCantUse);
             break;
         case 2:
-            RunTextPrinters();
-            if (!IsTextPrinterActive(7))
-                gTasks[taskId].tCurrItem++;
+            CreateMainMenuErrorWindow(gText_MysteryEventsCantUse);
             break;
-        case 3:
-            if (JOY_NEW(A_BUTTON | B_BUTTON))
-            {
-                PlaySE(SE_SELECT);
-                BeginNormalPaletteFade(PALETTES_ALL, 0, 0, 16, RGB_BLACK);
-                gTasks[taskId].func = Task_HandleMainMenuBPressed;
-            }
+        }
+        gTasks[taskId].tCurrItem++;
+        break;
+    case 1:
+        if (!gPaletteFade.active)
+            gTasks[taskId].tCurrItem++;
+        break;
+    case 2:
+        RunTextPrinters();
+        if (!IsTextPrinterActiveOnWindow(7))
+            gTasks[taskId].tCurrItem++;
+        break;
+    case 3:
+        if (JOY_NEW(A_BUTTON | B_BUTTON))
+        {
+            PlaySE(SE_SELECT);
+            BeginNormalPaletteFade(PALETTES_ALL, 0, 0, 16, RGB_BLACK);
+            gTasks[taskId].func = Task_HandleMainMenuBPressed;
+        }
     }
 }
 
@@ -1264,82 +1213,82 @@ static void HighlightSelectedMainMenuItem(u8 menuType, u8 selectedMenuItem, s16 
 
     switch (menuType)
     {
-        case HAS_NO_SAVED_GAME:
+    case HAS_NO_SAVED_GAME:
+    default:
+        switch (selectedMenuItem)
+        {
+        case 0:
         default:
-            switch (selectedMenuItem)
-            {
-                case 0:
-                default:
-                    SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(0));
-                    break;
-                case 1:
-                    SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(1));
-                    break;
-            }
+            SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(0));
             break;
-        case HAS_SAVED_GAME:
-            switch (selectedMenuItem)
-            {
-                case 0:
-                default:
-                    SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(2));
-                    break;
-                case 1:
-                    SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(3));
-                    break;
-                case 2:
-                    SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(4));
-                    break;
-            }
+        case 1:
+            SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(1));
             break;
-        case HAS_MYSTERY_GIFT:
-            switch (selectedMenuItem)
-            {
-                case 0:
-                default:
-                    SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(2));
-                    break;
-                case 1:
-                    SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(3));
-                    break;
-                case 2:
-                    SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(4));
-                    break;
-                case 3:
-                    SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(5));
-                    break;
-            }
+        }
+        break;
+    case HAS_SAVED_GAME:
+        switch (selectedMenuItem)
+        {
+        case 0:
+        default:
+            SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(2));
             break;
-        case HAS_MYSTERY_EVENTS:
-            switch (selectedMenuItem)
-            {
-                case 0:
-                default:
-                    SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(2));
-                    break;
-                case 1:
-                    if (isScrolled)
-                        SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(3) - MENU_SCROLL_SHIFT);
-                    else
-                        SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(3));
-                    break;
-                case 2:
-                    if (isScrolled)
-                        SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(4) - MENU_SCROLL_SHIFT);
-                    else
-                        SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(4));
-                    break;
-                case 3:
-                    if (isScrolled)
-                        SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(5) - MENU_SCROLL_SHIFT);
-                    else
-                        SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(5));
-                    break;
-                case 4:
-                    SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(6) - MENU_SCROLL_SHIFT);
-                    break;
-            }
+        case 1:
+            SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(3));
             break;
+        case 2:
+            SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(4));
+            break;
+        }
+        break;
+    case HAS_MYSTERY_GIFT:
+        switch (selectedMenuItem)
+        {
+        case 0:
+        default:
+            SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(2));
+            break;
+        case 1:
+            SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(3));
+            break;
+        case 2:
+            SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(4));
+            break;
+        case 3:
+            SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(5));
+            break;
+        }
+        break;
+    case HAS_MYSTERY_EVENTS:
+        switch (selectedMenuItem)
+        {
+        case 0:
+        default:
+            SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(2));
+            break;
+        case 1:
+            if (isScrolled)
+                SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(3) - MENU_SCROLL_SHIFT);
+            else
+                SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(3));
+            break;
+        case 2:
+            if (isScrolled)
+                SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(4) - MENU_SCROLL_SHIFT);
+            else
+                SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(4));
+            break;
+        case 3:
+            if (isScrolled)
+                SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(5) - MENU_SCROLL_SHIFT);
+            else
+                SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(5));
+            break;
+        case 4:
+            SetGpuReg(REG_OFFSET_WIN0V, MENU_WIN_VCOORDS(6) - MENU_SCROLL_SHIFT);
+            break;
+        }
+        break;
     }
 }
 
@@ -1386,6 +1335,63 @@ static void Task_NewGameBirchSpeech_Init(u8 taskId)
     ShowBg(1);
 }
 
+void CB2_NewGameBirchSpeech_FromNewMainMenu(void)
+{
+    u8 taskId;
+
+    ResetBgsAndClearDma3BusyFlags(0);
+    SetGpuReg(REG_OFFSET_DISPCNT, 0);
+    SetGpuReg(REG_OFFSET_DISPCNT, DISPCNT_OBJ_ON | DISPCNT_OBJ_1D_MAP);
+    InitBgsFromTemplates(0, sMainMenuBgTemplates, ARRAY_COUNT(sMainMenuBgTemplates));
+    InitBgFromTemplate(&sBirchBgTemplate);
+    SetVBlankCallback(NULL);
+    SetGpuReg(REG_OFFSET_BG2CNT, 0);
+    SetGpuReg(REG_OFFSET_BG1CNT, 0);
+    SetGpuReg(REG_OFFSET_BG0CNT, 0);
+    SetGpuReg(REG_OFFSET_BG2HOFS, 0);
+    SetGpuReg(REG_OFFSET_BG2VOFS, 0);
+    SetGpuReg(REG_OFFSET_BG1HOFS, 0);
+    SetGpuReg(REG_OFFSET_BG1VOFS, 0);
+    SetGpuReg(REG_OFFSET_BG0HOFS, 0);
+    SetGpuReg(REG_OFFSET_BG0VOFS, 0);
+    DmaFill16(3, 0, VRAM, VRAM_SIZE);
+    DmaFill32(3, 0, OAM, OAM_SIZE);
+    DmaFill16(3, 0, PLTT, PLTT_SIZE);
+    ResetPaletteFade();
+    LZ77UnCompVram(sBirchSpeechShadowGfx, (u8 *)VRAM);
+    LZ77UnCompVram(sBirchSpeechBgMap, (u8 *)(BG_SCREEN_ADDR(7)));
+    LoadPalette(sBirchSpeechBgPals, BG_PLTT_ID(0), 2 * PLTT_SIZE_4BPP);
+    ResetTasks();
+    taskId = CreateTask(Task_NewGameBirchSpeech_WaitToShowBirch, 0);
+    gTasks[taskId].tBG1HOFS = 0;
+    gTasks[taskId].tPlayerSpriteId = SPRITE_NONE;
+    gTasks[taskId].data[3] = 0xFF;
+    gTasks[taskId].tTimer = 0;
+    ScanlineEffect_Stop();
+    ResetSpriteData();
+    FreeAllSpritePalettes();
+    ResetAllPicSprites();
+    AddBirchSpeechObjects(taskId);
+    PlayBGM(MUS_ROUTE122);
+    BeginNormalPaletteFade(PALETTES_ALL, 0, 16, 0, RGB_BLACK);
+    SetGpuReg(REG_OFFSET_WIN0H, 0);
+    SetGpuReg(REG_OFFSET_WIN0V, 0);
+    SetGpuReg(REG_OFFSET_WININ, 0);
+    SetGpuReg(REG_OFFSET_WINOUT, 0);
+    SetGpuReg(REG_OFFSET_BLDCNT, 0);
+    SetGpuReg(REG_OFFSET_BLDALPHA, 0);
+    SetGpuReg(REG_OFFSET_BLDY, 0);
+    ShowBg(0);
+    ShowBg(1);
+    SetVBlankCallback(VBlankCB_MainMenu);
+    SetMainCallback2(CB2_MainMenu);
+    InitWindows(sNewGameBirchSpeechTextWindows);
+    LoadMainMenuWindowFrameTiles(0, 0xF3);
+    LoadMessageBoxGfx(0, 0xFC, BG_PLTT_ID(15));
+    PutWindowTilemap(0);
+    CopyWindowToVram(0, COPYWIN_FULL);
+}
+
 static void Task_NewGameBirchSpeech_WaitToShowBirch(u8 taskId)
 {
     u8 spriteId;
@@ -1422,7 +1428,7 @@ static void Task_NewGameBirchSpeech_WaitForSpriteFadeInWelcome(u8 taskId)
             InitWindows(sNewGameBirchSpeechTextWindows);
             LoadMainMenuWindowFrameTiles(0, 0xF3);
             LoadMessageBoxGfx(0, BIRCH_DLG_BASE_TILE_NUM, BG_PLTT_ID(15));
-            NewGameBirchSpeech_ShowDialogueWindow(0, 1);
+            DrawDialogFrameWithCustomTile(0, TRUE, BIRCH_DLG_BASE_TILE_NUM);
             PutWindowTilemap(0);
             CopyWindowToVram(0, COPYWIN_GFX);
             NewGameBirchSpeech_ClearWindow(0);
@@ -1465,7 +1471,7 @@ static void Task_NewGameBirchSpeechSub_InitPokeBall(u8 taskId)
     gSprites[spriteId].invisible = FALSE;
     gSprites[spriteId].data[0] = 0;
 
-    CreatePokeballSpriteToReleaseMon(spriteId, gSprites[spriteId].oam.paletteNum, 112, 58, 0, 0, 32, PALETTES_BG, SPECIES_GIBLE);
+    CreatePokeballSpriteToReleaseMon(spriteId, gSprites[spriteId].oam.paletteNum, 112, 58, 0, 0, 32, PALETTES_BG, SPECIES_LOTAD);
     gTasks[taskId].func = Task_NewGameBirchSpeechSub_WaitForLotad;
     gTasks[sBirchSpeechMainTaskId].tTimer = 0;
 }
@@ -1477,19 +1483,19 @@ static void Task_NewGameBirchSpeechSub_WaitForLotad(u8 taskId)
 
     switch (tState)
     {
-        case 0:
-            if (sprite->callback != SpriteCallbackDummy)
-                return;
-            sprite->oam.affineMode = ST_OAM_AFFINE_OFF;
-            break;
-        case 1:
-            if (gTasks[sBirchSpeechMainTaskId].tTimer >= 96)
-            {
-                DestroyTask(taskId);
-                if (gTasks[sBirchSpeechMainTaskId].tTimer < 0x4000)
-                    gTasks[sBirchSpeechMainTaskId].tTimer++;
-            }
+    case 0:
+        if (sprite->callback != SpriteCallbackDummy)
             return;
+        sprite->oam.affineMode = ST_OAM_AFFINE_OFF;
+        break;
+    case 1:
+        if (gTasks[sBirchSpeechMainTaskId].tTimer >= 96)
+        {
+            DestroyTask(taskId);
+            if (gTasks[sBirchSpeechMainTaskId].tTimer < 0x4000)
+                gTasks[sBirchSpeechMainTaskId].tTimer++;
+        }
+        return;
     }
     tState++;
     if (gTasks[sBirchSpeechMainTaskId].tTimer < 0x4000)
@@ -1591,23 +1597,25 @@ static void Task_NewGameBirchSpeech_WaitToShowGenderMenu(u8 taskId)
 
 static void Task_NewGameBirchSpeech_ChooseGender(u8 taskId)
 {
-    int gender = NewGameBirchSpeech_ProcessGenderMenuInput();
-    int gender2;
+    enum Gender gender = NewGameBirchSpeech_ProcessGenderMenuInput();
+    enum Gender gender2;
 
     switch (gender)
     {
-        case MALE:
-            PlaySE(SE_SELECT);
-            gSaveBlock2Ptr->playerGender = gender;
-            NewGameBirchSpeech_ClearGenderWindow(1, 1);
-            gTasks[taskId].func = Task_NewGameBirchSpeech_WhatsYourName;
-            break;
-        case FEMALE:
-            PlaySE(SE_SELECT);
-            gSaveBlock2Ptr->playerGender = gender;
-            NewGameBirchSpeech_ClearGenderWindow(1, 1);
-            gTasks[taskId].func = Task_NewGameBirchSpeech_WhatsYourName;
-            break;
+    case MALE:
+        PlaySE(SE_SELECT);
+        gSaveBlock2Ptr->playerGender = gender;
+        NewGameBirchSpeech_ClearGenderWindow(1, 1);
+        gTasks[taskId].func = Task_NewGameBirchSpeech_WhatsYourName;
+        break;
+    case FEMALE:
+        PlaySE(SE_SELECT);
+        gSaveBlock2Ptr->playerGender = gender;
+        NewGameBirchSpeech_ClearGenderWindow(1, 1);
+        gTasks[taskId].func = Task_NewGameBirchSpeech_WhatsYourName;
+        break;
+    default: //repeat task if nothing is selected
+        break;
     }
     gender2 = Menu_GetCursorPos();
     if (gender2 != gTasks[taskId].tPlayerGender)
@@ -1718,15 +1726,149 @@ static void Task_NewGameBirchSpeech_ProcessNameYesNoMenu(u8 taskId)
 {
     switch (Menu_ProcessInputNoWrapClearOnChoose())
     {
-        case 0:
-            PlaySE(SE_SELECT);
-            BeginNormalPaletteFade(PALETTES_ALL, 0, 0, 16, RGB_BLACK);
-            gTasks[taskId].func = Task_NewGameBirchSpeech_Cleanup;
-            break;
-        case MENU_B_PRESSED:
-        case 1:
-            PlaySE(SE_SELECT);
-            gTasks[taskId].func = Task_NewGameBirchSpeech_BoyOrGirl;
+    case 0:
+        PlaySE(SE_SELECT);
+        gSprites[gTasks[taskId].tPlayerSpriteId].oam.objMode = ST_OAM_OBJ_BLEND;
+        NewGameBirchSpeech_StartFadeOutTarget1InTarget2(taskId, 2);
+        NewGameBirchSpeech_StartFadePlatformIn(taskId, 1);
+        gTasks[taskId].func = Task_NewGameBirchSpeech_SlidePlatformAway2;
+        break;
+    case MENU_B_PRESSED:
+    case 1:
+        PlaySE(SE_SELECT);
+        gTasks[taskId].func = Task_NewGameBirchSpeech_BoyOrGirl;
+    }
+}
+
+static void Task_NewGameBirchSpeech_SlidePlatformAway2(u8 taskId)
+{
+    if (gTasks[taskId].tBG1HOFS)
+    {
+        gTasks[taskId].tBG1HOFS += 2;
+        SetGpuReg(REG_OFFSET_BG1HOFS, gTasks[taskId].tBG1HOFS);
+    }
+    else
+    {
+        gTasks[taskId].func = Task_NewGameBirchSpeech_ReshowBirchLotad;
+    }
+}
+
+static void Task_NewGameBirchSpeech_ReshowBirchLotad(u8 taskId)
+{
+    u8 spriteId;
+
+    if (gTasks[taskId].tIsDoneFadingSprites)
+    {
+        gSprites[gTasks[taskId].tBrendanSpriteId].invisible = TRUE;
+        gSprites[gTasks[taskId].tMaySpriteId].invisible = TRUE;
+        spriteId = gTasks[taskId].tBirchSpriteId;
+        gSprites[spriteId].x = 136;
+        gSprites[spriteId].y = 60;
+        gSprites[spriteId].invisible = FALSE;
+        gSprites[spriteId].oam.objMode = ST_OAM_OBJ_BLEND;
+        spriteId = gTasks[taskId].tLotadSpriteId;
+        gSprites[spriteId].x = 100;
+        gSprites[spriteId].y = 75;
+        gSprites[spriteId].invisible = FALSE;
+        gSprites[spriteId].oam.objMode = ST_OAM_OBJ_BLEND;
+        NewGameBirchSpeech_StartFadeInTarget1OutTarget2(taskId, 2);
+        NewGameBirchSpeech_StartFadePlatformOut(taskId, 1);
+        NewGameBirchSpeech_ClearWindow(0);
+        StringExpandPlaceholders(gStringVar4, gText_Birch_YourePlayer);
+        AddTextPrinterForMessage(TRUE);
+        gTasks[taskId].func = Task_NewGameBirchSpeech_WaitForSpriteFadeInAndTextPrinter;
+    }
+}
+
+static void Task_NewGameBirchSpeech_WaitForSpriteFadeInAndTextPrinter(u8 taskId)
+{
+    if (gTasks[taskId].tIsDoneFadingSprites)
+    {
+        gSprites[gTasks[taskId].tBirchSpriteId].oam.objMode = ST_OAM_OBJ_NORMAL;
+        gSprites[gTasks[taskId].tLotadSpriteId].oam.objMode = ST_OAM_OBJ_NORMAL;
+        if (!RunTextPrintersAndIsPrinter0Active())
+        {
+            gSprites[gTasks[taskId].tBirchSpriteId].oam.objMode = ST_OAM_OBJ_BLEND;
+            gSprites[gTasks[taskId].tLotadSpriteId].oam.objMode = ST_OAM_OBJ_BLEND;
+            NewGameBirchSpeech_StartFadeOutTarget1InTarget2(taskId, 2);
+            NewGameBirchSpeech_StartFadePlatformIn(taskId, 1);
+            gTasks[taskId].tTimer = 64;
+            gTasks[taskId].func = Task_NewGameBirchSpeech_AreYouReady;
+        }
+    }
+}
+
+static void Task_NewGameBirchSpeech_AreYouReady(u8 taskId)
+{
+    u8 spriteId;
+
+    if (gTasks[taskId].tIsDoneFadingSprites)
+    {
+        gSprites[gTasks[taskId].tBirchSpriteId].invisible = TRUE;
+        gSprites[gTasks[taskId].tLotadSpriteId].invisible = TRUE;
+        if (gTasks[taskId].tTimer)
+        {
+            gTasks[taskId].tTimer--;
+            return;
+        }
+        if (gSaveBlock2Ptr->playerGender != MALE)
+            spriteId = gTasks[taskId].tMaySpriteId;
+        else
+            spriteId = gTasks[taskId].tBrendanSpriteId;
+        gSprites[spriteId].x = 120;
+        gSprites[spriteId].y = 60;
+        gSprites[spriteId].invisible = FALSE;
+        gSprites[spriteId].oam.objMode = ST_OAM_OBJ_BLEND;
+        gTasks[taskId].tPlayerSpriteId = spriteId;
+        NewGameBirchSpeech_StartFadeInTarget1OutTarget2(taskId, 2);
+        NewGameBirchSpeech_StartFadePlatformOut(taskId, 1);
+        StringExpandPlaceholders(gStringVar4, gText_Birch_AreYouReady);
+        AddTextPrinterForMessage(TRUE);
+        gTasks[taskId].func = Task_NewGameBirchSpeech_ShrinkPlayer;
+    }
+}
+
+static void Task_NewGameBirchSpeech_ShrinkPlayer(u8 taskId)
+{
+    u8 spriteId;
+
+    if (gTasks[taskId].tIsDoneFadingSprites)
+    {
+        gSprites[gTasks[taskId].tPlayerSpriteId].oam.objMode = ST_OAM_OBJ_NORMAL;
+        if (!RunTextPrintersAndIsPrinter0Active())
+        {
+            spriteId = gTasks[taskId].tPlayerSpriteId;
+            gSprites[spriteId].oam.affineMode = ST_OAM_AFFINE_NORMAL;
+            gSprites[spriteId].affineAnims = sSpriteAffineAnimTable_PlayerShrink;
+            InitSpriteAffineAnim(&gSprites[spriteId]);
+            StartSpriteAffineAnim(&gSprites[spriteId], 0);
+            gSprites[spriteId].callback = SpriteCB_MovePlayerDownWhileShrinking;
+            BeginNormalPaletteFade(PALETTES_BG, 0, 0, 16, RGB_BLACK);
+            FadeOutBGM(4);
+            gTasks[taskId].func = Task_NewGameBirchSpeech_WaitForPlayerShrink;
+        }
+    }
+}
+
+static void Task_NewGameBirchSpeech_WaitForPlayerShrink(u8 taskId)
+{
+    u8 spriteId = gTasks[taskId].tPlayerSpriteId;
+
+    if (gSprites[spriteId].affineAnimEnded)
+        gTasks[taskId].func = Task_NewGameBirchSpeech_FadePlayerToWhite;
+}
+
+static void Task_NewGameBirchSpeech_FadePlayerToWhite(u8 taskId)
+{
+    u8 spriteId;
+
+    if (!gPaletteFade.active)
+    {
+        spriteId = gTasks[taskId].tPlayerSpriteId;
+        gSprites[spriteId].callback = SpriteCB_Null;
+        SetGpuReg(REG_OFFSET_DISPCNT, DISPCNT_OBJ_ON | DISPCNT_OBJ_1D_MAP);
+        BeginNormalPaletteFade(PALETTES_OBJECTS, 0, 0, 16, RGB_WHITEALPHA);
+        gTasks[taskId].func = Task_NewGameBirchSpeech_Cleanup;
     }
 }
 
@@ -1822,9 +1964,18 @@ static void SpriteCB_Null(struct Sprite *sprite)
 {
 }
 
+static void SpriteCB_MovePlayerDownWhileShrinking(struct Sprite *sprite)
+{
+    u32 y;
+
+    y = (sprite->y << 16) + sprite->data[0] + 0xC000;
+    sprite->y = y >> 16;
+    sprite->data[0] = y;
+}
+
 static u8 NewGameBirchSpeech_CreateLotadSprite(u8 x, u8 y)
 {
-    return CreateMonPicSprite_Affine(SPECIES_GIBLE, FALSE, 0, MON_PIC_AFFINE_FRONT, x, y, 14, TAG_NONE);
+    return CreateMonPicSprite_Affine(SPECIES_LOTAD, FALSE, 0, MON_PIC_AFFINE_FRONT, x, y, 14, TAG_NONE);
 }
 
 static void AddBirchSpeechObjects(u8 taskId)
@@ -2114,7 +2265,7 @@ static void MainMenu_FormatSavegamePokedex(void)
         if (IsNationalPokedexEnabled())
             dexCount = GetNationalPokedexCount(FLAG_GET_CAUGHT);
         else
-            dexCount = GetHoennPokedexCount(FLAG_GET_CAUGHT);
+            dexCount = GetRegionalPokedexCount(FLAG_GET_CAUGHT);
         StringExpandPlaceholders(gStringVar4, gText_ContinueMenuPokedex);
         AddTextPrinterParameterized3(2, FONT_NORMAL, 0, 33, sTextColor_MenuInfo, TEXT_SKIP_DRAW, gStringVar4);
         ConvertIntToDecimalStringN(str, dexCount, STR_CONV_MODE_LEFT_ALIGN, 4);
@@ -2215,38 +2366,11 @@ void CreateYesNoMenuParameterized(u8 x, u8 y, u16 baseTileNum, u16 baseBlock, u8
     CreateYesNoMenu(&template, baseTileNum, yesNoPalNum, 0);
 }
 
-static void NewGameBirchSpeech_ShowDialogueWindow(u8 windowId, u8 copyToVram)
-{
-    CallWindowFunction(windowId, NewGameBirchSpeech_CreateDialogueWindowBorder);
-    FillWindowPixelBuffer(windowId, PIXEL_FILL(1));
-    PutWindowTilemap(windowId);
-    if (copyToVram == TRUE)
-        CopyWindowToVram(windowId, COPYWIN_FULL);
-}
-
-static void NewGameBirchSpeech_CreateDialogueWindowBorder(u8 bg, u8 x, u8 y, u8 width, u8 height, u8 palNum)
-{
-    FillBgTilemapBufferRect(bg, BIRCH_DLG_BASE_TILE_NUM +  1, x-2,       y-1, 1,       1, palNum);
-    FillBgTilemapBufferRect(bg, BIRCH_DLG_BASE_TILE_NUM +  3, x-1,       y-1, 1,       1, palNum);
-    FillBgTilemapBufferRect(bg, BIRCH_DLG_BASE_TILE_NUM +  4, x,         y-1, width,   1, palNum);
-    FillBgTilemapBufferRect(bg, BIRCH_DLG_BASE_TILE_NUM +  5, x+width-1, y-1, 1,       1, palNum);
-    FillBgTilemapBufferRect(bg, BIRCH_DLG_BASE_TILE_NUM +  6, x+width,   y-1, 1,       1, palNum);
-    FillBgTilemapBufferRect(bg, BIRCH_DLG_BASE_TILE_NUM +  7, x-2,       y,   1,       5, palNum);
-    FillBgTilemapBufferRect(bg, BIRCH_DLG_BASE_TILE_NUM +  9, x-1,       y,   width+1, 5, palNum);
-    FillBgTilemapBufferRect(bg, BIRCH_DLG_BASE_TILE_NUM + 10, x+width,   y,   1,       5, palNum);
-
-    FillBgTilemapBufferRect(bg, BG_TILE_V_FLIP(BIRCH_DLG_BASE_TILE_NUM + 1), x-2,       y+height, 1,       1, palNum);
-    FillBgTilemapBufferRect(bg, BG_TILE_V_FLIP(BIRCH_DLG_BASE_TILE_NUM + 3), x-1,       y+height, 1,       1, palNum);
-    FillBgTilemapBufferRect(bg, BG_TILE_V_FLIP(BIRCH_DLG_BASE_TILE_NUM + 4), x,         y+height, width-1, 1, palNum);
-    FillBgTilemapBufferRect(bg, BG_TILE_V_FLIP(BIRCH_DLG_BASE_TILE_NUM + 5), x+width-1, y+height, 1,       1, palNum);
-    FillBgTilemapBufferRect(bg, BG_TILE_V_FLIP(BIRCH_DLG_BASE_TILE_NUM + 6), x+width,   y+height, 1,       1, palNum);
-}
-
 static void Task_NewGameBirchSpeech_ReturnFromNamingScreenShowTextbox(u8 taskId)
 {
     if (gTasks[taskId].tTimer-- <= 0)
     {
-        NewGameBirchSpeech_ShowDialogueWindow(0, 1);
+        DrawDialogFrameWithCustomTile(0, TRUE, BIRCH_DLG_BASE_TILE_NUM);
         gTasks[taskId].func = Task_NewGameBirchSpeech_SoItsPlayerName;
     }
 }
