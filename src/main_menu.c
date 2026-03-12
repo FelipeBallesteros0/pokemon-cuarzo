@@ -610,6 +610,8 @@ static u32 InitMainMenu(bool8 returningFromOptionsMenu)
     ChangeBgY(0, 0, BG_COORD_SET);
     ChangeBgX(1, 0, BG_COORD_SET);
     ChangeBgY(1, 0, BG_COORD_SET);
+    // Ensure no stale window allocations survive reset/reentry paths.
+    FreeAllWindowBuffers();
     InitWindows(sWindowTemplates_MainMenu);
     DeactivateAllTextPrinters();
     LoadMainMenuWindowFrameTiles(0, MAIN_MENU_BORDER_TILE);
