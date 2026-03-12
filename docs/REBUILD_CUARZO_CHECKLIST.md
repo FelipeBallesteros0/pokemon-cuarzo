@@ -9,8 +9,8 @@ Objetivo: reconstruir gradualmente sobre base limpia (`rebuild/from-upstream-cle
 
 ## Bloque 1 - Mapas de prueba
 - [ ] Isla de Pruebas completa (mapa/layout/scripts/eventos)
-- [ ] NPC utilitario de transporte y pruebas
-- [ ] Warps y spawns de testing estables
+- [x] NPC utilitario de transporte y pruebas
+- [x] Warps y spawns de testing estables
 
 ## Bloque 2 - Main Menu (Archie/Mudskip)
 - [ ] Menu principal custom con mugshot
