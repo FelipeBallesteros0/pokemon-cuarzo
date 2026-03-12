@@ -52,6 +52,44 @@ TestIsland_EventScript_WarpToPuebloCiendra_Cancel:
 	release
 	end
 
+TestIsland_EventScript_FollowerNpcToggle::
+	lock
+	faceplayer
+	checkfollowernpc
+	goto_if_eq VAR_RESULT, FALSE, TestIsland_EventScript_FollowerNpc_AskEnable
+	msgbox TestIsland_Text_FollowerNpc_AlreadyActive, MSGBOX_YESNO
+	goto_if_eq VAR_RESULT, YES, TestIsland_EventScript_FollowerNpc_Disable
+	release
+	end
+
+TestIsland_EventScript_FollowerNpc_AskEnable:
+	msgbox TestIsland_Text_FollowerNpc_AskEnable, MSGBOX_YESNO
+	goto_if_eq VAR_RESULT, NO, TestIsland_EventScript_FollowerNpc_End
+	setfollowernpc LOCALID_TEST_ISLAND_FOLLOWER_TOGGLE, FNPC_ALL, TestIsland_EventScript_FollowerNpc_Companion
+	msgbox TestIsland_Text_FollowerNpc_Enabled, MSGBOX_DEFAULT
+	releaseall
+	end
+
+TestIsland_EventScript_FollowerNpc_Companion:
+	lock
+	facefollowernpc
+	msgbox TestIsland_Text_FollowerNpc_CompanionPrompt, MSGBOX_YESNO
+	goto_if_eq VAR_RESULT, YES, TestIsland_EventScript_FollowerNpc_Disable
+	msgbox TestIsland_Text_FollowerNpc_Stay, MSGBOX_DEFAULT
+	releaseall
+	end
+
+TestIsland_EventScript_FollowerNpc_Disable:
+	hidefollowernpc 1
+	destroyfollowernpc
+	msgbox TestIsland_Text_FollowerNpc_Disabled, MSGBOX_DEFAULT
+	releaseall
+	end
+
+TestIsland_EventScript_FollowerNpc_End:
+	release
+	end
+
 TestIsland_Text_WarpToPuebloCiendra:
 	.string "quieres ir a Pueblo Ciendra?$"
 
@@ -68,3 +106,22 @@ TestIsland_Text_UtilityNpc_KitGiven:
 
 TestIsland_Text_UtilityNpc_WarpRoute101:
 	.string "quieres que te lleve a ruta 101?$"
+
+TestIsland_Text_FollowerNpc_AskEnable:
+	.string "quieres que te acompane?$"
+
+TestIsland_Text_FollowerNpc_AlreadyActive:
+	.string "ya te estoy acompanando.\n"
+	.string "quieres que me vaya?$"
+
+TestIsland_Text_FollowerNpc_Enabled:
+	.string "listo, te sigo desde ahora.$"
+
+TestIsland_Text_FollowerNpc_CompanionPrompt:
+	.string "quieres que deje de seguirte?$"
+
+TestIsland_Text_FollowerNpc_Stay:
+	.string "perfecto, sigo contigo.$"
+
+TestIsland_Text_FollowerNpc_Disabled:
+	.string "listo, dejo de seguirte.$"
