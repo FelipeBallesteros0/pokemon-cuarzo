@@ -258,19 +258,19 @@ static s32 CompareItemsByIndex(enum Pocket pocketId, struct ItemSlot item1, stru
 static const u16 sBagMalePaletteRed[16] =
 {
     RGB(12, 12, 13), // #64636F background
-    RGB(11, 4, 5),
-    RGB(14, 6, 7),
-    RGB(8, 3, 3),
-    RGB(20, 10, 11),
-    RGB(5, 2, 2),
-    RGB(25, 14, 15),
-    RGB(4, 1, 2),
-    RGB(30, 19, 20),
-    RGB(27, 15, 16),
-    RGB(17, 8, 9),
-    RGB(31, 26, 26),
-    RGB(22, 11, 12),
-    RGB(8, 3, 3),
+    RGB(12, 3, 3),
+    RGB(14, 4, 4),
+    RGB(9, 2, 2),
+    RGB(19, 5, 5),
+    RGB(6, 1, 1),
+    RGB(23, 8, 8),
+    RGB(5, 1, 1),
+    RGB(27, 12, 12), // #DF6262 (backsprite tone)
+    RGB(25, 9, 9),
+    RGB(16, 4, 4),
+    RGB(30, 18, 18),
+    RGB(24, 5, 5),   // #C62929 (backsprite tone)
+    RGB(10, 2, 2),
     RGB(0, 0, 0),
     RGB(0, 0, 0),
 };
