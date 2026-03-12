@@ -65,7 +65,7 @@ TestIsland_EventScript_FollowerNpcToggle::
 TestIsland_EventScript_FollowerNpc_AskEnable:
 	msgbox TestIsland_Text_FollowerNpc_AskEnable, MSGBOX_YESNO
 	goto_if_eq VAR_RESULT, NO, TestIsland_EventScript_FollowerNpc_End
-	setfollowernpc LOCALID_TEST_ISLAND_FOLLOWER_TOGGLE, FNPC_ALL, TestIsland_EventScript_FollowerNpc_Companion
+	setfollowernpc LOCALID_TEST_ISLAND_FOLLOWER_TOGGLE, FNPC_ALL, TestIsland_EventScript_FollowerNpc_Companion, PARTNER_MAY
 	msgbox TestIsland_Text_FollowerNpc_Enabled, MSGBOX_DEFAULT
 	releaseall
 	end

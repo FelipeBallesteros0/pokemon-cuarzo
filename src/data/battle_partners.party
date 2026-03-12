@@ -44,3 +44,42 @@ EVs: 252 Atk / 252 SpA / 6 SpD
 - Protect
 - Solar Beam
 - Dragon Claw
+
+=== PARTNER_MAY ===
+Name: MAY
+Class: Rival
+Pic: May
+Gender: Female
+Music: Female
+Back Pic: May
+AI: Basic Trainer
+
+Combusken
+Brave Nature
+Level: 30
+IVs: 31 HP / 31 Atk / 31 Def / 31 SpA / 31 SpD / 31 Spe
+EVs: 252 Atk / 252 Spe / 6 HP
+- Double Kick
+- Ember
+- Peck
+- Bulk Up
+
+Wailmer
+Calm Nature
+Level: 30
+IVs: 31 HP / 31 Atk / 31 Def / 31 SpA / 31 SpD / 31 Spe
+EVs: 252 HP / 252 SpD / 6 SpA
+- Water Pulse
+- Rollout
+- Mist
+- Growl
+
+Shroomish
+Jolly Nature
+Level: 30
+IVs: 31 HP / 31 Atk / 31 Def / 31 SpA / 31 SpD / 31 Spe
+EVs: 252 Atk / 252 Spe / 6 HP
+- Headbutt
+- Leech Seed
+- Mega Drain
+- Stun Spore
