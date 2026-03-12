@@ -32,9 +32,9 @@ Objetivo: reconstruir gradualmente sobre base limpia (`rebuild/from-upstream-cle
 - [ ] OW_FOLLOWERS_WEATHER_FORMS
 
 ## Bloque 5 - Party Menu
-- [ ] Port gen5ish party menu
-- [ ] Navegacion D-pad completa (arriba/abajo/izq/der)
-- [ ] Comportamiento correcto por columnas en reordenamiento
+- [x] Port gen5ish party menu
+- [x] Navegacion D-pad completa (arriba/abajo/izq/der)
+- [x] Comportamiento correcto por columnas en reordenamiento
 
 ## Bloque 6 - Menus extra
 - [ ] Port `original_tx_registered_items_menu`
