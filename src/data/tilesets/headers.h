@@ -723,6 +723,39 @@ const struct Tileset gTileset_BattleArena =
     .callback = NULL,
 };
 
+const struct Tileset gTileset_PuebloCiendraPool =
+{
+    .isCompressed = FALSE,
+    .isSecondary = TRUE,
+    .tiles = gTilesetTiles_PuebloCiendraPool,
+    .palettes = gTilesetPalettes_PuebloCiendraPool,
+    .metatiles = gMetatiles_PuebloCiendraPool,
+    .metatileAttributes = gMetatileAttributes_PuebloCiendraPool,
+    .callback = NULL,
+};
+
+const struct Tileset gTileset_PuebloCiendraPoolAuto =
+{
+    .isCompressed = FALSE,
+    .isSecondary = TRUE,
+    .tiles = gTilesetTiles_PuebloCiendraPoolAuto,
+    .palettes = gTilesetPalettes_PuebloCiendraPoolAuto,
+    .metatiles = gMetatiles_PuebloCiendraPoolAuto,
+    .metatileAttributes = gMetatileAttributes_PuebloCiendraPoolAuto,
+    .callback = NULL,
+};
+
+const struct Tileset gTileset_PoolTransparentAuto =
+{
+    .isCompressed = FALSE,
+    .isSecondary = TRUE,
+    .tiles = gTilesetTiles_PoolTransparentAuto,
+    .palettes = gTilesetPalettes_PoolTransparentAuto,
+    .metatiles = gMetatiles_PoolTransparentAuto,
+    .metatileAttributes = gMetatileAttributes_PoolTransparentAuto,
+    .callback = NULL,
+};
+
 const struct Tileset gTileset_BattlePyramid =
 {
     .isCompressed = TRUE,

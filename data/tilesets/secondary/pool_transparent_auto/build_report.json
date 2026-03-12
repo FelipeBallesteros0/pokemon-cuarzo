@@ -1,0 +1,51 @@
+{
+  "input": "C:\\Users\\User\\Desktop\\pokemon_esmeralda\\png2tileset\\input\\pool_transparent_small.png",
+  "mode": "dedup",
+  "image_size": [
+    64,
+    64
+  ],
+  "metatile_grid": [
+    4,
+    4
+  ],
+  "tile_count": 63,
+  "metatile_count": 16,
+  "tile_base": 512,
+  "tile_range": [
+    512,
+    574
+  ],
+  "palette_slot": 6,
+  "metatile_attr": 0,
+  "outputs": {
+    "tiles_4bpp": "C:\\Users\\User\\Desktop\\pokemon_esmeralda\\png2tileset\\output\\tiles.4bpp",
+    "metatiles_bin": "C:\\Users\\User\\Desktop\\pokemon_esmeralda\\png2tileset\\output\\metatiles.bin",
+    "metatile_attributes_bin": "C:\\Users\\User\\Desktop\\pokemon_esmeralda\\png2tileset\\output\\metatile_attributes.bin",
+    "tiles_png": "C:\\Users\\User\\Desktop\\pokemon_esmeralda\\png2tileset\\output\\tiles.png",
+    "palette_gbapal": "C:\\Users\\User\\Desktop\\pokemon_esmeralda\\png2tileset\\output\\palette.gbapal",
+    "palette_pal": "C:\\Users\\User\\Desktop\\pokemon_esmeralda\\png2tileset\\output\\palette.pal"
+  },
+  "animation": {
+    "enabled": true,
+    "frames_x": 4,
+    "frames_y": 2,
+    "frame_size": [
+      64,
+      64
+    ],
+    "frame_count": 8,
+    "anim_name": "poolsmall",
+    "anim_dir": "C:\\Users\\User\\Desktop\\pokemon_esmeralda\\png2tileset\\output\\anim\\poolsmall",
+    "preview_dir": "C:\\Users\\User\\Desktop\\pokemon_esmeralda\\png2tileset\\output\\anim_preview\\poolsmall",
+    "validated_layout": true
+  },
+  "avoid_index_zero": {
+    "enabled": true,
+    "remap_target_index": 15,
+    "remapped_pixels": 4104
+  },
+  "lock_input_palette": {
+    "enabled": true
+  }
+}
