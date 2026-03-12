@@ -4547,6 +4547,17 @@ void Special_TogglePlayerBackHairColor(void)
     SetFollowerNPCData(FNPC_DATA_PLAYER_HAIR_COLOR, !GetFollowerNPCData(FNPC_DATA_PLAYER_HAIR_COLOR));
 }
 
+u16 Special_IsPlayerBagRed(void)
+{
+    return (u16)GetFollowerNPCData(FNPC_DATA_PLAYER_BAG_COLOR);
+}
+
+void Special_TogglePlayerBagColor(void)
+{
+    SetFollowerNPCData(FNPC_DATA_PLAYER_BAG_COLOR, !GetFollowerNPCData(FNPC_DATA_PLAYER_BAG_COLOR));
+    RefreshPlayerBrendanBagPalette();
+}
+
 void Special_SetTimeMorning(void)
 {
     SetTimeOfDay(7);

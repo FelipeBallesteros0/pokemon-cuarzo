@@ -578,6 +578,8 @@ gSpecials::
 	def_special Special_ToggleFollowerNPCHairColor
 	def_special Special_IsPlayerBackHairBlonde
 	def_special Special_TogglePlayerBackHairColor
+	def_special Special_IsPlayerBagRed
+	def_special Special_TogglePlayerBagColor
 	def_special Special_SetTimeMorning
 	def_special Special_SetTimeDay
 	def_special Special_SetTimeEvening

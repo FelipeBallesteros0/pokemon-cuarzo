@@ -14,6 +14,7 @@
 #include "event_scripts.h"
 #include "field_player_avatar.h"
 #include "field_specials.h"
+#include "follower_npc.h"
 #include "graphics.h"
 #include "gpu_regs.h"
 #include "international_string_util.h"
@@ -253,6 +254,36 @@ static s32 CompareItemsAlphabetically(enum Pocket pocketId, struct ItemSlot item
 static s32 CompareItemsByMost(enum Pocket pocketId, struct ItemSlot item1, struct ItemSlot item2);
 static s32 CompareItemsByType(enum Pocket pocketId, struct ItemSlot item1, struct ItemSlot item2);
 static s32 CompareItemsByIndex(enum Pocket pocketId, struct ItemSlot item1, struct ItemSlot item2);
+
+static const u16 sBagMalePaletteRed[16] =
+{
+    RGB(12, 12, 13), // #64636F background
+    RGB(11, 4, 5),
+    RGB(14, 6, 7),
+    RGB(8, 3, 3),
+    RGB(20, 10, 11),
+    RGB(5, 2, 2),
+    RGB(25, 14, 15),
+    RGB(4, 1, 2),
+    RGB(30, 19, 20),
+    RGB(27, 15, 16),
+    RGB(17, 8, 9),
+    RGB(31, 26, 26),
+    RGB(22, 11, 12),
+    RGB(8, 3, 3),
+    RGB(0, 0, 0),
+    RGB(0, 0, 0),
+};
+
+static void ApplyMaleBagRedPaletteIfEnabled(u8 paletteNum)
+{
+    if (gSaveBlock2Ptr->playerGender != MALE)
+        return;
+    if (!GetFollowerNPCData(FNPC_DATA_PLAYER_BAG_COLOR))
+        return;
+    CpuCopy16(sBagMalePaletteRed, gPlttBufferUnfaded + OBJ_PLTT_ID(paletteNum), PLTT_SIZE_4BPP);
+    CpuCopy16(sBagMalePaletteRed, gPlttBufferFaded + OBJ_PLTT_ID(paletteNum), PLTT_SIZE_4BPP);
+}
 
 static const struct BgTemplate sBgTemplates_ItemMenu[] =
 {
@@ -911,12 +942,20 @@ static bool8 LoadBagMenu_Graphics(void)
         gBagMenu->graphicsLoadState++;
         break;
     case 4:
+    {
+        u8 paletteNum;
+
         if (IsWallysBag() == TRUE || gSaveBlock2Ptr->playerGender == MALE)
-            LoadSpritePalette(&gBagMalePaletteTable);
+        {
+            paletteNum = LoadSpritePalette(&gBagMalePaletteTable);
+            if (paletteNum != 0xFF && IsWallysBag() != TRUE)
+                ApplyMaleBagRedPaletteIfEnabled(paletteNum);
+        }
         else
             LoadSpritePalette(&gBagFemalePaletteTable);
         gBagMenu->graphicsLoadState++;
         break;
+    }
     default:
         LoadListMenuSwapLineGfx();
         gBagMenu->graphicsLoadState = 0;

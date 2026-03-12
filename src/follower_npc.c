@@ -128,6 +128,9 @@ void SetFollowerNPCData(enum FollowerNPCDataTypes type, u32 value)
     case FNPC_DATA_PLAYER_HAIR_COLOR:
         gSaveBlock3Ptr->NPCfollower.padding.padding2 = value;
         break;
+    case FNPC_DATA_PLAYER_BAG_COLOR:
+        gSaveBlock3Ptr->NPCfollower.padding.padding3 = value;
+        break;
     }
 #endif
 }
@@ -190,6 +193,8 @@ u32 GetFollowerNPCData(enum FollowerNPCDataTypes type)
         return gSaveBlock3Ptr->NPCfollower.padding.padding1;
     case FNPC_DATA_PLAYER_HAIR_COLOR:
         return gSaveBlock3Ptr->NPCfollower.padding.padding2;
+    case FNPC_DATA_PLAYER_BAG_COLOR:
+        return gSaveBlock3Ptr->NPCfollower.padding.padding3;
     }
 #endif
     return 0;

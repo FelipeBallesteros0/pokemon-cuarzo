@@ -3184,12 +3184,61 @@ void FreeAndReserveObjectSpritePalettes(void)
     gReservedSpritePaletteCount = OBJ_PALSLOT_COUNT;
 }
 
+static void TryApplyPlayerBrendanBagPaletteToObjectSlot(u16 paletteTag, u8 paletteNum)
+{
+    u16 i;
+    u16 *unfaded;
+    u16 *faded;
+
+    if (gSaveBlock2Ptr->playerGender != MALE)
+        return;
+    if (!GetFollowerNPCData(FNPC_DATA_PLAYER_BAG_COLOR))
+        return;
+    if (paletteTag != OBJ_EVENT_PAL_TAG_BRENDAN
+     && paletteTag != OBJ_EVENT_PAL_TAG_BRENDAN_REFLECTION)
+        return;
+
+    unfaded = gPlttBufferUnfaded + OBJ_PLTT_ID(paletteNum);
+    faded = gPlttBufferFaded + OBJ_PLTT_ID(paletteNum);
+    for (i = 0; i < 16; i++)
+    {
+        if (unfaded[i] == RGB(12, 10, 7))
+            unfaded[i] = RGB(24, 5, 5);   // #C62929 (GBA quantized)
+        else if (unfaded[i] == RGB(22, 18, 12))
+            unfaded[i] = RGB(27, 12, 12); // #DF6262 (GBA quantized)
+    }
+    CpuCopy16(unfaded, faded, PLTT_SIZE_4BPP);
+    UpdateSpritePaletteWithWeather(paletteNum, FALSE);
+}
+
+void RefreshPlayerBrendanBagPalette(void)
+{
+    u8 paletteNum;
+    u16 paletteTag;
+
+    if (gSaveBlock2Ptr->playerGender != MALE)
+        return;
+    if (gPlayerAvatar.spriteId >= MAX_SPRITES)
+        return;
+
+    paletteNum = gSprites[gPlayerAvatar.spriteId].oam.paletteNum;
+    paletteTag = GetObjectPaletteTag(PALSLOT_PLAYER);
+    PatchObjectPalette(paletteTag, paletteNum);
+    UpdateSpritePaletteWithWeather(paletteNum, FALSE);
+}
+
 u8 LoadObjectEventPalette(u16 paletteTag)
 {
     u16 i = FindObjectEventPaletteIndexByTag(paletteTag);
+    u8 paletteNum;
+
     if (i == 0xFF)
         return i;
-    return LoadSpritePaletteIfTagExists(&sObjectEventSpritePalettes[i]);
+
+    paletteNum = LoadSpritePaletteIfTagExists(&sObjectEventSpritePalettes[i]);
+    if (paletteNum != 0xFF)
+        TryApplyPlayerBrendanBagPaletteToObjectSlot(paletteTag, paletteNum);
+    return paletteNum;
 }
 
 u8 LoadPlayerObjectEventPalette(u8 gender)
@@ -3234,6 +3283,7 @@ void PatchObjectPalette(u16 paletteTag, u8 paletteSlot)
     u8 paletteIndex = FindObjectEventPaletteIndexByTag(paletteTag);
 
     LoadPalette(sObjectEventSpritePalettes[paletteIndex].data, OBJ_PLTT_ID(paletteSlot), PLTT_SIZE_4BPP);
+    TryApplyPlayerBrendanBagPaletteToObjectSlot(paletteTag, paletteSlot);
 }
 
 void PatchObjectPaletteRange(const u16 *paletteTags, u8 minSlot, u8 maxSlot)

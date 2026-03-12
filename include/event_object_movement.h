@@ -166,6 +166,7 @@ u8 SpawnSpecialObjectEvent(struct ObjectEventTemplate *objectEventTemplate);
 void SetSpritePosToMapCoords(s16 mapX, s16 mapY, s16 *destX, s16 *destY);
 void CameraObjectReset(void);
 u8 LoadObjectEventPalette(u16);
+void RefreshPlayerBrendanBagPalette(void);
 u8 UpdateSpritePaletteByTemplate(const struct SpriteTemplate *spriteTemplate, struct Sprite *sprite);
 void ObjectEventSetGraphicsId(struct ObjectEvent *objectEvent, u16 graphicsId);
 void ObjectEventTurn(struct ObjectEvent *objectEvent, u8 direction);

@@ -196,6 +196,7 @@ TestIsland_EventScript_FollowerNPCTalk::
 	facefollowernpc
 	call TestIsland_EventScript_FollowerNPCTalk_HandleFollowerHair
 	call TestIsland_EventScript_FollowerNPCTalk_HandlePlayerHair
+	call TestIsland_EventScript_FollowerNPCTalk_HandlePlayerBag
 	goto TestIsland_EventScript_FollowerNPCTalk_DisablePrompt
 
 TestIsland_EventScript_FollowerNPCTalk_HandleFollowerHair:
@@ -232,6 +233,24 @@ TestIsland_EventScript_FollowerNPCTalk_AskPlayerOriginalHair:
 	msgbox TestIsland_Text_Player_Hair_Original_Done, MSGBOX_DEFAULT
 
 TestIsland_EventScript_FollowerNPCTalk_PlayerHairDone:
+	return
+
+TestIsland_EventScript_FollowerNPCTalk_HandlePlayerBag:
+	specialvar VAR_RESULT, Special_IsPlayerBagRed
+	goto_if_eq VAR_RESULT, TRUE, TestIsland_EventScript_FollowerNPCTalk_AskPlayerOriginalBag
+	msgbox TestIsland_Text_Player_Bag_Red_Ask, MSGBOX_YESNO
+	goto_if_eq VAR_RESULT, NO, TestIsland_EventScript_FollowerNPCTalk_PlayerBagDone
+	special Special_TogglePlayerBagColor
+	msgbox TestIsland_Text_Player_Bag_Red_Done, MSGBOX_DEFAULT
+	return
+
+TestIsland_EventScript_FollowerNPCTalk_AskPlayerOriginalBag:
+	msgbox TestIsland_Text_Player_Bag_Original_Ask, MSGBOX_YESNO
+	goto_if_eq VAR_RESULT, NO, TestIsland_EventScript_FollowerNPCTalk_PlayerBagDone
+	special Special_TogglePlayerBagColor
+	msgbox TestIsland_Text_Player_Bag_Original_Done, MSGBOX_DEFAULT
+
+TestIsland_EventScript_FollowerNPCTalk_PlayerBagDone:
 	return
 
 TestIsland_EventScript_FollowerNPCTalk_DisablePrompt:
@@ -297,6 +316,20 @@ TestIsland_Text_Player_Hair_Blonde_Done:
 TestIsland_Text_Player_Hair_Original_Done:
 	.string "listo, volviste a tu color de pelo\n"
 	.string "original en combate.$"
+
+TestIsland_Text_Player_Bag_Red_Ask:
+	.string "quieres cambiar tu bolso a rojo?$"
+
+TestIsland_Text_Player_Bag_Original_Ask:
+	.string "quieres volver tu bolso al color\n"
+	.string "original?$"
+
+TestIsland_Text_Player_Bag_Red_Done:
+	.string "listo, tu bolso ahora se vera rojo.$"
+
+TestIsland_Text_Player_Bag_Original_Done:
+	.string "listo, tu bolso volvio a su color\n"
+	.string "original.$"
 
 TestIsland_EventScript_WarpToRoute101::
 	lock

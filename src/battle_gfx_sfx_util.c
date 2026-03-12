@@ -701,6 +701,29 @@ void DecompressTrainerFrontPic(u16 frontPicId, u8 battler)
     TimeMixBattleSpritePalette(OBJ_PLTT_ID(paletteNum));
 }
 
+static void ApplyPlayerBrendanBagPaletteToBattleSlot(u8 battler)
+{
+    u16 i;
+    u16 *unfaded;
+    u16 *faded;
+
+    if (gSaveBlock2Ptr->playerGender != MALE)
+        return;
+    if (!GetFollowerNPCData(FNPC_DATA_PLAYER_BAG_COLOR))
+        return;
+
+    unfaded = gPlttBufferUnfaded + OBJ_PLTT_ID(battler);
+    faded = gPlttBufferFaded + OBJ_PLTT_ID(battler);
+    for (i = 0; i < 16; i++)
+    {
+        if (unfaded[i] == RGB(12, 10, 7))
+            unfaded[i] = RGB(24, 5, 5);   // #C62929 (GBA quantized)
+        else if (unfaded[i] == RGB(22, 18, 12))
+            unfaded[i] = RGB(27, 12, 12); // #DF6262 (GBA quantized)
+    }
+    CpuCopy16(unfaded, faded, PLTT_SIZE_4BPP);
+}
+
 void DecompressTrainerBackPic(u16 backPicId, u8 battler)
 {
     u8 position = GetBattlerPosition(battler);
@@ -724,6 +747,8 @@ void DecompressTrainerBackPic(u16 backPicId, u8 battler)
 
     CopyTrainerBackspriteFramesToDest(backPicId, gMonSpritesGfxPtr->spritesGfx[position]);
     LoadPalette(backPalette, OBJ_PLTT_ID(battler), PLTT_SIZE_4BPP);
+    if (backPicId == TRAINER_BACK_PIC_BRENDAN && position == B_POSITION_PLAYER_LEFT)
+        ApplyPlayerBrendanBagPaletteToBattleSlot(battler);
     TimeMixBattleSpritePalette(OBJ_PLTT_ID(battler));
 }
 
