@@ -13,7 +13,7 @@ Objetivo: reconstruir gradualmente sobre base limpia (`rebuild/from-upstream-cle
 - [x] Warps y spawns de testing estables
 
 ## Bloque 2 - Main Menu (Archie/Mudskip)
-- [ ] Menu principal custom con mugshot
+- [x] Menu principal custom con mugshot
 - [ ] Navegacion y opciones bloqueadas/desbloqueadas
 - [ ] Textos/offsets/paletas del main menu estabilizados
 
