@@ -15,14 +15,14 @@ Objetivo: reconstruir gradualmente sobre base limpia (`rebuild/from-upstream-cle
 ## Bloque 2 - Main Menu (Archie/Mudskip)
 - [x] Menu principal custom con mugshot
 - [x] Navegacion y opciones bloqueadas/desbloqueadas
-- [ ] Textos/offsets/paletas del main menu estabilizados
+- [x] Textos/offsets/paletas del main menu estabilizados
 
 ## Bloque 3 - Start Menu Full Screen
-- [ ] Fondo scroll + botones 3x3
-- [ ] Cursor y seleccion estable sin corrupcion
-- [ ] Integracion funcional reemplazando start menu vanilla
-- [ ] Ordenamiento dinamico de botones sin huecos
-- [ ] Reloj en barra superior
+- [x] Fondo scroll + botones 3x3
+- [x] Cursor y seleccion estable sin corrupcion
+- [x] Integracion funcional reemplazando start menu vanilla
+- [x] Ordenamiento dinamico de botones sin huecos
+- [x] Reloj en barra superior
 
 ## Bloque 4 - Followers
 - [ ] Follower NPC activable/desactivable hablando
