@@ -327,6 +327,17 @@ const struct Tileset gTileset_SeashoreHouse =
     .callback = NULL,
 };
 
+const struct Tileset gTileset_EdificioPokeball =
+{
+    .isCompressed = FALSE,
+    .isSecondary = TRUE,
+    .tiles = gTilesetTiles_EdificioPokeball,
+    .palettes = gTilesetPalettes_EdificioPokeball,
+    .metatiles = gMetatiles_EdificioPokeball,
+    .metatileAttributes = gMetatileAttributes_EdificioPokeball,
+    .callback = NULL,
+};
+
 const struct Tileset gTileset_PrettyPetalFlowerShop =
 {
     .isCompressed = TRUE,

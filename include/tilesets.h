@@ -40,6 +40,7 @@ extern const struct Tileset gTileset_Mauville;
 extern const struct Tileset gTileset_BattleFrontierOutsideWest;
 extern const struct Tileset gTileset_BattleTent;
 extern const struct Tileset gTileset_TrainerHill;
+extern const struct Tileset gTileset_EdificioPokeball;
 extern const struct Tileset gTileset_PuebloCiendraPool;
 extern const struct Tileset gTileset_PuebloCiendraPoolAuto;
 extern const struct Tileset gTileset_PoolTransparentAuto;

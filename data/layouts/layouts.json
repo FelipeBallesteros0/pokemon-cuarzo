@@ -9325,6 +9325,16 @@
       "layout_version": "frlg"
     },
     {
+      "id": "LAYOUT_TEST_ISLAND",
+      "name": "TestIsland_Layout",
+      "width": 80,
+      "height": 50,
+      "primary_tileset": "gTileset_General",
+      "secondary_tileset": "gTileset_EdificioPokeball",
+      "border_filepath": "data/layouts/TestIsland/border.bin",
+      "blockdata_filepath": "data/layouts/TestIsland/map.bin"
+    },
+    {
       "id": "LAYOUT_PUEBLO_CIENDRA",
       "name": "PuebloCiendra_Layout",
       "width": 40,

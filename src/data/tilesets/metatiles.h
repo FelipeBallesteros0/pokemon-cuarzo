@@ -84,6 +84,9 @@ const u16 gMetatileAttributes_OceanicMuseum[] = INCBIN_U16("data/tilesets/second
 const u16 gMetatiles_CableClub[] = INCBIN_U16("data/tilesets/secondary/cable_club/metatiles.bin");
 const u16 gMetatileAttributes_CableClub[] = INCBIN_U16("data/tilesets/secondary/cable_club/metatile_attributes.bin");
 
+const u16 gMetatiles_EdificioPokeball[] = INCBIN_U16("data/tilesets/secondary/edificio_pokeball/metatiles.bin");
+const u16 gMetatileAttributes_EdificioPokeball[] = INCBIN_U16("data/tilesets/secondary/edificio_pokeball/metatile_attributes.bin");
+
 const u16 gMetatiles_SeashoreHouse[] = INCBIN_U16("data/tilesets/secondary/seashore_house/metatiles.bin");
 const u16 gMetatileAttributes_SeashoreHouse[] = INCBIN_U16("data/tilesets/secondary/seashore_house/metatile_attributes.bin");
 

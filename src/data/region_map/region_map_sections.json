@@ -1632,6 +1632,10 @@
       "height": 1
     },
     {
+      "id": "MAPSEC_TEST_ISLAND",
+      "name": "Isla de pruebas"
+    },
+    {
       "id": "MAPSEC_PUEBLO_CIENDRA",
       "name": "Pueblo Ciendra"
     }
