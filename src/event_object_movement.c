@@ -3047,7 +3047,33 @@ static void SetBerryTreeGraphicsById(struct ObjectEvent *objectEvent, u8 berryId
     const u16 graphicsId = gBerryTreeObjectEventGraphicsIdTable[berryStage];
     const struct ObjectEventGraphicsInfo *graphicsInfo = GetObjectEventGraphicsInfo(graphicsId);
     struct Sprite *sprite = &gSprites[objectEvent->spriteId];
-    UpdateSpritePalette(&sObjectEventSpritePalettes[gBerryTreePaletteSlotTablePointers[berryId][berryStage]-2], sprite);
+    u8 berryPalSlot = gBerryTreePaletteSlotTablePointers[berryId][berryStage];
+    u16 berryPaletteTag;
+    u8 paletteIndex;
+
+    // Berry palette slots 2..5 correspond to NPC_1..NPC_4 palette tags.
+    // Do not index sObjectEventSpritePalettes directly by slot offset: the table
+    // includes non-NPC entries (e.g. boulders) between NPC tags.
+    switch (berryPalSlot)
+    {
+    case 3:
+        berryPaletteTag = OBJ_EVENT_PAL_TAG_NPC_2;
+        break;
+    case 4:
+        berryPaletteTag = OBJ_EVENT_PAL_TAG_NPC_3;
+        break;
+    case 5:
+        berryPaletteTag = OBJ_EVENT_PAL_TAG_NPC_4;
+        break;
+    case 2:
+    default:
+        berryPaletteTag = OBJ_EVENT_PAL_TAG_NPC_1;
+        break;
+    }
+
+    paletteIndex = FindObjectEventPaletteIndexByTag(berryPaletteTag);
+    if (paletteIndex != 0xFF)
+        UpdateSpritePalette(&sObjectEventSpritePalettes[paletteIndex], sprite);
     sprite->oam.shape = graphicsInfo->oam->shape;
     sprite->oam.size = graphicsInfo->oam->size;
     sprite->images = gBerryTreePicTablePointers[berryId];
