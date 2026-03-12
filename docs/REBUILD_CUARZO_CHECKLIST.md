@@ -14,7 +14,7 @@ Objetivo: reconstruir gradualmente sobre base limpia (`rebuild/from-upstream-cle
 
 ## Bloque 2 - Main Menu (Archie/Mudskip)
 - [x] Menu principal custom con mugshot
-- [ ] Navegacion y opciones bloqueadas/desbloqueadas
+- [x] Navegacion y opciones bloqueadas/desbloqueadas
 - [ ] Textos/offsets/paletas del main menu estabilizados
 
 ## Bloque 3 - Start Menu Full Screen
