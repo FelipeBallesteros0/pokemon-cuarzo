@@ -1975,6 +1975,10 @@ static void StartMenu_DisableScrollingBg(void)
     }
     CopyMapTilesetsToVram(gMapHeader.mapLayout);
     LoadMapTilesetPalettes(gMapHeader.mapLayout);
+    // Restoring tileset palettes resets BG colors; reapply DNS tint immediately.
+    UpdateTimeOfDay();
+    UpdateAltBgPalettes(PALETTES_MAP);
+    UpdatePalettesWithTime(PALETTES_MAP);
     InitTilesetAnimations();
     UpdateTilesetAnimations();
     TransferTilesetAnimsBuffer();
