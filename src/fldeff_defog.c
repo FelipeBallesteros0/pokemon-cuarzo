@@ -72,7 +72,8 @@ static void FieldMove_Defog(void)
     PlaySE12WithPanning(SE_M_SOLAR_BEAM, SOUND_PAN_ATTACKER);
     SetWeatherScreenFadeOut();
     FieldEffectActiveListRemove(FLDEFF_DEFOG);
-    SetWeather(WEATHER_NONE);
+    // Do not queue a parallel weather transition here; EndDefogTask handles
+    // the entire fog clear and commits WEATHER_NONE atomically at the end.
     u32 taskId = CreateTask(EndDefogTask, 0);
     gTasks[taskId].tFrameCount = 0;
     gTasks[taskId].tFogBlend = 9;   // max fog coeff used by custom fog palette blend
@@ -104,7 +105,7 @@ static void EndDefogTask(u8 taskId)
     // Reset weather state machine/palettes explicitly so custom fog modes
     // are cleared immediately without requiring UI/map refresh.
     SetWeatherPalStateIdle();
-    SetCurrentAndNextWeather(WEATHER_NONE);
+    SetCurrentAndNextWeatherNoDelay(WEATHER_NONE);
     ApplyWeatherColorMapIfIdle(0);
     ApplyWeatherColorMapToPals(0, 32);
     UpdateAltBgPalettes(PALETTES_BG);
