@@ -8,7 +8,7 @@ Objetivo: reconstruir gradualmente sobre base limpia (`rebuild/from-upstream-cle
 - [x] Tilesets pool registrados y compilando
 
 ## Bloque 1 - Mapas de prueba
-- [ ] Isla de Pruebas completa (mapa/layout/scripts/eventos)
+- [x] Isla de Pruebas completa (mapa/layout/scripts/eventos)
 - [x] NPC utilitario de transporte y pruebas
 - [x] Warps y spawns de testing estables
 
@@ -38,13 +38,13 @@ Objetivo: reconstruir gradualmente sobre base limpia (`rebuild/from-upstream-cle
 
 ## Bloque 6 - Menus extra
 - [x] Port `original_tx_registered_items_menu`
-- [ ] Verificacion completa de flujo de objetos registrados
+- [x] Verificacion completa de flujo de objetos registrados
 
 ## Bloque 7 - Pesca y minijuego
-- [ ] Integracion Fishing Minigame (Stardew style)
+- [x] Integracion Fishing Minigame (Stardew style)
 - [ ] Flujo completo: pique -> minijuego -> combate
 - [ ] Sin cuelgues/ventanas en blanco
-- [ ] Isla de Pruebas sin pesca forzada a Magikarp
+- [x] Isla de Pruebas sin pesca forzada a Magikarp
 
 ## Bloque 8 - Clima y field moves
 - [ ] Niebla custom + capas + transiciones
