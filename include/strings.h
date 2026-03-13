@@ -2180,6 +2180,26 @@ extern const u8 gText_Cancel3[];
 extern const u8 gText_ExpShareOn[];
 extern const u8 gText_ExpShareOff[];
 
+// Fishing Minigame
+extern const u8 gText_OhABite[];
+extern const u8 gText_PokemonOnHook[];
+extern const u8 gText_NotEvenANibble[];
+extern const u8 gText_ItGotAway[];
+extern const u8 gText_ReelItIn[];
+extern const u8 gText_HelpfulTextHigher0[];
+extern const u8 gText_HelpfulTextHigher1[];
+extern const u8 gText_HelpfulTextHigher2[];
+extern const u8 gText_HelpfulTextLower0[];
+extern const u8 gText_HelpfulTextLower1[];
+extern const u8 gText_HelpfulTextLower2[];
+extern const u8 gText_FishingWantToQuit[];
+extern const u8 gText_ReeledInAPokemon[];
+extern const u8 gText_PokemonGotAway[];
+extern const u8 gText_ReeledInTreasure[];
+extern const u8 gText_FoundATreasureItem[];
+extern const u8 gText_PutTreasureInPocket[];
+extern const u8 gText_NoRoomForTreasure[];
+
 // Move Relearner
 extern const u8 MoveRelearner_Text_LevelUpMoveLWR[];
 extern const u8 MoveRelearner_Text_EggMoveLWR[];

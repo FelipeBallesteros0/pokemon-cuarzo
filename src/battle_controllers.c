@@ -1975,21 +1975,9 @@ static void SetBattlerMonData(enum BattlerId battler, struct Pokemon *party, u32
 // In normal singles, if follower Pokémon exists, and the Pokémon following is being sent out, have it slide in instead of being thrown
 static bool8 ShouldDoSlideInAnim(enum BattlerId battler)
 {
-    struct ObjectEvent *followerObj = GetFollowerObject();
-    if (!followerObj || followerObj->invisible)
-        return FALSE;
-
-    if (gBattleTypeFlags & (
-        BATTLE_TYPE_LINK | BATTLE_TYPE_DOUBLE | BATTLE_TYPE_FRONTIER | BATTLE_TYPE_FIRST_BATTLE |
-        BATTLE_TYPE_SAFARI | BATTLE_TYPE_CATCH_TUTORIAL | BATTLE_TYPE_EREADER_TRAINER | BATTLE_TYPE_TWO_OPPONENTS |
-        BATTLE_TYPE_INGAME_PARTNER | BATTLE_TYPE_RECORDED | BATTLE_TYPE_TRAINER_HILL)
-    )
-        return FALSE;
-
-    if (GetFirstLiveMon() != GetBattlerMon(battler))
-        return FALSE;
-
-    return TRUE;
+    (void)battler;
+    // Cuarzo: keep vanilla send-out ball throw visible.
+    return FALSE;
 }
 
 void StartSendOutAnim(enum BattlerId battler, bool32 dontClearTransform, bool32 dontClearSubstituteBit, bool32 doSlideIn)
