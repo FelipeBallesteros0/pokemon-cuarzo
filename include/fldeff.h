@@ -58,5 +58,6 @@ bool32 SetUpFieldMove_Haze(void);
 bool32 SetUpFieldMove_SunnyDay(void);
 bool32 SetUpFieldMove_RainDance(void);
 bool32 SetUpFieldMove_Hail(void);
+bool32 SetUpFieldMove_Bounce(void);
 
 #endif // GUARD_FLDEFF_H

@@ -32,6 +32,9 @@ enum FieldMove
     FIELD_MOVE_RAIN_DANCE,
     FIELD_MOVE_HAIL,
 #endif
+#if OW_BOUNCE_FIELD_MOVE == TRUE
+    FIELD_MOVE_BOUNCE,
+#endif
     FIELD_MOVES_COUNT
 };
 

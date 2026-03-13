@@ -208,6 +208,7 @@ static void SetWalkSlowSpriteData(struct Sprite *, enum Direction);
 static bool8 UpdateWalkSlowAnim(struct Sprite *);
 static bool8 UpdateWalkSlowStairs(struct ObjectEvent *objectEvent, struct Sprite *sprite);
 static u8 DoJumpSpriteMovement(struct Sprite *);
+static u8 DoJumpLongSpriteMovement(struct Sprite *);
 static u8 DoJumpSpecialSpriteMovement(struct Sprite *);
 static void CreateLevitateMovementTask(struct ObjectEvent *);
 static void DestroyLevitateMovementTask(u8);
@@ -6816,6 +6817,8 @@ static const u8 sActionIdToCopyableMovement[] = {
     // Not a typo; follower needs to take an action with a duration == JUMP's,
     // and JUMP2 here will lead to WALK_SLOW later
     [MOVEMENT_ACTION_JUMP_DOWN ... MOVEMENT_ACTION_JUMP_RIGHT] = COPY_MOVE_JUMP2,
+    [MOVEMENT_ACTION_JUMP_LONG_LEFT] = COPY_MOVE_JUMP2,
+    [MOVEMENT_ACTION_JUMP_LONG_RIGHT] = COPY_MOVE_JUMP2,
 
     [MOVEMENT_ACTION_NONE] = COPY_MOVE_NONE,
 };
@@ -7456,6 +7459,26 @@ static void InitJumpRegular(struct ObjectEvent *objectEvent, struct Sprite *spri
 
 #define sDistance data[4]
 
+static void InitJumpLongHorizontal(struct ObjectEvent *objectEvent, struct Sprite *sprite, enum Direction direction)
+{
+    s16 x = 0;
+    s16 y = 0;
+
+    if (OW_OBJECT_VANILLA_SHADOWS)
+        SetUpShadow(objectEvent);
+    SetObjectEventDirection(objectEvent, direction);
+    // Rock-to-rock jump covers 6 tiles total: 3 now and 3 at mid-air.
+    MoveCoordsInDirection(direction, &x, &y, 3, 3);
+    ShiftObjectEventCoords(objectEvent, objectEvent->currentCoords.x + x, objectEvent->currentCoords.y + y);
+    SetJumpSpriteData(sprite, direction, JUMP_DISTANCE_FAR, JUMP_TYPE_HIGH);
+    sprite->sActionFuncId = 1;
+    sprite->animPaused = FALSE;
+    objectEvent->triggerGroundEffectsOnMove = TRUE;
+    objectEvent->disableCoveringGroundEffects = TRUE;
+    SetStepAnimHandleAlternation(objectEvent, sprite, GetMoveDirectionAnimNum(objectEvent->facingDirection));
+    DoShadowFieldEffect(objectEvent);
+}
+
 static u8 UpdateJumpAnim(struct ObjectEvent *objectEvent, struct Sprite *sprite, u8 callback(struct Sprite *))
 {
     s16 displacements[ARRAY_COUNT(sJumpDisplacements)];
@@ -7488,6 +7511,32 @@ static u8 UpdateJumpAnim(struct ObjectEvent *objectEvent, struct Sprite *sprite,
     return result;
 }
 
+static u8 UpdateJumpLongAnim(struct ObjectEvent *objectEvent, struct Sprite *sprite, u8 callback(struct Sprite *))
+{
+    s16 x = 0;
+    s16 y = 0;
+    u8 result;
+
+    result = callback(sprite);
+    if (result == JUMP_HALFWAY)
+    {
+        MoveCoordsInDirection(objectEvent->movementDirection, &x, &y, 3, 3);
+        ShiftObjectEventCoords(objectEvent, objectEvent->currentCoords.x + x, objectEvent->currentCoords.y + y);
+        objectEvent->triggerGroundEffectsOnMove = TRUE;
+        objectEvent->disableCoveringGroundEffects = TRUE;
+    }
+    else if (result == JUMP_FINISHED)
+    {
+        ShiftStillObjectEventCoords(objectEvent);
+        objectEvent->triggerGroundEffectsOnStop = TRUE;
+        objectEvent->landingJump = TRUE;
+        sprite->animPaused = TRUE;
+        if (OW_OBJECT_VANILLA_SHADOWS)
+            objectEvent->jumpDone = TRUE;
+    }
+    return result;
+}
+
 #undef sDistance
 
 static u8 DoJumpAnimStep(struct ObjectEvent *objectEvent, struct Sprite *sprite)
@@ -7498,6 +7547,11 @@ static u8 DoJumpAnimStep(struct ObjectEvent *objectEvent, struct Sprite *sprite)
 static u8 DoJumpSpecialAnimStep(struct ObjectEvent *objectEvent, struct Sprite *sprite)
 {
     return UpdateJumpAnim(objectEvent, sprite, DoJumpSpecialSpriteMovement);
+}
+
+static u8 DoJumpLongAnimStep(struct ObjectEvent *objectEvent, struct Sprite *sprite)
+{
+    return UpdateJumpLongAnim(objectEvent, sprite, DoJumpLongSpriteMovement);
 }
 
 static bool8 DoJumpAnim(struct ObjectEvent *objectEvent, struct Sprite *sprite)
@@ -7511,6 +7565,14 @@ static bool8 DoJumpAnim(struct ObjectEvent *objectEvent, struct Sprite *sprite)
 static bool8 DoJumpSpecialAnim(struct ObjectEvent *objectEvent, struct Sprite *sprite)
 {
     if (DoJumpSpecialAnimStep(objectEvent, sprite) == JUMP_FINISHED)
+        return TRUE;
+
+    return FALSE;
+}
+
+static bool8 DoJumpLongAnim(struct ObjectEvent *objectEvent, struct Sprite *sprite)
+{
+    if (DoJumpLongAnimStep(objectEvent, sprite) == JUMP_FINISHED)
         return TRUE;
 
     return FALSE;
@@ -7590,6 +7652,40 @@ bool8 MovementAction_Jump2Right_Step0(struct ObjectEvent *objectEvent, struct Sp
 bool8 MovementAction_Jump2Right_Step1(struct ObjectEvent *objectEvent, struct Sprite *sprite)
 {
     if (DoJumpAnim(objectEvent, sprite))
+    {
+        objectEvent->noShadow = FALSE;
+        sprite->sActionFuncId = 2;
+        return TRUE;
+    }
+    return FALSE;
+}
+
+bool8 MovementAction_JumpLongLeft_Step0(struct ObjectEvent *objectEvent, struct Sprite *sprite)
+{
+    InitJumpLongHorizontal(objectEvent, sprite, DIR_WEST);
+    return MovementAction_JumpLongLeft_Step1(objectEvent, sprite);
+}
+
+bool8 MovementAction_JumpLongLeft_Step1(struct ObjectEvent *objectEvent, struct Sprite *sprite)
+{
+    if (DoJumpLongAnim(objectEvent, sprite))
+    {
+        objectEvent->noShadow = FALSE;
+        sprite->sActionFuncId = 2;
+        return TRUE;
+    }
+    return FALSE;
+}
+
+bool8 MovementAction_JumpLongRight_Step0(struct ObjectEvent *objectEvent, struct Sprite *sprite)
+{
+    InitJumpLongHorizontal(objectEvent, sprite, DIR_EAST);
+    return MovementAction_JumpLongRight_Step1(objectEvent, sprite);
+}
+
+bool8 MovementAction_JumpLongRight_Step1(struct ObjectEvent *objectEvent, struct Sprite *sprite)
+{
+    if (DoJumpLongAnim(objectEvent, sprite))
     {
         objectEvent->noShadow = FALSE;
         sprite->sActionFuncId = 2;
@@ -10904,6 +11000,34 @@ static u8 DoJumpSpriteMovement(struct Sprite *sprite)
         result = JUMP_HALFWAY;
 
     if (sprite->sTimer >= distanceToTime[sprite->sDistance])
+    {
+        sprite->y2 = 0;
+        result = JUMP_FINISHED;
+    }
+
+    return result;
+}
+
+static u8 DoJumpLongSpriteMovement(struct Sprite *sprite)
+{
+    u8 result = 0;
+    u8 arcIdx;
+    s16 jumpY;
+
+    // 48 frames total for a single smooth central jump (6 tiles).
+    Step2(sprite, sprite->sDirection);
+    // Map timer [0..47] to jump curve index [0..15], then boost height.
+    arcIdx = (sprite->sTimer * 16) / 48;
+    if (arcIdx > 15)
+        arcIdx = 15;
+    jumpY = GetJumpY(arcIdx, JUMP_TYPE_HIGH);
+    sprite->y2 = (jumpY * 3) / 2;
+    sprite->sTimer++;
+
+    if (sprite->sTimer == 24)
+        result = JUMP_HALFWAY;
+
+    if (sprite->sTimer >= 48)
     {
         sprite->y2 = 0;
         result = JUMP_FINISHED;

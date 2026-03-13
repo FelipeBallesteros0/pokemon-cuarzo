@@ -20,6 +20,8 @@
 	create_movement_action jump_2_up, MOVEMENT_ACTION_JUMP_2_UP
 	create_movement_action jump_2_left, MOVEMENT_ACTION_JUMP_2_LEFT
 	create_movement_action jump_2_right, MOVEMENT_ACTION_JUMP_2_RIGHT
+	create_movement_action jump_long_left, MOVEMENT_ACTION_JUMP_LONG_LEFT
+	create_movement_action jump_long_right, MOVEMENT_ACTION_JUMP_LONG_RIGHT
 	create_movement_action delay_1, MOVEMENT_ACTION_DELAY_1
 	create_movement_action delay_2, MOVEMENT_ACTION_DELAY_2
 	create_movement_action delay_4, MOVEMENT_ACTION_DELAY_4

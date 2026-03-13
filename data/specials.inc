@@ -640,3 +640,4 @@ gSpecials::
 	def_special CheckAddCoins
 	def_special Special_SetTimeOfDayFromVar8004
 	def_special Special_SyncClockToRtc
+	def_special Special_GetFirstBounceMonIndex

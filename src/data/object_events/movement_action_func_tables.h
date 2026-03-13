@@ -44,6 +44,10 @@ u8 MovementAction_Jump2Left_Step0(struct ObjectEvent *, struct Sprite *);
 u8 MovementAction_Jump2Left_Step1(struct ObjectEvent *, struct Sprite *);
 u8 MovementAction_Jump2Right_Step0(struct ObjectEvent *, struct Sprite *);
 u8 MovementAction_Jump2Right_Step1(struct ObjectEvent *, struct Sprite *);
+u8 MovementAction_JumpLongLeft_Step0(struct ObjectEvent *, struct Sprite *);
+u8 MovementAction_JumpLongLeft_Step1(struct ObjectEvent *, struct Sprite *);
+u8 MovementAction_JumpLongRight_Step0(struct ObjectEvent *, struct Sprite *);
+u8 MovementAction_JumpLongRight_Step1(struct ObjectEvent *, struct Sprite *);
 u8 MovementAction_Delay1_Step0(struct ObjectEvent *, struct Sprite *);
 u8 MovementAction_Delay_Step1(struct ObjectEvent *, struct Sprite *);
 u8 MovementAction_Finish(struct ObjectEvent *, struct Sprite *);
@@ -319,6 +323,8 @@ u8 (*const gMovementActionFuncs_Jump2Down[])(struct ObjectEvent *, struct Sprite
 u8 (*const gMovementActionFuncs_Jump2Up[])(struct ObjectEvent *, struct Sprite *);
 u8 (*const gMovementActionFuncs_Jump2Left[])(struct ObjectEvent *, struct Sprite *);
 u8 (*const gMovementActionFuncs_Jump2Right[])(struct ObjectEvent *, struct Sprite *);
+u8 (*const gMovementActionFuncs_JumpLongLeft[])(struct ObjectEvent *, struct Sprite *);
+u8 (*const gMovementActionFuncs_JumpLongRight[])(struct ObjectEvent *, struct Sprite *);
 u8 (*const gMovementActionFuncs_Delay1[])(struct ObjectEvent *, struct Sprite *);
 u8 (*const gMovementActionFuncs_Delay2[])(struct ObjectEvent *, struct Sprite *);
 u8 (*const gMovementActionFuncs_Delay4[])(struct ObjectEvent *, struct Sprite *);
@@ -672,6 +678,8 @@ u8 (*const *const gMovementActionFuncs[])(struct ObjectEvent *, struct Sprite *)
     [MOVEMENT_ACTION_SPIN_UP]          = gMovementActionFuncs_SpinUp,
     [MOVEMENT_ACTION_SPIN_LEFT]        = gMovementActionFuncs_SpinLeft,
     [MOVEMENT_ACTION_SPIN_RIGHT]       = gMovementActionFuncs_SpinRight,
+    [MOVEMENT_ACTION_JUMP_LONG_LEFT]   = gMovementActionFuncs_JumpLongLeft,
+    [MOVEMENT_ACTION_JUMP_LONG_RIGHT]  = gMovementActionFuncs_JumpLongRight,
 };
 
 u8 (*const gMovementActionFuncs_FaceDown[])(struct ObjectEvent *, struct Sprite *) = {
@@ -830,6 +838,18 @@ u8 (*const gMovementActionFuncs_Jump2Left[])(struct ObjectEvent *, struct Sprite
 u8 (*const gMovementActionFuncs_Jump2Right[])(struct ObjectEvent *, struct Sprite *) = {
     MovementAction_Jump2Right_Step0,
     MovementAction_Jump2Right_Step1,
+    MovementAction_PauseSpriteAnim,
+};
+
+u8 (*const gMovementActionFuncs_JumpLongLeft[])(struct ObjectEvent *, struct Sprite *) = {
+    MovementAction_JumpLongLeft_Step0,
+    MovementAction_JumpLongLeft_Step1,
+    MovementAction_PauseSpriteAnim,
+};
+
+u8 (*const gMovementActionFuncs_JumpLongRight[])(struct ObjectEvent *, struct Sprite *) = {
+    MovementAction_JumpLongRight_Step0,
+    MovementAction_JumpLongRight_Step1,
     MovementAction_PauseSpriteAnim,
 };
 

@@ -131,6 +131,13 @@ static bool32 IsFieldMoveUnlocked_Hail(void)
 }
 #endif
 
+#if OW_BOUNCE_FIELD_MOVE == TRUE
+static bool32 IsFieldMoveUnlocked_Bounce(void)
+{
+    return TRUE;
+}
+#endif
+
 const struct FieldMoveInfo gFieldMoveInfo[FIELD_MOVES_COUNT] =
 {
     [FIELD_MOVE_CUT] =
@@ -291,6 +298,15 @@ const struct FieldMoveInfo gFieldMoveInfo[FIELD_MOVES_COUNT] =
         .fieldMoveFunc = SetUpFieldMove_Hail,
         .isUnlockedFunc = IsFieldMoveUnlocked_Hail,
         .moveID = MOVE_HAIL,
+        .partyMsgID = PARTY_MSG_CANT_USE_HERE,
+    },
+#endif
+#if OW_BOUNCE_FIELD_MOVE == TRUE
+    [FIELD_MOVE_BOUNCE] =
+    {
+        .fieldMoveFunc = SetUpFieldMove_Bounce,
+        .isUnlockedFunc = IsFieldMoveUnlocked_Bounce,
+        .moveID = MOVE_BOUNCE,
         .partyMsgID = PARTY_MSG_CANT_USE_HERE,
     },
 #endif

@@ -13,6 +13,7 @@
 #define OW_DEFOG_FIELD_MOVE             TRUE       // If enabled, Defog can be used as a Field Move as seen in DPPt.
 #define OW_HAZE_FIELD_MOVE              TRUE       // If enabled, Haze can be used as a Field Move to clear fog-like weather.
 #define OW_WEATHER_MOVES_FIELD_MOVE     TRUE       // If enabled, Sunny Day / Rain Dance / Hail can be used as Field Moves.
+#define OW_BOUNCE_FIELD_MOVE            TRUE       // If enabled, Bounce can be used as a Field Move in scripted jump spots.
 #define OW_ROCK_CLIMB_FIELD_MOVE        FALSE      // If enabled, Rock Climb can be used as a Field Move as seen in DPPt.
 #define OW_CHOOSE_FROM_PC_AND_PARTY     TRUE       // If enabled, NPCs like move tutors or trainers asking for trade will let you pick a pokemon from your PC or party instead of just your party
 

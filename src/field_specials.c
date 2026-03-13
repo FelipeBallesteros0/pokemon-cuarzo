@@ -1638,6 +1638,21 @@ u8 GetLeadMonIndex(void)
     return 0;
 }
 
+u16 Special_GetFirstBounceMonIndex(void)
+{
+    u8 i;
+    u8 partyCount = CalculatePlayerPartyCount();
+
+    for (i = 0; i < partyCount; i++)
+    {
+        if (!GetMonData(&gPlayerParty[i], MON_DATA_IS_EGG, NULL)
+         && MonKnowsMove(&gPlayerParty[i], MOVE_BOUNCE))
+            return i;
+    }
+
+    return PARTY_SIZE;
+}
+
 u16 ScriptGetPartyMonSpecies(void)
 {
     return GetMonData(&gPlayerParty[gSpecialVar_0x8004], MON_DATA_SPECIES_OR_EGG, NULL);
