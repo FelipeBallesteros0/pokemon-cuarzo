@@ -32,6 +32,7 @@ struct DoorAnimFrame
 };
 
 static bool8 ShouldUseMultiCorridorDoor(void);
+static const struct DoorGraphics *GetDoorGraphics(const struct DoorGraphics *gfx, u16 metatileNum);
 
 static const u8 sDoorAnimTiles_Littleroot[] = INCBIN_U8("graphics/door_anims/littleroot.4bpp");
 static const u16 sDoorNullPalette1[16] = {};
@@ -283,9 +284,9 @@ static const u8 sDoorAnimPalettes_UnusedBattleFrontier[] = {9, 9, 9, 9, 9, 9, 9,
 static const u8 sDoorAnimPalettes_BattleDome[] = {1, 1, 1, 1, 1, 1, 1, 1};
 static const u8 sDoorAnimPalettes_BattleFactory[] = {9, 9, 9, 9, 9, 9, 9, 9};
 static const u8 sDoorAnimPalettes_EdificioPokeballLeft[] = {6, 6, 6, 6, 6, 6, 6, 6};
-static const u8 sDoorAnimPalettes_EdificioPokeballRight[] = {6, 6, 6, 6, 6, 6, 6, 6};
+static const u8 sDoorAnimPalettes_EdificioPokeballRight[] = {7, 7, 7, 7, 7, 7, 7, 7};
 static const u8 sDoorAnimPalettes_EdificioPokeballLeftExterior[] = {6, 6, 6, 6, 6, 6, 6, 6};
-static const u8 sDoorAnimPalettes_EdificioPokeballRightExterior[] = {6, 6, 6, 6, 6, 6, 6, 6};
+static const u8 sDoorAnimPalettes_EdificioPokeballRightExterior[] = {7, 7, 7, 7, 7, 7, 7, 7};
 static const u8 sDoorAnimPalettes_BattleTower[] = {0, 0, 0, 0, 0, 0, 0, 0};
 static const u8 sDoorAnimPalettes_BattleArena[] = {5, 5, 5, 5, 5, 5, 5, 5};
 static const u8 sDoorAnimPalettes_BattleArenaLobby[] = {7, 7, 7, 7, 7, 7, 7, 7};
@@ -537,6 +538,71 @@ static void DrawCurrentDoorAnimFrame(const struct DoorGraphics *gfx, u32 x, u32 
     }
 }
 
+static bool8 IsCustomPokeballDoorGraphics(const struct DoorGraphics *gfx)
+{
+    return gfx->tiles == sDoorAnimTiles_EdificioPokeballLeft
+        || gfx->tiles == sDoorAnimTiles_EdificioPokeballRight;
+}
+
+static bool8 IsCustomPokeballDoorMetatile(u16 metatileId)
+{
+    return metatileId == 0x201 || metatileId == 0x202
+        || metatileId == 0x209 || metatileId == 0x20A
+        || metatileId == 0x25D || metatileId == 0x25E
+        || metatileId == 0x264 || metatileId == 0x265;
+}
+
+static const struct DoorGraphics *FindLinkedCustomDoorGfx(u32 x, u32 y, u32 *linkedX, u32 *linkedY)
+{
+    u16 metatileId;
+    const struct DoorGraphics *gfx;
+
+    *linkedY = y;
+
+    if (x > 0)
+    {
+        metatileId = MapGridGetMetatileIdAt(x - 1, y);
+        if (IsCustomPokeballDoorMetatile(metatileId))
+        {
+            gfx = GetDoorGraphics(sDoorAnimGraphicsTable, metatileId);
+            if (gfx != NULL)
+            {
+                *linkedX = x - 1;
+                return gfx;
+            }
+        }
+    }
+
+    metatileId = MapGridGetMetatileIdAt(x + 1, y);
+    if (IsCustomPokeballDoorMetatile(metatileId))
+    {
+        gfx = GetDoorGraphics(sDoorAnimGraphicsTable, metatileId);
+        if (gfx != NULL)
+        {
+            *linkedX = x + 1;
+            return gfx;
+        }
+    }
+
+    return NULL;
+}
+
+static void CopySingleDoorTilesToVramAt(const struct DoorGraphics *gfx, const struct DoorAnimFrame *frame, u16 tileStart)
+{
+    CpuFastCopy((const u8 *)gfx->tiles + frame->offset, (void *)(VRAM + TILE_OFFSET_4BPP(tileStart)), 8 * TILE_SIZE_4BPP);
+}
+
+static void DrawSingleDoorAnimFrameAt(const struct DoorGraphics *gfx, u32 x, u32 y, u16 tileStart)
+{
+    u16 tiles[8];
+
+    BuildDoorTiles(tiles, tileStart + 0, gfx->palettes);
+    DrawDoorMetatileAt(x, y - 1, tiles);
+
+    BuildDoorTiles(tiles, tileStart + 4, &((const u8 *)gfx->palettes)[4]);
+    DrawDoorMetatileAt(x, y, tiles);
+}
+
 static void DrawClosedDoorTilesFrlg(const struct DoorGraphics *gfx, int x, int y)
 {
     if (gfx->size == 1)
@@ -568,27 +634,58 @@ static void DrawClosedDoorTiles(const struct DoorGraphics *gfx, u32 x, u32 y)
 
 static void DrawDoor(const struct DoorGraphics *gfx, const struct DoorAnimFrame *frame, u32 x, u32 y)
 {
+    u32 linkedX = 0, linkedY = 0;
+    const struct DoorGraphics *linkedGfx = NULL;
+
+    if (IsCustomPokeballDoorGraphics(gfx))
+        linkedGfx = FindLinkedCustomDoorGfx(x, y, &linkedX, &linkedY);
+
     if (frame->offset == 0xFFFF)
     {
         DrawClosedDoorTiles(gfx, x, y);
+        if (linkedGfx != NULL)
+            DrawClosedDoorTiles(linkedGfx, linkedX, linkedY);
         if (ShouldUseMultiCorridorDoor())
             DrawClosedDoorTiles(gfx, gSpecialVar_0x8004 + MAP_OFFSET, gSpecialVar_0x8005 + MAP_OFFSET);
     }
     else
     {
-        if (gfx->tiles == sDoorAnimTiles_EdificioPokeballLeft
-         || gfx->tiles == sDoorAnimTiles_EdificioPokeballRight)
+        if (IsCustomPokeballDoorGraphics(gfx))
         {
-            if (gfx->tiles == sDoorAnimTiles_EdificioPokeballLeft)
-                LoadPalette(sDoorAnimPalette_EdificioPokeballLeft, BG_PLTT_ID(6), PLTT_SIZE_4BPP);
-            else
-                LoadPalette(sDoorAnimPalette_EdificioPokeballRight, BG_PLTT_ID(6), PLTT_SIZE_4BPP);
+            LoadPalette(sDoorAnimPalette_EdificioPokeballLeft, BG_PLTT_ID(6), PLTT_SIZE_4BPP);
+            LoadPalette(sDoorAnimPalette_EdificioPokeballRight, BG_PLTT_ID(7), PLTT_SIZE_4BPP);
             // Re-apply DNS blend because this palette is loaded dynamically.
-            UpdatePalettesWithTime(1 << 6);
+            UpdatePalettesWithTime((1 << 6) | (1 << 7));
         }
 
-        CopyDoorTilesToVram(gfx, frame);
-        DrawCurrentDoorAnimFrame(gfx, x, y, gfx->palettes);
+        if (linkedGfx != NULL)
+        {
+            const struct DoorGraphics *leftGfx = gfx;
+            const struct DoorGraphics *rightGfx = linkedGfx;
+            u32 leftX = x, leftY = y, rightX = linkedX, rightY = linkedY;
+
+            if (linkedX < x)
+            {
+                leftGfx = linkedGfx;
+                leftX = linkedX;
+                leftY = linkedY;
+                rightGfx = gfx;
+                rightX = x;
+                rightY = y;
+            }
+
+            CopySingleDoorTilesToVramAt(leftGfx, frame, DOOR_TILE_START_SIZE2);
+            DrawSingleDoorAnimFrameAt(leftGfx, leftX, leftY, DOOR_TILE_START_SIZE2);
+
+            CopySingleDoorTilesToVramAt(rightGfx, frame, DOOR_TILE_START_SIZE1);
+            DrawSingleDoorAnimFrameAt(rightGfx, rightX, rightY, DOOR_TILE_START_SIZE1);
+        }
+        else
+        {
+            CopyDoorTilesToVram(gfx, frame);
+            DrawCurrentDoorAnimFrame(gfx, x, y, gfx->palettes);
+        }
+
         if (ShouldUseMultiCorridorDoor())
             DrawCurrentDoorAnimFrame(gfx, gSpecialVar_0x8004 + MAP_OFFSET, gSpecialVar_0x8005 + MAP_OFFSET, gfx->palettes);
     }
