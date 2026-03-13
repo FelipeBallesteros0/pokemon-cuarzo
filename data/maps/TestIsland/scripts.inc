@@ -27,12 +27,47 @@ TestIsland_EventScript_UtilityNpc_DoGiveKit:
 
 TestIsland_EventScript_UtilityNpc_AskWarpRoute101:
 	msgbox TestIsland_Text_UtilityNpc_WarpRoute101, MSGBOX_YESNO
-	goto_if_eq VAR_RESULT, NO, TestIsland_EventScript_UtilityNpc_End
+	goto_if_eq VAR_RESULT, NO, TestIsland_EventScript_UtilityNpc_AskDnsTime
 	setvar VAR_ROUTE101_STATE, 3
 	warp MAP_ROUTE101, 16, 9
 	waitstate
 	release
 	end
+
+TestIsland_EventScript_UtilityNpc_AskDnsTime:
+	msgbox TestIsland_Text_UtilityNpc_AskDnsTime, MSGBOX_YESNO
+	goto_if_eq VAR_RESULT, NO, TestIsland_EventScript_UtilityNpc_End
+	msgbox TestIsland_Text_UtilityNpc_ChooseMorning, MSGBOX_YESNO
+	goto_if_eq VAR_RESULT, YES, TestIsland_EventScript_UtilityNpc_SetMorning
+	msgbox TestIsland_Text_UtilityNpc_ChooseDay, MSGBOX_YESNO
+	goto_if_eq VAR_RESULT, YES, TestIsland_EventScript_UtilityNpc_SetDay
+	msgbox TestIsland_Text_UtilityNpc_ChooseEvening, MSGBOX_YESNO
+	goto_if_eq VAR_RESULT, YES, TestIsland_EventScript_UtilityNpc_SetEvening
+	msgbox TestIsland_Text_UtilityNpc_ChooseNight, MSGBOX_YESNO
+	goto_if_eq VAR_RESULT, YES, TestIsland_EventScript_UtilityNpc_SetNight
+	goto TestIsland_EventScript_UtilityNpc_End
+
+TestIsland_EventScript_UtilityNpc_SetMorning:
+	setvar VAR_0x8004, 8
+	goto TestIsland_EventScript_UtilityNpc_ApplyDnsTime
+
+TestIsland_EventScript_UtilityNpc_SetDay:
+	setvar VAR_0x8004, 13
+	goto TestIsland_EventScript_UtilityNpc_ApplyDnsTime
+
+TestIsland_EventScript_UtilityNpc_SetEvening:
+	setvar VAR_0x8004, 20
+	goto TestIsland_EventScript_UtilityNpc_ApplyDnsTime
+
+TestIsland_EventScript_UtilityNpc_SetNight:
+	setvar VAR_0x8004, 23
+	goto TestIsland_EventScript_UtilityNpc_ApplyDnsTime
+
+TestIsland_EventScript_UtilityNpc_ApplyDnsTime:
+	special Special_SetTimeOfDayFromVar8004
+	dotimebasedevents
+	msgbox TestIsland_Text_UtilityNpc_DnsTimeSet, MSGBOX_DEFAULT
+	goto TestIsland_EventScript_UtilityNpc_End
 
 TestIsland_EventScript_UtilityNpc_End:
 	release
@@ -106,6 +141,25 @@ TestIsland_Text_UtilityNpc_KitGiven:
 
 TestIsland_Text_UtilityNpc_WarpRoute101:
 	.string "quieres que te lleve a ruta 101?$"
+
+TestIsland_Text_UtilityNpc_AskDnsTime:
+	.string "quieres ajustar la hora del dia\n"
+	.string "para probar DNS?$"
+
+TestIsland_Text_UtilityNpc_ChooseMorning:
+	.string "poner MANANA (08:00)?$"
+
+TestIsland_Text_UtilityNpc_ChooseDay:
+	.string "poner DIA (13:00)?$"
+
+TestIsland_Text_UtilityNpc_ChooseEvening:
+	.string "poner TARDE (20:00)?$"
+
+TestIsland_Text_UtilityNpc_ChooseNight:
+	.string "poner NOCHE (23:00)?$"
+
+TestIsland_Text_UtilityNpc_DnsTimeSet:
+	.string "listo, hora aplicada para DNS.$"
 
 TestIsland_Text_FollowerNpc_AskEnable:
 	.string "quieres que te acompane?$"

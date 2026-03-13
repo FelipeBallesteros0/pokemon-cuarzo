@@ -5777,3 +5777,9 @@ bool8 CheckAddCoins(void)
     else
         return TRUE;
 }
+
+u16 Special_SetTimeOfDayFromVar8004(void)
+{
+    SetTimeOfDay(gSpecialVar_0x8004);
+    return TRUE;
+}
