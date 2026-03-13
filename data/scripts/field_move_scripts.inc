@@ -427,6 +427,7 @@ Text_FailSweetScent:
 
 EventScript_UseDefog::
 	lockall
+	copyvar VAR_0x8008, VAR_RESULT
 	bufferpartymonnick STR_VAR_1, VAR_RESULT
 	buffermovename STR_VAR_2, MOVE_DEFOG
 	msgbox Text_MonUsedFieldMove, MSGBOX_DEFAULT
@@ -436,7 +437,7 @@ EventScript_UseDefog::
 	setflag FLAG_SAFE_FOLLOWER_MOVEMENT
 	call_if_eq VAR_0x8004, TRUE, EventScript_FollowerFieldMove
 	waitmovement 0
-	setfieldeffectargument 0, VAR_RESULT
+	setfieldeffectargument 0, VAR_0x8008
 	dofieldeffect FLDEFF_DEFOG
 	waitstate
 	releaseall

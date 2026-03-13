@@ -5,6 +5,7 @@
 #include "field_weather.h"
 #include "fldeff.h"
 #include "palette.h"
+#include "overworld.h"
 #include "party_menu.h"
 #include "script.h"
 #include "sound.h"
@@ -12,18 +13,36 @@
 #include "util.h"
 #include "constants/battle_anim.h"
 #include "constants/field_effects.h"
+#include "constants/field_weather.h"
+#include "constants/rgb.h"
 #include "constants/songs.h"
 #include "constants/weather.h"
 
 static void FieldCallback_Defog(void);
 static void FieldMove_Defog(void);
 static void EndDefogTask(u8 taskId);
+static bool32 CanDefogCurrentWeather(void);
+
+static bool32 CanDefogCurrentWeather(void)
+{
+    switch (gWeather.currWeather)
+    {
+    case WEATHER_FOG_HORIZONTAL:
+    case WEATHER_FOG_DIAGONAL:
+    case WEATHER_FOG:      // aggregate id used by some custom/scripted flows
+    case WEATHER_SHADE:    // custom fog-style atmosphere
+        return TRUE;
+    default:
+        return FALSE;
+    }
+}
 
 bool32 SetUpFieldMove_Defog(void)
 {
-    if (gWeather.currWeather != WEATHER_FOG_HORIZONTAL && gWeather.currWeather != WEATHER_FOG_DIAGONAL)
+    if (!CanDefogCurrentWeather())
         return FALSE;
 
+    gSpecialVar_Result = GetCursorSelectionMonId();
     gFieldCallback2 = FieldCallback_PrepareFadeInFromMenu;
     gPostMenuFieldCallback = FieldCallback_Defog;
     return TRUE;
@@ -44,7 +63,9 @@ bool8 FldEff_Defog(void)
     return FALSE;
 }
 
-#define tFrameCount data[0]
+#define tFrameCount  data[0]
+#define tFogBlend    data[1]
+#define tBlendDelay  data[2]
 
 static void FieldMove_Defog(void)
 {
@@ -54,6 +75,8 @@ static void FieldMove_Defog(void)
     SetWeather(WEATHER_NONE);
     u32 taskId = CreateTask(EndDefogTask, 0);
     gTasks[taskId].tFrameCount = 0;
+    gTasks[taskId].tFogBlend = 9;   // max fog coeff used by custom fog palette blend
+    gTasks[taskId].tBlendDelay = 0; // slow down per-step clear for smoother finish
 };
 
 static void EndDefogTask(u8 taskId)
@@ -63,10 +86,32 @@ static void EndDefogTask(u8 taskId)
 
     gTasks[taskId].tFrameCount++;
 
-    if (gTasks[taskId].tFrameCount != 120)
+    if (gTasks[taskId].tFrameCount < 120)
         return;
 
-    gWeatherPtr->currWeather = WEATHER_NONE;
+    if (gTasks[taskId].tFogBlend > 0)
+    {
+        gTasks[taskId].tBlendDelay++;
+        if (gTasks[taskId].tBlendDelay >= 2)
+        {
+            gTasks[taskId].tBlendDelay = 0;
+            gTasks[taskId].tFogBlend--;
+            ApplyFogPalettesForTransition(gTasks[taskId].tFogBlend);
+        }
+        return;
+    }
+
+    // Reset weather state machine/palettes explicitly so custom fog modes
+    // are cleared immediately without requiring UI/map refresh.
+    SetWeatherPalStateIdle();
+    SetCurrentAndNextWeather(WEATHER_NONE);
+    ApplyWeatherColorMapIfIdle(0);
+    ApplyWeatherColorMapToPals(0, 32);
+    UpdateAltBgPalettes(PALETTES_BG);
+    UpdatePalettesWithTime(PALETTES_ALL);
+    Weather_SetBlendCoeffs(8, BASE_SHADOW_INTENSITY);
+    UpdateShadowColor(RGB_BLACK);
+
     DestroyTask(taskId);
     ScriptContext_Enable();
 }

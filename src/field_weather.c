@@ -45,6 +45,9 @@ static void ApplyColorMap(u8 startPalIndex, u8 numPalettes, s8 colorMapIndex);
 static void ApplyColorMapWithBlend(u8 startPalIndex, u8 numPalettes, s8 colorMapIndex, u8 blendCoeff, u32 blendColor);
 static void ApplyDroughtColorMapWithBlend(s8 colorMapIndex, u8 blendCoeff, u32 blendColor);
 static void ApplyFogBlend(u8 blendCoeff, u32 blendColor);
+static void ApplyFogPalettesWithCoeff(u16 fogCoeff);
+static u32 GetFogObjectPaletteBlendMask(void);
+static void ApplyPersistentFogPalettes(void);
 static bool8 FadeInScreen_RainShowShade(void);
 static bool8 FadeInScreen_Drought(void);
 static bool8 FadeInScreen_FogHorizontal(void);
@@ -334,6 +337,17 @@ static void UpdateWeatherColorMap(void)
 {
     if (gWeatherPtr->palProcessingState != WEATHER_PAL_STATE_SCREEN_FADING_OUT)
     {
+        // Blend-only fog mode: keep fog visible without sprite overlays.
+        if (gWeatherPtr->currWeather == WEATHER_FOG_HORIZONTAL
+         || gWeatherPtr->currWeather == WEATHER_FOG_DIAGONAL)
+        {
+            ApplyPersistentFogPalettes();
+            gWeatherPtr->colorMapIndex = 0;
+            gWeatherPtr->targetColorMapIndex = 0;
+            gWeatherPtr->palProcessingState = WEATHER_PAL_STATE_IDLE;
+            return;
+        }
+
         if (gWeatherPtr->colorMapIndex == gWeatherPtr->targetColorMapIndex)
         {
             gWeatherPtr->palProcessingState = WEATHER_PAL_STATE_IDLE;
@@ -385,10 +399,14 @@ static void FadeInScreenWithWeather(void)
             gWeatherPtr->palProcessingState = WEATHER_PAL_STATE_IDLE;
         }
         break;
+    case WEATHER_FOG_DIAGONAL:
+        ApplyPersistentFogPalettes();
+        gWeatherPtr->colorMapIndex = 0;
+        gWeatherPtr->palProcessingState = WEATHER_PAL_STATE_IDLE;
+        break;
     case WEATHER_SNOW:
     case WEATHER_VOLCANIC_ASH:
     case WEATHER_SANDSTORM:
-    case WEATHER_FOG_DIAGONAL:
     case WEATHER_UNDERWATER:
     default:
         if (!gPaletteFade.active)
@@ -434,16 +452,22 @@ static bool8 FadeInScreen_Drought(void)
 
 static bool8 FadeInScreen_FogHorizontal(void)
 {
-    if (gWeatherPtr->fadeScreenCounter == 16)
-        return FALSE;
-
-    gWeatherPtr->fadeScreenCounter++;
-    ApplyFogBlend(16 - gWeatherPtr->fadeScreenCounter, gWeatherPtr->fadeDestColor);
-    return TRUE;
+    // Blend-only fog mode: apply immediately on map load.
+    gWeatherPtr->fadeScreenCounter = 16;
+    ApplyPersistentFogPalettes();
+    return FALSE;
 }
 
 static void DoNothing(void)
-{ }
+{
+    // Blend-only fog mode runs from the idle palette state.
+    if (gWeatherPtr->palProcessingState == WEATHER_PAL_STATE_IDLE
+     && (gWeatherPtr->currWeather == WEATHER_FOG_HORIZONTAL
+      || gWeatherPtr->currWeather == WEATHER_FOG_DIAGONAL))
+    {
+        ApplyPersistentFogPalettes();
+    }
+}
 
 static void ApplyColorMap(u8 startPalIndex, u8 numPalettes, s8 colorMapIndex)
 {
@@ -662,7 +686,8 @@ static void ApplyDroughtColorMapWithBlend(s8 colorMapIndex, u8 blendCoeff, u32 b
 static void ApplyFogBlend(u8 blendCoeff, u32 blendColor)
 {
     u32 curPalIndex;
-    u16 fogCoeff = min((gTimeOfDay + 1) * 4, 12);
+    u32 objBlendMask;
+    u16 fogCoeff = min((gTimeOfDay + 1) * 3, 9);
 
     // First blend all palettes with time
     UpdateAltBgPalettes(PALETTES_BG);
@@ -677,8 +702,51 @@ static void ApplyFogBlend(u8 blendCoeff, u32 blendColor)
         if (LightenSpritePaletteInFog(curPalIndex))
             BlendPalettesFine(1, gPlttBufferFaded + PLTT_ID(curPalIndex), gPlttBufferFaded + PLTT_ID(curPalIndex), fogCoeff, RGB(28, 31, 28));
     }
-    // Finally blend all sprite palettes faded->faded with fadeIn color
-    BlendPalettesFine(PALETTES_OBJECTS, gPlttBufferFaded, gPlttBufferFaded, blendCoeff, blendColor);
+    // Finally blend sprite palettes with fade color, excluding weather-immune tags.
+    objBlendMask = GetFogObjectPaletteBlendMask();
+    BlendPalettesFine(objBlendMask, gPlttBufferFaded, gPlttBufferFaded, blendCoeff, blendColor);
+}
+
+static void ApplyFogPalettesWithCoeff(u16 fogCoeff)
+{
+    u32 objBlendMask;
+
+    if (fogCoeff > 16)
+        fogCoeff = 16;
+
+    UpdateAltBgPalettes(PALETTES_BG);
+    CpuFastCopy(gPlttBufferUnfaded, gPlttBufferFaded, PLTT_BUFFER_SIZE * 2);
+    UpdatePalettesWithTime(PALETTES_ALL);
+    BlendPalettesFine(PALETTES_MAP, gPlttBufferFaded, gPlttBufferFaded, fogCoeff, RGB(28, 31, 28));
+    objBlendMask = GetFogObjectPaletteBlendMask();
+    BlendPalettesFine(objBlendMask, gPlttBufferFaded, gPlttBufferFaded, fogCoeff, RGB(28, 31, 28));
+}
+
+static u32 GetFogObjectPaletteBlendMask(void)
+{
+    u32 i;
+    u32 mask = 0;
+
+    for (i = 0; i < 16; i++)
+    {
+        // Do not fog-blend object palettes explicitly marked as non-weather
+        // (used by field-move show-mon and other preserved palettes).
+        if (!IS_BLEND_IMMUNE_TAG(GetSpritePaletteTagByPaletteNum(i))
+         && sPaletteColorMapTypes[16 + i] != COLOR_MAP_NONE)
+            mask |= (1u << (16 + i));
+    }
+
+    return mask;
+}
+
+void ApplyFogPalettesForTransition(u16 fogCoeff)
+{
+    ApplyFogPalettesWithCoeff(fogCoeff);
+}
+
+static void ApplyPersistentFogPalettes(void)
+{
+    ApplyFogPalettesWithCoeff(min((gTimeOfDay + 1) * 3, 9));
 }
 
 static void MarkFogSpritePalToLighten(u8 paletteIndex)
@@ -856,7 +924,7 @@ void UpdateSpritePaletteWithWeather(u8 spritePaletteIndex, bool8 allowFog)
     case WEATHER_PAL_STATE_SCREEN_FADING_IN:
         if (gWeatherPtr->fadeInFirstFrame)
         {
-            if (gWeatherPtr->currWeather == WEATHER_FOG_HORIZONTAL)
+            if (gWeatherPtr->currWeather == WEATHER_FOG_HORIZONTAL && allowFog)
                 MarkFogSpritePalToLighten(paletteIndex);
             paletteIndex = PLTT_ID(paletteIndex);
             for (i = 0; i < 16; i++)
@@ -883,7 +951,7 @@ void UpdateSpritePaletteWithWeather(u8 spritePaletteIndex, bool8 allowFog)
             // In horizontal fog, only specific palettes should be fog-blended
             if (allowFog)
             {
-                i = min((gTimeOfDay + 1) * 4, 12); // fog coeff, highest in day and lowest at night
+                i = min((gTimeOfDay + 1) * 3, 9); // softer fog coeff, highest in day and lowest at night
                 paletteIndex = PLTT_ID(paletteIndex);
                 // First blend with time
                 CpuFastCopy(gPlttBufferUnfaded + paletteIndex, gPlttBufferFaded + paletteIndex, PLTT_SIZE_4BPP);

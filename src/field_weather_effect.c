@@ -1381,6 +1381,7 @@ void FogHorizontal_InitVars(void)
         gWeatherPtr->fogHScrollPosX = 0;
         Weather_SetBlendCoeffs(0, 16);
     }
+    gWeatherPtr->lightenedFogSpritePalsCount = 0;
     gWeatherPtr->noShadows = FALSE;
 }
 
@@ -1402,11 +1403,18 @@ void FogHorizontal_Main(void)
     switch (gWeatherPtr->initStep)
     {
     case 0:
-        CreateFogHorizontalSprites();
+        // Palette/blend-only fog: keep sprite layer disabled for horizontal fog.
+        // Underwater still uses the classic sprite layer.
+        if (gWeatherPtr->currWeather == WEATHER_UNDERWATER)
+            CreateFogHorizontalSprites();
         if (gWeatherPtr->currWeather == WEATHER_FOG_HORIZONTAL)
         {
-            Weather_SetTargetBlendCoeffs(12, 8, 3);
+            // Blend-only fog should be visible immediately on map load.
+            Weather_SetBlendCoeffs(12, 8);
             UpdateShadowColor(RGB_GRAY);
+            gWeatherPtr->weatherGfxLoaded = TRUE;
+            gWeatherPtr->initStep = 2;
+            break;
         }
         else
         {
@@ -1426,6 +1434,9 @@ void FogHorizontal_Main(void)
 
 bool8 FogHorizontal_Finish(void)
 {
+    u16 maxFogCoeff = min((gTimeOfDay + 1) * 3, 9);
+    u16 transitionFrames = maxFogCoeff * 2;
+
     gWeatherPtr->fogHScrollPosX = (gSpriteCoordOffsetX - gWeatherPtr->fogHScrollOffset) & 0xFF;
     if (++gWeatherPtr->fogHScrollCounter > 3)
     {
@@ -1436,15 +1447,27 @@ bool8 FogHorizontal_Finish(void)
     switch (gWeatherPtr->finishStep)
     {
     case 0:
-        Weather_SetTargetBlendCoeffs(0, 16, 3);
+        gWeatherPtr->fadeScreenCounter = 0;
+        Weather_SetTargetBlendCoeffs(0, 16, 1);
         gWeatherPtr->finishStep++;
         break;
     case 1:
+        if (gWeatherPtr->fadeScreenCounter <= transitionFrames)
+        {
+            u16 fogCoeff = maxFogCoeff - (gWeatherPtr->fadeScreenCounter / 2);
+            ApplyFogPalettesForTransition(fogCoeff);
+            gWeatherPtr->fadeScreenCounter++;
+        }
         if (Weather_UpdateBlend())
-            gWeatherPtr->finishStep++;
+        {
+            if (gWeatherPtr->fadeScreenCounter > transitionFrames)
+                gWeatherPtr->finishStep++;
+        }
         break;
     case 2:
-        DestroyFogHorizontalSprites();
+        ApplyFogPalettesForTransition(0);
+        if (gWeatherPtr->fogHSpritesCreated)
+            DestroyFogHorizontalSprites();
         gWeatherPtr->finishStep++;
         break;
     default:
@@ -1734,7 +1757,7 @@ static void UpdateAshSprite(struct Sprite *sprite)
 //------------------------------------------------------------------------------
 
 static void UpdateFogDiagonalMovement(void);
-static void CreateFogDiagonalSprites(void);
+static void UNUSED CreateFogDiagonalSprites(void);
 static void DestroyFogDiagonalSprites(void);
 static void UpdateFogDiagonalSprite(struct Sprite *);
 
@@ -1756,6 +1779,7 @@ void FogDiagonal_InitVars(void)
         gWeatherPtr->fogDPosY = 0;
         Weather_SetBlendCoeffs(0, 16);
     }
+    gWeatherPtr->lightenedFogSpritePalsCount = 0;
     gWeatherPtr->noShadows = TRUE;
 }
 
@@ -1772,38 +1796,47 @@ void FogDiagonal_Main(void)
     switch (gWeatherPtr->initStep)
     {
     case 0:
-        CreateFogDiagonalSprites();
+        // Palette/blend-only fog: diagonal fog no longer uses sprite overlays.
         gWeatherPtr->initStep++;
         break;
     case 1:
-        Weather_SetTargetBlendCoeffs(12, 8, 8);
-        gWeatherPtr->initStep++;
-        break;
-    case 2:
-        if (!Weather_UpdateBlend())
-            break;
+        // Blend-only fog should be visible immediately on map load.
+        Weather_SetBlendCoeffs(12, 8);
         gWeatherPtr->weatherGfxLoaded = TRUE;
-        gWeatherPtr->initStep++;
+        gWeatherPtr->initStep = 3;
         break;
     }
 }
 
 bool8 FogDiagonal_Finish(void)
 {
+    u16 maxFogCoeff = min((gTimeOfDay + 1) * 3, 9);
+    u16 transitionFrames = maxFogCoeff * 2;
+
     UpdateFogDiagonalMovement();
     switch (gWeatherPtr->finishStep)
     {
     case 0:
+        gWeatherPtr->fadeScreenCounter = 0;
         Weather_SetTargetBlendCoeffs(0, 16, 1);
         gWeatherPtr->finishStep++;
         break;
     case 1:
+        if (gWeatherPtr->fadeScreenCounter <= transitionFrames)
+        {
+            u16 fogCoeff = maxFogCoeff - (gWeatherPtr->fadeScreenCounter / 2);
+            ApplyFogPalettesForTransition(fogCoeff);
+            gWeatherPtr->fadeScreenCounter++;
+        }
         if (!Weather_UpdateBlend())
             break;
-        gWeatherPtr->finishStep++;
+        if (gWeatherPtr->fadeScreenCounter > transitionFrames)
+            gWeatherPtr->finishStep++;
         break;
     case 2:
-        DestroyFogDiagonalSprites();
+        ApplyFogPalettesForTransition(0);
+        if (gWeatherPtr->fogDSpritesCreated)
+            DestroyFogDiagonalSprites();
         gWeatherPtr->finishStep++;
         break;
     default:
@@ -1874,7 +1907,7 @@ static const struct SpriteTemplate sFogDiagonalSpriteTemplate =
 #define tSpriteColumn data[0]
 #define tSpriteRow    data[1]
 
-static void CreateFogDiagonalSprites(void)
+static void UNUSED CreateFogDiagonalSprites(void)
 {
     u16 i;
     struct SpriteSheet fogDiagonalSpriteSheet;
@@ -2557,7 +2590,10 @@ void DoCurrentWeather(void)
             DestroyTask(FindTaskIdByFunc(Task_DoAbnormalWeather));
         sCurrentAbnormalWeather = WEATHER_DOWNPOUR;
     }
-    SetNextWeather(weather);
+    if (weather == WEATHER_FOG_HORIZONTAL || weather == WEATHER_FOG_DIAGONAL)
+        SetCurrentAndNextWeatherNoDelay(weather);
+    else
+        SetNextWeather(weather);
 }
 
 void ResumePausedWeather(void)

@@ -162,6 +162,7 @@ void Weather_SetBlendCoeffs(u8 eva, u8 evb);
 void Weather_SetTargetBlendCoeffs(u8 eva, u8 evb, int delay);
 bool8 Weather_UpdateBlend(void);
 u8 GetCurrentWeather(void);
+void ApplyFogPalettesForTransition(u16 fogCoeff);
 void SetRainStrengthFromSoundEffect(u16 soundEffect);
 void PlayRainStoppingSoundEffect(void);
 u8 IsWeatherChangeComplete(void);

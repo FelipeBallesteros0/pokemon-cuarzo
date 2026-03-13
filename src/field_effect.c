@@ -1028,6 +1028,17 @@ u8 CreateMonSprite_PicBox(u16 species, s16 x, s16 y, u8 subpriority)
 u8 CreateMonSprite_FieldMove(u16 species, bool8 isShiny, u32 personality, s16 x, s16 y, u8 subpriority)
 {
     u16 spriteId = CreateMonPicSprite(species, isShiny, personality, TRUE, x, y, 0, species);
+    u8 paletteNum;
+
+    // Force a clean base palette for the show-mon sprite so it doesn't inherit
+    // stale/weather-tinted OBJ palette data from reused slots.
+    paletteNum = gSprites[spriteId].oam.paletteNum;
+    LoadPalette(GetMonSpritePalFromSpeciesAndPersonality(species, isShiny, personality),
+                OBJ_PLTT_ID(paletteNum), PLTT_SIZE_4BPP);
+    CpuFastCopy(&gPlttBufferUnfaded[OBJ_PLTT_ID(paletteNum)],
+                &gPlttBufferFaded[OBJ_PLTT_ID(paletteNum)],
+                PLTT_SIZE_4BPP);
+
     PreservePaletteInWeather(gSprites[spriteId].oam.paletteNum + 0x10);
     if (spriteId == 0xFFFF)
         return MAX_SPRITES;
