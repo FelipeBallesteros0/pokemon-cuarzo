@@ -32,6 +32,7 @@ extern const struct Tileset gTileset_Dewford;
 extern const struct Tileset gTileset_BattleFrontier;
 extern const struct Tileset gTileset_BattleFrontierOutsideWest;
 extern const struct Tileset gTileset_BattleFrontierOutsideEast;
+extern const struct Tileset gTileset_BattleFactory;
 extern const struct Tileset gTileset_BattleArena;
 extern const struct Tileset gTileset_BattleDome;
 extern const struct Tileset gTileset_BattlePalace;

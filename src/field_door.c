@@ -4,6 +4,8 @@
 #include "field_camera.h"
 #include "fieldmap.h"
 #include "metatile_behavior.h"
+#include "overworld.h"
+#include "palette.h"
 #include "task.h"
 #include "tilesets.h"
 #include "constants/songs.h"
@@ -106,6 +108,10 @@ static const u8 sDoorAnimTiles_BattleDome[] = INCBIN_U8("graphics/door_anims/bat
 static const u16 sDoorNullPalette35[16] = {};
 static const u8 sDoorAnimTiles_BattleFactory[] = INCBIN_U8("graphics/door_anims/battle_factory.4bpp");
 static const u16 sDoorNullPalette36[16] = {};
+static const u8 sDoorAnimTiles_EdificioPokeballLeft[] = INCBIN_U8("graphics/door_anims/edificio_pokeball_left.4bpp");
+static const u8 sDoorAnimTiles_EdificioPokeballRight[] = INCBIN_U8("graphics/door_anims/edificio_pokeball_right.4bpp");
+static const u16 sDoorAnimPalette_EdificioPokeballLeft[] = INCBIN_U16("graphics/door_anims/edificio_pokeball_left.gbapal");
+static const u16 sDoorAnimPalette_EdificioPokeballRight[] = INCBIN_U16("graphics/door_anims/edificio_pokeball_right.gbapal");
 static const u8 sDoorAnimTiles_BattleTower[] = INCBIN_U8("graphics/door_anims/battle_tower.4bpp");
 static const u16 sDoorNullPalette37[16] = {};
 static const u8 sDoorAnimTiles_BattleArena[] = INCBIN_U8("graphics/door_anims/battle_arena.4bpp");
@@ -276,6 +282,10 @@ static const u8 sDoorAnimPalettes_BattleTowerElevator[] = {7, 7, 7, 7, 7, 7, 7, 
 static const u8 sDoorAnimPalettes_UnusedBattleFrontier[] = {9, 9, 9, 9, 9, 9, 9, 9};
 static const u8 sDoorAnimPalettes_BattleDome[] = {1, 1, 1, 1, 1, 1, 1, 1};
 static const u8 sDoorAnimPalettes_BattleFactory[] = {9, 9, 9, 9, 9, 9, 9, 9};
+static const u8 sDoorAnimPalettes_EdificioPokeballLeft[] = {6, 6, 6, 6, 6, 6, 6, 6};
+static const u8 sDoorAnimPalettes_EdificioPokeballRight[] = {6, 6, 6, 6, 6, 6, 6, 6};
+static const u8 sDoorAnimPalettes_EdificioPokeballLeftExterior[] = {6, 6, 6, 6, 6, 6, 6, 6};
+static const u8 sDoorAnimPalettes_EdificioPokeballRightExterior[] = {6, 6, 6, 6, 6, 6, 6, 6};
 static const u8 sDoorAnimPalettes_BattleTower[] = {0, 0, 0, 0, 0, 0, 0, 0};
 static const u8 sDoorAnimPalettes_BattleArena[] = {5, 5, 5, 5, 5, 5, 5, 5};
 static const u8 sDoorAnimPalettes_BattleArenaLobby[] = {7, 7, 7, 7, 7, 7, 7, 7};
@@ -370,6 +380,16 @@ static const struct DoorGraphics sDoorAnimGraphicsTable[] =
     {0x3B0,                                                 NULL, DOOR_SOUND_SLIDING, 1, sDoorAnimTiles_UnusedBattleFrontier, sDoorAnimPalettes_UnusedBattleFrontier},
     {METATILE_BattleFrontierOutsideWest_Door_BattleDome,    &gTileset_BattleFrontierOutsideWest, DOOR_SOUND_SLIDING, 1, sDoorAnimTiles_BattleDome, sDoorAnimPalettes_BattleDome},
     {METATILE_BattleFrontierOutsideWest_Door_BattleFactory, &gTileset_BattleFrontierOutsideWest, DOOR_SOUND_SLIDING, 1, sDoorAnimTiles_BattleFactory, sDoorAnimPalettes_BattleFactory},
+    // Battle Factory lobby custom double-door (left/right independent anims), cover both top/bottom metatiles.
+    {0x202,                                                 &gTileset_BattleFactory, DOOR_SOUND_SLIDING, 1, sDoorAnimTiles_EdificioPokeballLeft, sDoorAnimPalettes_EdificioPokeballLeft},
+    {0x201,                                                 &gTileset_BattleFactory, DOOR_SOUND_SLIDING, 1, sDoorAnimTiles_EdificioPokeballRight, sDoorAnimPalettes_EdificioPokeballRight},
+    {0x209,                                                 &gTileset_BattleFactory, DOOR_SOUND_SLIDING, 1, sDoorAnimTiles_EdificioPokeballLeft, sDoorAnimPalettes_EdificioPokeballLeft},
+    {0x20A,                                                 &gTileset_BattleFactory, DOOR_SOUND_SLIDING, 1, sDoorAnimTiles_EdificioPokeballRight, sDoorAnimPalettes_EdificioPokeballRight},
+    // Test Island custom exterior double-door (left/right independent anims).
+    {0x25D,                                                 &gTileset_EdificioPokeball, DOOR_SOUND_SLIDING, 1, sDoorAnimTiles_EdificioPokeballLeft, sDoorAnimPalettes_EdificioPokeballLeftExterior},
+    {0x25E,                                                 &gTileset_EdificioPokeball, DOOR_SOUND_SLIDING, 1, sDoorAnimTiles_EdificioPokeballRight, sDoorAnimPalettes_EdificioPokeballRightExterior},
+    {0x265,                                                 &gTileset_EdificioPokeball, DOOR_SOUND_SLIDING, 1, sDoorAnimTiles_EdificioPokeballLeft, sDoorAnimPalettes_EdificioPokeballLeftExterior},
+    {0x264,                                                 &gTileset_EdificioPokeball, DOOR_SOUND_SLIDING, 1, sDoorAnimTiles_EdificioPokeballRight, sDoorAnimPalettes_EdificioPokeballRightExterior},
     {METATILE_BattleFrontierOutsideEast_Door_BattleTower,   &gTileset_BattleFrontierOutsideEast, DOOR_SOUND_SLIDING, 1, sDoorAnimTiles_BattleTower, sDoorAnimPalettes_BattleTower},
     {METATILE_BattleFrontierOutsideEast_Door_BattleArena,   &gTileset_BattleFrontierOutsideEast, DOOR_SOUND_NORMAL,  1, sDoorAnimTiles_BattleArena, sDoorAnimPalettes_BattleArena},
     {METATILE_BattleArena_Door,                             &gTileset_BattleArena, DOOR_SOUND_ARENA,   1, sDoorAnimTiles_BattleArenaLobby, sDoorAnimPalettes_BattleArenaLobby},
@@ -556,6 +576,17 @@ static void DrawDoor(const struct DoorGraphics *gfx, const struct DoorAnimFrame 
     }
     else
     {
+        if (gfx->tiles == sDoorAnimTiles_EdificioPokeballLeft
+         || gfx->tiles == sDoorAnimTiles_EdificioPokeballRight)
+        {
+            if (gfx->tiles == sDoorAnimTiles_EdificioPokeballLeft)
+                LoadPalette(sDoorAnimPalette_EdificioPokeballLeft, BG_PLTT_ID(6), PLTT_SIZE_4BPP);
+            else
+                LoadPalette(sDoorAnimPalette_EdificioPokeballRight, BG_PLTT_ID(6), PLTT_SIZE_4BPP);
+            // Re-apply DNS blend because this palette is loaded dynamically.
+            UpdatePalettesWithTime(1 << 6);
+        }
+
         CopyDoorTilesToVram(gfx, frame);
         DrawCurrentDoorAnimFrame(gfx, x, y, gfx->palettes);
         if (ShouldUseMultiCorridorDoor())
