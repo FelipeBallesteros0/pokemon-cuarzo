@@ -54,5 +54,6 @@ bool8 FldEff_UseRockSmash(void);
 // defog
 bool32 SetUpFieldMove_Defog(void);
 bool8 FldEff_Defog(void);
+bool32 SetUpFieldMove_Haze(void);
 
 #endif // GUARD_FLDEFF_H

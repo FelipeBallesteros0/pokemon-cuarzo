@@ -107,6 +107,13 @@ static bool32 IsFieldMoveUnlocked_Defog(void)
 }
 #endif
 
+#if OW_HAZE_FIELD_MOVE == TRUE
+static bool32 IsFieldMoveUnlocked_Haze(void)
+{
+    return TRUE;
+}
+#endif
+
 const struct FieldMoveInfo gFieldMoveInfo[FIELD_MOVES_COUNT] =
 {
     [FIELD_MOVE_CUT] =
@@ -235,6 +242,15 @@ const struct FieldMoveInfo gFieldMoveInfo[FIELD_MOVES_COUNT] =
         .fieldMoveFunc = SetUpFieldMove_Defog,
         .isUnlockedFunc = IsFieldMoveUnlocked_Defog,
         .moveID = MOVE_DEFOG,
+        .partyMsgID = PARTY_MSG_CANT_USE_HERE,
+    },
+#endif
+#if OW_HAZE_FIELD_MOVE == TRUE
+    [FIELD_MOVE_HAZE] =
+    {
+        .fieldMoveFunc = SetUpFieldMove_Haze,
+        .isUnlockedFunc = IsFieldMoveUnlocked_Haze,
+        .moveID = MOVE_HAZE,
         .partyMsgID = PARTY_MSG_CANT_USE_HERE,
     },
 #endif

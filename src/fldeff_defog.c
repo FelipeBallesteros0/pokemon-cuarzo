@@ -13,15 +13,20 @@
 #include "util.h"
 #include "constants/battle_anim.h"
 #include "constants/field_effects.h"
+#include "constants/moves.h"
 #include "constants/field_weather.h"
 #include "constants/rgb.h"
 #include "constants/songs.h"
 #include "constants/weather.h"
 
 static void FieldCallback_Defog(void);
+static void FieldCallback_Haze(void);
 static void FieldMove_Defog(void);
 static void EndDefogTask(u8 taskId);
 static bool32 CanDefogCurrentWeather(void);
+static bool32 CanHazeCurrentWeather(void);
+extern const u8 EventScript_UseHaze[];
+static u16 sActiveFogFieldMove;
 
 static bool32 CanDefogCurrentWeather(void)
 {
@@ -34,6 +39,20 @@ static bool32 CanDefogCurrentWeather(void)
         return TRUE;
     default:
         return FALSE;
+    }
+}
+
+static bool32 CanHazeCurrentWeather(void)
+{
+    switch (gWeather.currWeather)
+    {
+    case WEATHER_FOG_HORIZONTAL:
+    case WEATHER_FOG_DIAGONAL:
+    case WEATHER_FOG:
+    case WEATHER_SHADE:
+        return FALSE;
+    default:
+        return TRUE;
     }
 }
 
@@ -50,8 +69,27 @@ bool32 SetUpFieldMove_Defog(void)
 
 static void FieldCallback_Defog(void)
 {
+    sActiveFogFieldMove = MOVE_DEFOG;
     gFieldEffectArguments[0] = GetCursorSelectionMonId();
     ScriptContext_SetupScript(EventScript_UseDefog);
+}
+
+static void FieldCallback_Haze(void)
+{
+    sActiveFogFieldMove = MOVE_HAZE;
+    gFieldEffectArguments[0] = GetCursorSelectionMonId();
+    ScriptContext_SetupScript(EventScript_UseHaze);
+}
+
+bool32 SetUpFieldMove_Haze(void)
+{
+    if (!CanHazeCurrentWeather())
+        return FALSE;
+
+    gSpecialVar_Result = GetCursorSelectionMonId();
+    gFieldCallback2 = FieldCallback_PrepareFadeInFromMenu;
+    gPostMenuFieldCallback = FieldCallback_Haze;
+    return TRUE;
 }
 
 bool8 FldEff_Defog(void)
@@ -66,6 +104,7 @@ bool8 FldEff_Defog(void)
 #define tState       data[0]
 #define tFogBlend    data[1]
 #define tBlendDelay  data[2]
+#define tMode        data[3]
 
 static void FieldMove_Defog(void)
 {
@@ -78,6 +117,7 @@ static void FieldMove_Defog(void)
     gTasks[taskId].tState = 0;
     gTasks[taskId].tFogBlend = 9;   // max fog coeff used by custom fog palette blend
     gTasks[taskId].tBlendDelay = 0; // slow down per-step clear for smoother finish
+    gTasks[taskId].tMode = (sActiveFogFieldMove == MOVE_HAZE);
 };
 
 static void EndDefogTask(u8 taskId)
@@ -88,8 +128,17 @@ static void EndDefogTask(u8 taskId)
     switch (gTasks[taskId].tState)
     {
     case 0:
-        // Freeze weather state immediately after fade-out ends to prevent
+        if (gTasks[taskId].tMode) // Haze: apply fog weather
+        {
+            SetSavedWeather(WEATHER_FOG_HORIZONTAL);
+            SetCurrentAndNextWeatherNoDelay(WEATHER_FOG_HORIZONTAL);
+            SetWeatherPalStateIdle();
+            gTasks[taskId].tState = 2;
+            return;
+        }
+        // Defog: freeze weather state immediately after fade-out ends to prevent
         // a one-frame fog reapplication from the weather task.
+        SetSavedWeather(WEATHER_NONE);
         SetCurrentAndNextWeatherNoDelay(WEATHER_NONE);
         SetWeatherPalStateIdle();
         gTasks[taskId].tState = 1;
@@ -110,15 +159,27 @@ static void EndDefogTask(u8 taskId)
         break;
     }
 
-    // Reset weather state machine/palettes explicitly so custom fog modes
-    // are cleared immediately without requiring UI/map refresh.
-    ApplyFogPalettesForTransition(0);
-    ApplyWeatherColorMapIfIdle(0);
-    ApplyWeatherColorMapToPals(0, 32);
-    UpdateAltBgPalettes(PALETTES_BG);
-    UpdatePalettesWithTime(PALETTES_ALL);
-    Weather_SetBlendCoeffs(8, BASE_SHADOW_INTENSITY);
-    UpdateShadowColor(RGB_BLACK);
+    if (gTasks[taskId].tMode) // Haze
+    {
+        // Re-assert persisted weather through the normal weather API so the
+        // map update loop cannot immediately snap back to map-header weather.
+        SetWeather(WEATHER_FOG_HORIZONTAL);
+        DoCurrentWeather();
+        ApplyFogPalettesForTransition(min((gTimeOfDay + 1) * 3, 9));
+        UpdateShadowColor(RGB_GRAY);
+    }
+    else // Defog
+    {
+        // Reset weather state machine/palettes explicitly so custom fog modes
+        // are cleared immediately without requiring UI/map refresh.
+        ApplyFogPalettesForTransition(0);
+        ApplyWeatherColorMapIfIdle(0);
+        ApplyWeatherColorMapToPals(0, 32);
+        UpdateAltBgPalettes(PALETTES_BG);
+        UpdatePalettesWithTime(PALETTES_ALL);
+        Weather_SetBlendCoeffs(8, BASE_SHADOW_INTENSITY);
+        UpdateShadowColor(RGB_BLACK);
+    }
 
     DestroyTask(taskId);
     ScriptContext_Enable();
