@@ -30,6 +30,7 @@
 #include "sound.h"
 #include "task.h"
 #include "trig.h"
+#include "rtc.h"
 #include "constants/event_object_movement.h"
 #include "constants/event_objects.h"
 #include "constants/field_effects.h"
@@ -78,10 +79,26 @@ static void Task_FollowerNPCHandleEscalator(u8 taskId);
 static void Task_FollowerNPCHandleEscalatorFinish(u8 taskId);
 static void CalculateFollowerNPCEscalatorTrajectoryUp(struct Task *task);
 static void CalculateFollowerNPCEscalatorTrajectoryDown(struct Task *task);
+static void FollowerNPC_ResyncClockFromRtc(void);
 
 static u32 GetFollowerNPCSurfRiderSpriteIndex(void)
 {
     return FOLLOWER_NPC_SPRITE_INDEX_SURF;
+}
+
+static void FollowerNPC_ResyncClockFromRtc(void)
+{
+    struct SiiRtcInfo rtc;
+
+    if (RtcGetErrorStatus() & RTC_ERR_FLAG_MASK)
+        return;
+
+    RtcGetInfo(&rtc);
+    RtcCalcLocalTimeOffset(0,
+                           ConvertBcdToBinary(rtc.hour),
+                           ConvertBcdToBinary(rtc.minute),
+                           ConvertBcdToBinary(rtc.second));
+    UpdateTimeOfDay();
 }
 
 void SetFollowerNPCData(enum FollowerNPCDataTypes type, u32 value)
@@ -719,6 +736,7 @@ static void Task_BindSurfBlobToFollowerNPC(u8 taskId)
 
     // Bind the blob to the follower.
     SetSurfBlob_BobState(npc->fieldEffectSpriteId, 0x1);
+    FollowerNPC_ResyncClockFromRtc();
     RestartWildEncounterImmunitySteps();
     UnfreezeObjectEvents();
     DestroyTask(taskId);
@@ -814,6 +832,7 @@ static void Task_CreateFollowerSurfMountAfterJump(u8 taskId)
     if (follower->fieldEffectSpriteId == 0)
         follower->fieldEffectSpriteId = CreateFollowerSurfMountSprite(follower);
 
+    FollowerNPC_ResyncClockFromRtc();
     RestartWildEncounterImmunitySteps();
     gPlayerAvatar.preventStep = FALSE;
     DestroyTask(taskId);
@@ -835,6 +854,7 @@ static void Task_FinishSurfDismount(u8 taskId)
     }
 
     SetFollowerNPCSprite(FOLLOWER_NPC_SPRITE_INDEX_NORMAL);
+    FollowerNPC_ResyncClockFromRtc();
     DestroySprite(&gSprites[gTasks[taskId].tSpriteId]);
     UnfreezeObjectEvents();
     DestroyTask(taskId);

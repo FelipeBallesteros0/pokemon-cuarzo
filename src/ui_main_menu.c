@@ -43,6 +43,7 @@
 #include "mystery_event_menu.h"
 #include "mystery_gift_menu.h"
 #include "link.h"
+#include "pokemon.h"
 
 /*
  * 
@@ -566,6 +567,7 @@ static bool8 MainMenu_DoGfxSetup(void)
     {
         if (menuType != HAS_NO_SAVED_GAME)
         {
+            CalculatePlayerPartyCount();
             PrintToWindow(WINDOW_HEADER, FONT_WHITE);
             CreateIconShadow();
             CreatePartyMonIcons();
@@ -854,6 +856,10 @@ static void DestroyMugshot()
 static void CreateIconShadow()
 {
     u8 i = 0;
+    u8 visibleCount = gPlayerPartyCount;
+
+    if (visibleCount > 6)
+        visibleCount = 6;
 
     sMainMenuDataPtr->iconBoxSpriteIds[0] = CreateSprite(&sSpriteTemplate_IconBox, ICON_BOX_1_START_X + (ICON_BOX_X_DIFFERENCE * 0), ICON_BOX_1_START_Y, 2);
     sMainMenuDataPtr->iconBoxSpriteIds[1] = CreateSprite(&sSpriteTemplate_IconBox, ICON_BOX_1_START_X + (ICON_BOX_X_DIFFERENCE * 1), ICON_BOX_1_START_Y, 2);
@@ -863,7 +869,10 @@ static void CreateIconShadow()
     sMainMenuDataPtr->iconBoxSpriteIds[4] = CreateSprite(&sSpriteTemplate_IconBox, ICON_BOX_1_START_X + (ICON_BOX_X_DIFFERENCE * 1), ICON_BOX_1_START_Y + (ICON_BOX_Y_DIFFERENCE * 1), 2);
     sMainMenuDataPtr->iconBoxSpriteIds[5] = CreateSprite(&sSpriteTemplate_IconBox, ICON_BOX_1_START_X + (ICON_BOX_X_DIFFERENCE * 2), ICON_BOX_1_START_Y + (ICON_BOX_Y_DIFFERENCE * 1), 2);
 
-    for(i = 0; i < gPlayerPartyCount; i++)
+    for (i = 0; i < 6; i++)
+        gSprites[sMainMenuDataPtr->iconBoxSpriteIds[i]].invisible = TRUE;
+
+    for(i = 0; i < visibleCount; i++)
     {
         gSprites[sMainMenuDataPtr->iconBoxSpriteIds[i]].invisible = FALSE;
         StartSpriteAnim(&gSprites[sMainMenuDataPtr->iconBoxSpriteIds[i]], 0);
