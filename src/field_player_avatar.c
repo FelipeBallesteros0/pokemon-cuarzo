@@ -59,6 +59,7 @@ struct SpinData
 };
 
 static EWRAM_DATA u8 sSpinStartFacingDir = 0;
+static EWRAM_DATA u8 sPlayerSurfMonId = 0;
 EWRAM_DATA struct ObjectEvent gObjectEvents[OBJECT_EVENTS_COUNT] = {};
 EWRAM_DATA struct PlayerAvatar gPlayerAvatar = {};
 EWRAM_DATA struct SpinData gPlayerSpinData = {};
@@ -116,6 +117,7 @@ static void PlayerAvatarTransition_AcroBike(struct ObjectEvent *);
 static void PlayerAvatarTransition_Surfing(struct ObjectEvent *);
 static void PlayerAvatarTransition_Underwater(struct ObjectEvent *);
 static void PlayerAvatarTransition_ReturnToField(struct ObjectEvent *);
+static u8 GetSurfMonIdForPlayerAvatar(void);
 
 static bool8 PlayerAnimIsMultiFrameStationary(void);
 static bool8 PlayerAnimIsMultiFrameStationaryAndStateNotTurning(void);
@@ -1172,9 +1174,51 @@ static void PlayerAvatarTransition_Surfing(struct ObjectEvent *objEvent)
     gFieldEffectArguments[0] = objEvent->currentCoords.x;
     gFieldEffectArguments[1] = objEvent->currentCoords.y;
     gFieldEffectArguments[2] = gPlayerAvatar.objectEventId;
+    // Keep surf mount deterministic across reloads/after battles.
+    gFieldEffectArguments[3] = GetSurfMonIdForPlayerAvatar();
     spriteId = FieldEffectStart(FLDEFF_SURF_BLOB);
     objEvent->fieldEffectSpriteId = spriteId;
     SetSurfBlob_BobState(spriteId, BOB_PLAYER_AND_MON);
+}
+
+static u8 GetSurfMonIdForPlayerAvatar(void)
+{
+    u32 i, j;
+    u32 partyCount = CalculatePlayerPartyCount();
+
+    if (sPlayerSurfMonId < partyCount)
+    {
+        for (j = 0; j < MAX_MON_MOVES; j++)
+        {
+            if (GetMonData(&gPlayerParty[sPlayerSurfMonId], MON_DATA_MOVE1 + j) == MOVE_SURF)
+                return sPlayerSurfMonId;
+        }
+    }
+
+    for (i = 0; i < partyCount; i++)
+    {
+        for (j = 0; j < MAX_MON_MOVES; j++)
+        {
+            if (GetMonData(&gPlayerParty[i], MON_DATA_MOVE1 + j) == MOVE_SURF)
+            {
+                sPlayerSurfMonId = i;
+                return i;
+            }
+        }
+    }
+
+    sPlayerSurfMonId = 0;
+    return 0;
+}
+
+void SetPlayerAvatarSurfMonId(u8 monId)
+{
+    sPlayerSurfMonId = monId;
+}
+
+u8 GetPlayerAvatarSurfMonId(void)
+{
+    return sPlayerSurfMonId;
 }
 
 static void PlayerAvatarTransition_Underwater(struct ObjectEvent *objEvent)

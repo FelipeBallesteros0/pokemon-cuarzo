@@ -2194,7 +2194,12 @@ static u32 LoadDynamicFollowerPalette(u32 species, bool32 shiny, bool32 female)
     #endif
         // palette already loaded
         if ((paletteNum = IndexOfSpritePaletteTag(palTag)) < 16)
+        {
+            if (gWeatherPtr->currWeather != WEATHER_FOG_HORIZONTAL) // don't want to weather blend in fog
+                UpdateSpritePaletteWithWeather(paletteNum, FALSE);
+            UpdateSpritePaletteWithTime(paletteNum);
             return paletteNum;
+        }
         spritePalette.tag = palTag;
     #if P_GENDER_DIFFERENCES
         if (female && gSpeciesInfo[species].overworldPaletteFemale != NULL)
@@ -2223,7 +2228,12 @@ static u32 LoadDynamicFollowerPalette(u32 species, bool32 shiny, bool32 female)
         const u16 *palette = GetMonSpritePalFromSpecies(species, shiny, female); //ETODO
         // palette already loaded
         if ((paletteNum = IndexOfSpritePaletteTag(species)) < 16)
+        {
+            if (gWeatherPtr->currWeather != WEATHER_FOG_HORIZONTAL) // don't want to weather blend in fog
+                UpdateSpritePaletteWithWeather(paletteNum, FALSE);
+            UpdateSpritePaletteWithTime(paletteNum);
             return paletteNum;
+        }
         // Use matching front sprite's normal/shiny palettes
         // Load compressed palette
         LoadSpritePaletteWithTag(palette, species);
@@ -2232,6 +2242,7 @@ static u32 LoadDynamicFollowerPalette(u32 species, bool32 shiny, bool32 female)
 
     if (gWeatherPtr->currWeather != WEATHER_FOG_HORIZONTAL) // don't want to weather blend in fog
         UpdateSpritePaletteWithWeather(paletteNum, FALSE);
+    UpdateSpritePaletteWithTime(paletteNum);
     return paletteNum;
 }
 
@@ -3072,14 +3083,12 @@ static u8 UpdateSpritePalette(const struct SpritePalette *spritePalette, struct 
     sprite->inUse = FALSE;
     FieldEffectFreePaletteIfUnused(sprite->oam.paletteNum);
     sprite->inUse = TRUE;
-    if (IndexOfSpritePaletteTag(spritePalette->tag) == 0xFF)
+    sprite->oam.paletteNum = LoadSpritePalette(spritePalette);
+    if (sprite->oam.paletteNum != 0xFF)
     {
-        sprite->oam.paletteNum = LoadSpritePalette(spritePalette);
+        // Keep overworld palettes in sync immediately after any graphics/palette swap.
         UpdateSpritePaletteWithWeather(sprite->oam.paletteNum, FALSE);
-    }
-    else
-    {
-        sprite->oam.paletteNum = LoadSpritePalette(spritePalette);
+        UpdateSpritePaletteWithTime(sprite->oam.paletteNum);
     }
 
     return sprite->oam.paletteNum;
@@ -3348,11 +3357,18 @@ static void UNUSED LoadObjectEventPaletteSet(u16 *paletteTags)
 static u8 LoadSpritePaletteIfTagExists(const struct SpritePalette *spritePalette)
 {
     u8 paletteNum = IndexOfSpritePaletteTag(spritePalette->tag);
-    if (paletteNum != 0xFF) // don't load twice; return
+    if (paletteNum != 0xFF) // don't load twice; still reapply current weather/time
+    {
+        UpdateSpritePaletteWithWeather(paletteNum, FALSE);
+        UpdateSpritePaletteWithTime(paletteNum);
         return paletteNum;
+    }
     paletteNum = LoadSpritePalette(spritePalette);
     if (paletteNum != 0xFF)
+    {
         UpdateSpritePaletteWithWeather(paletteNum, FALSE);
+        UpdateSpritePaletteWithTime(paletteNum);
+    }
     return paletteNum;
 }
 

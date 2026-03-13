@@ -1,6 +1,7 @@
 #include "global.h"
 #include "event_object_movement.h"
 #include "field_effect_helpers.h"
+#include "field_weather.h"
 #include "field_player_avatar.h"
 #include "pokemon.h"
 #include "sprite.h"
@@ -35,10 +36,18 @@ static u16 GetSurfableSpeciesIndex(u16 species)
 
 static void LoadSurfablePalette(struct Pokemon *mon, u16 surfIdx)
 {
+    u8 palSlot;
+
     if (IsMonShiny(mon))
-        LoadSpritePalette(&sSurfablePokemonShinyPalettes[surfIdx]);
+        palSlot = LoadSpritePalette(&sSurfablePokemonShinyPalettes[surfIdx]);
     else
-        LoadSpritePalette(&sSurfablePokemonPalettes[surfIdx]);
+        palSlot = LoadSpritePalette(&sSurfablePokemonPalettes[surfIdx]);
+
+    if (palSlot != 0xFF)
+    {
+        UpdateSpritePaletteWithWeather(palSlot, FALSE);
+        UpdateSpritePaletteWithTime(palSlot);
+    }
 }
 
 // Required by gSurfablePokemonOverlaySprites table, but we don't use overlays.

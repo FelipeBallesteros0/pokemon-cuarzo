@@ -50,6 +50,7 @@
 #define tDoorY          data[3]
 
 static void SetFollowerNPCScriptPointer(const u8 *script);
+static u32 GetFollowerNPCSurfRiderSpriteIndex(void);
 static void PlayerLogCoordinates(struct ObjectEvent *player);
 static void TurnNPCIntoFollower(u32 localId, u32 followerFlags, u32 setScript, const u8 *script);
 static u32 GetFollowerNPCSprite(void);
@@ -77,6 +78,11 @@ static void Task_FollowerNPCHandleEscalator(u8 taskId);
 static void Task_FollowerNPCHandleEscalatorFinish(u8 taskId);
 static void CalculateFollowerNPCEscalatorTrajectoryUp(struct Task *task);
 static void CalculateFollowerNPCEscalatorTrajectoryDown(struct Task *task);
+
+static u32 GetFollowerNPCSurfRiderSpriteIndex(void)
+{
+    return FOLLOWER_NPC_SPRITE_INDEX_SURF;
+}
 
 void SetFollowerNPCData(enum FollowerNPCDataTypes type, u32 value)
 {
@@ -550,7 +556,10 @@ static void SetSurfJump(void)
     };
 
     // Execute, store sprite ID in fieldEffectSpriteId and bind surf blob.
-    SetFollowerNPCSprite(FOLLOWER_NPC_SPRITE_INDEX_SURF);
+    // For mount mode, keep current graphics through the jump to avoid visual corruption,
+    // then swap to rider sprite after landing in Task_CreateFollowerSurfMountAfterJump.
+    if (FNPC_SHOW_SURF_BLOB == TRUE || FNPC_USE_SURF_MOUNT_SPRITE == FALSE)
+        SetFollowerNPCSprite(GetFollowerNPCSurfRiderSpriteIndex());
     if (FNPC_SHOW_SURF_BLOB == TRUE)
     {
         follower->fieldEffectSpriteId = FieldEffectStart(FLDEFF_SURF_BLOB);
@@ -590,6 +599,8 @@ static u8 CreateFollowerSurfMountSprite(struct ObjectEvent *follower)
         sprite->coordOffsetEnabled = TRUE;
         sprite->data[0] = GetFollowerNPCObjectId();
         sprite->data[1] = 0;
+        UpdateSpritePaletteWithWeather(sprite->oam.paletteNum, FALSE);
+        UpdateSpritePaletteWithTime(sprite->oam.paletteNum);
     }
 
     return spriteId;
@@ -627,6 +638,10 @@ static void SpriteCB_FollowerSurfMount(struct Sprite *sprite)
 
     if (!PlayerHasFollowerNPC() || followerObjId >= OBJECT_EVENTS_COUNT || !gObjectEvents[followerObjId].active)
     {
+        if (followerObjId < OBJECT_EVENTS_COUNT
+         && gObjectEvents[followerObjId].active
+         && gObjectEvents[followerObjId].spriteId < MAX_SPRITES)
+            gSprites[gObjectEvents[followerObjId].spriteId].y2 = 0;
         DestroySprite(sprite);
         return;
     }
@@ -635,7 +650,10 @@ static void SpriteCB_FollowerSurfMount(struct Sprite *sprite)
     followerSprite = &gSprites[follower->spriteId];
     sprite->invisible = follower->invisible;
     if (sprite->invisible)
+    {
+        followerSprite->y2 = 0;
         return;
+    }
 
     // Force mount to follow follower position every frame.
     sprite->x = followerSprite->x;
@@ -701,6 +719,7 @@ static void Task_BindSurfBlobToFollowerNPC(u8 taskId)
 
     // Bind the blob to the follower.
     SetSurfBlob_BobState(npc->fieldEffectSpriteId, 0x1);
+    RestartWildEncounterImmunitySteps();
     UnfreezeObjectEvents();
     DestroyTask(taskId);
     gPlayerAvatar.preventStep = FALSE;
@@ -726,12 +745,12 @@ static void Task_FollowerSurfFieldMovePose(u8 taskId)
         return;
     }
 
-    // Prefer waiting until the held movement ends, but some follower gfx don't have a full
-    // field-move anim sequence; timeout avoids softlock and player movement lock.
-    if (ObjectEventClearHeldMovementIfFinished(follower) == 0
-     && ++gTasks[taskId].data[0] < 24)
+    // Deterministic pre-jump window.
+    if (++gTasks[taskId].data[0] < 16)
         return;
 
+    // Ensure jump starts from proper surf graphics every time.
+    SetFollowerNPCSprite(FOLLOWER_NPC_SPRITE_INDEX_SURF);
     SetSurfJump();
     DestroyTask(taskId);
 }
@@ -740,6 +759,7 @@ static void Task_CreateFollowerSurfMountAfterJump(u8 taskId)
 {
     struct ObjectEvent *follower;
     bool32 animStatus;
+    u16 riderGraphicsId;
 
     if (!PlayerHasFollowerNPC())
     {
@@ -753,9 +773,20 @@ static void Task_CreateFollowerSurfMountAfterJump(u8 taskId)
     if (animStatus == 0)
         return;
 
+    // Ensure follower exits field-move graphics before mounting.
+    riderGraphicsId = GetFollowerNPCSprite();
+    if (follower->graphicsId != riderGraphicsId)
+    {
+        ObjectEventSetGraphicsId(follower, riderGraphicsId);
+        ObjectEventTurn(follower, follower->facingDirection);
+    }
+
+    SetFollowerNPCSprite(GetFollowerNPCSurfRiderSpriteIndex());
+    follower = &gObjectEvents[GetFollowerNPCObjectId()];
     if (follower->fieldEffectSpriteId == 0)
         follower->fieldEffectSpriteId = CreateFollowerSurfMountSprite(follower);
 
+    RestartWildEncounterImmunitySteps();
     gPlayerAvatar.preventStep = FALSE;
     DestroyTask(taskId);
 }
@@ -1478,16 +1509,16 @@ void NPCFollow(struct ObjectEvent *npc, u32 state, bool32 ignoreScriptActive)
         gPlayerAvatar.preventStep = TRUE;
         if (FNPC_SHOW_SURF_BLOB == FALSE && FNPC_USE_SURF_MOUNT_SPRITE == TRUE)
         {
-            ObjectEventSetGraphicsId(follower, GetFollowerNPCFieldMoveSprite());
-            // Set direction without overriding anim (ObjectEventTurn would replace ANIM_FIELD_MOVE).
+            // Keep follower graphics stable here (don't swap to FIELD_MOVE graphics),
+            // because that runtime swap can corrupt nearby NPC sprite state.
+            SetFollowerNPCSprite(FOLLOWER_NPC_SPRITE_INDEX_SURF);
+            follower = &gObjectEvents[GetFollowerNPCObjectId()];
             SetObjectEventDirection(follower, dir);
-            // Match player setup for field moves: ensure animNum points to ANIM_FIELD_MOVE.
-            StartSpriteAnim(&gSprites[follower->spriteId], ANIM_FIELD_MOVE);
-            // Followers idle with paused anim state; force animation playback for field-move pose.
+            StartSpriteAnim(&gSprites[follower->spriteId], GetFaceDirectionAnimNum(dir));
             follower->disableAnim = FALSE;
             follower->enableAnim = FALSE;
             gSprites[follower->spriteId].animPaused = FALSE;
-            ObjectEventSetHeldMovement(follower, MOVEMENT_ACTION_START_ANIM_IN_DIRECTION);
+            ObjectEventClearHeldMovementIfActive(follower);
             CreateTask(Task_FollowerSurfFieldMovePose, 1);
         }
         else
@@ -1569,6 +1600,11 @@ void CreateFollowerNPCAvatar(void)
         SetFollowerNPCData(FNPC_DATA_SURF_BLOB, FNPC_SURF_BLOB_NONE);
 
     gObjectEvents[GetFollowerNPCData(FNPC_DATA_OBJ_ID)].invisible = TRUE;
+    // Match runtime follower behavior after load: keep movement callback idle/controlled by NPCFollow.
+    gObjectEvents[GetFollowerNPCData(FNPC_DATA_OBJ_ID)].movementType = MOVEMENT_TYPE_NONE;
+    gSprites[gObjectEvents[GetFollowerNPCData(FNPC_DATA_OBJ_ID)].spriteId].callback = MovementType_None;
+    ObjectEventClearHeldMovement(&gObjectEvents[GetFollowerNPCData(FNPC_DATA_OBJ_ID)]);
+
 }
 
 void FollowerNPC_HandleSprite(void)
@@ -1691,7 +1727,7 @@ void FollowerNPC_WarpSetEnd(void)
     }
     else if (gPlayerAvatar.flags & PLAYER_AVATAR_FLAG_SURFING)
     {
-        SetFollowerNPCSprite(FOLLOWER_NPC_SPRITE_INDEX_SURF);
+        SetFollowerNPCSprite(GetFollowerNPCSurfRiderSpriteIndex());
         SetFollowerNPCData(FNPC_DATA_SURF_BLOB, (FNPC_SHOW_SURF_BLOB == TRUE || FNPC_USE_SURF_MOUNT_SPRITE == TRUE) ? FNPC_SURF_BLOB_RECREATE : FNPC_SURF_BLOB_NONE);
     }
 
@@ -1736,6 +1772,9 @@ void FollowerNPC_FollowerToWater(void)
 {
     if (!PlayerHasFollowerNPC())
         return;
+
+    // Prevent immediate guaranteed-feeling encounters right after starting Surf with a follower.
+    RestartWildEncounterImmunitySteps();
 
     // Prepare for making the follower do the jump and spawn the surf blob right in front of the follower's location.
     NPCFollow(&gObjectEvents[gPlayerAvatar.objectEventId], MOVEMENT_ACTION_JUMP_DOWN, TRUE);
@@ -1786,7 +1825,7 @@ void PrepareFollowerNPCDismountSurf(void)
 
 void SetFollowerNPCSurfSpriteAfterDive(void)
 {
-    SetFollowerNPCSprite(FOLLOWER_NPC_SPRITE_INDEX_SURF);
+    SetFollowerNPCSprite(GetFollowerNPCSurfRiderSpriteIndex());
     SetFollowerNPCData(FNPC_DATA_SURF_BLOB, (FNPC_SHOW_SURF_BLOB == TRUE || FNPC_USE_SURF_MOUNT_SPRITE == TRUE) ? FNPC_SURF_BLOB_RECREATE : FNPC_SURF_BLOB_NONE);
 }
 
