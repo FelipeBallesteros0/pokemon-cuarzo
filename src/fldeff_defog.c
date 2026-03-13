@@ -63,7 +63,7 @@ bool8 FldEff_Defog(void)
     return FALSE;
 }
 
-#define tFrameCount  data[0]
+#define tState       data[0]
 #define tFogBlend    data[1]
 #define tBlendDelay  data[2]
 
@@ -75,7 +75,7 @@ static void FieldMove_Defog(void)
     // Do not queue a parallel weather transition here; EndDefogTask handles
     // the entire fog clear and commits WEATHER_NONE atomically at the end.
     u32 taskId = CreateTask(EndDefogTask, 0);
-    gTasks[taskId].tFrameCount = 0;
+    gTasks[taskId].tState = 0;
     gTasks[taskId].tFogBlend = 9;   // max fog coeff used by custom fog palette blend
     gTasks[taskId].tBlendDelay = 0; // slow down per-step clear for smoother finish
 };
@@ -85,27 +85,34 @@ static void EndDefogTask(u8 taskId)
     if (gPaletteFade.active)
         return;
 
-    gTasks[taskId].tFrameCount++;
-
-    if (gTasks[taskId].tFrameCount < 120)
-        return;
-
-    if (gTasks[taskId].tFogBlend > 0)
+    switch (gTasks[taskId].tState)
     {
+    case 0:
+        // Freeze weather state immediately after fade-out ends to prevent
+        // a one-frame fog reapplication from the weather task.
+        SetCurrentAndNextWeatherNoDelay(WEATHER_NONE);
+        SetWeatherPalStateIdle();
+        gTasks[taskId].tState = 1;
+        return;
+    case 1:
         gTasks[taskId].tBlendDelay++;
         if (gTasks[taskId].tBlendDelay >= 2)
         {
             gTasks[taskId].tBlendDelay = 0;
-            gTasks[taskId].tFogBlend--;
             ApplyFogPalettesForTransition(gTasks[taskId].tFogBlend);
+            if (gTasks[taskId].tFogBlend > 0)
+                gTasks[taskId].tFogBlend--;
+            else
+                gTasks[taskId].tState = 2;
         }
         return;
+    case 2:
+        break;
     }
 
     // Reset weather state machine/palettes explicitly so custom fog modes
     // are cleared immediately without requiring UI/map refresh.
-    SetWeatherPalStateIdle();
-    SetCurrentAndNextWeatherNoDelay(WEATHER_NONE);
+    ApplyFogPalettesForTransition(0);
     ApplyWeatherColorMapIfIdle(0);
     ApplyWeatherColorMapToPals(0, 32);
     UpdateAltBgPalettes(PALETTES_BG);
@@ -117,4 +124,4 @@ static void EndDefogTask(u8 taskId)
     ScriptContext_Enable();
 }
 
-#undef tFrameCount
+#undef tState
