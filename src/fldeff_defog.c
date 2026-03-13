@@ -109,38 +109,68 @@ bool8 FldEff_Defog(void)
 static void FieldMove_Defog(void)
 {
     PlaySE12WithPanning(SE_M_SOLAR_BEAM, SOUND_PAN_ATTACKER);
-    SetWeatherScreenFadeOut();
+    if (sActiveFogFieldMove != MOVE_HAZE)
+        SetWeatherScreenFadeOut();
     FieldEffectActiveListRemove(FLDEFF_DEFOG);
     // Do not queue a parallel weather transition here; EndDefogTask handles
     // the entire fog clear and commits WEATHER_NONE atomically at the end.
     u32 taskId = CreateTask(EndDefogTask, 0);
     gTasks[taskId].tState = 0;
-    gTasks[taskId].tFogBlend = 9;   // max fog coeff used by custom fog palette blend
+    gTasks[taskId].tFogBlend = min((gTimeOfDay + 1) * 3, 9);
     gTasks[taskId].tBlendDelay = 0; // slow down per-step clear for smoother finish
     gTasks[taskId].tMode = (sActiveFogFieldMove == MOVE_HAZE);
 };
 
 static void EndDefogTask(u8 taskId)
 {
+    u16 maxFogCoeff = min((gTimeOfDay + 1) * 3, 9);
+
     if (gPaletteFade.active)
         return;
 
+    if (gTasks[taskId].tMode) // Haze: clear -> smooth fade-in -> persistent custom fog
+    {
+        switch (gTasks[taskId].tState)
+        {
+        case 0:
+            SetSavedWeather(WEATHER_FOG_HORIZONTAL);
+            SetCurrentAndNextWeatherNoDelay(WEATHER_NONE);
+            SetWeatherPalStateIdle();
+            gTasks[taskId].tFogBlend = 0;
+            gTasks[taskId].tBlendDelay = 0;
+            gTasks[taskId].tState = 1;
+            return;
+        case 1:
+            gTasks[taskId].tBlendDelay++;
+            if (gTasks[taskId].tBlendDelay >= 2)
+            {
+                gTasks[taskId].tBlendDelay = 0;
+                if (gTasks[taskId].tFogBlend < maxFogCoeff)
+                    gTasks[taskId].tFogBlend++;
+                ApplyFogPalettesForTransition(gTasks[taskId].tFogBlend);
+                if (gTasks[taskId].tFogBlend >= maxFogCoeff)
+                    gTasks[taskId].tState = 2;
+            }
+            return;
+        case 2:
+            SetCurrentAndNextWeatherNoDelay(WEATHER_FOG_HORIZONTAL);
+            SetWeatherPalStateIdle();
+            ApplyFogPalettesForTransition(maxFogCoeff);
+            UpdateShadowColor(RGB_GRAY);
+            DestroyTask(taskId);
+            ScriptContext_Enable();
+            return;
+        }
+    }
+
+    // Defog: fog -> smooth fade-out -> clear
     switch (gTasks[taskId].tState)
     {
     case 0:
-        if (gTasks[taskId].tMode) // Haze: apply fog weather
-        {
-            SetSavedWeather(WEATHER_FOG_HORIZONTAL);
-            SetCurrentAndNextWeatherNoDelay(WEATHER_FOG_HORIZONTAL);
-            SetWeatherPalStateIdle();
-            gTasks[taskId].tState = 2;
-            return;
-        }
-        // Defog: freeze weather state immediately after fade-out ends to prevent
-        // a one-frame fog reapplication from the weather task.
         SetSavedWeather(WEATHER_NONE);
         SetCurrentAndNextWeatherNoDelay(WEATHER_NONE);
         SetWeatherPalStateIdle();
+        gTasks[taskId].tBlendDelay = 0;
         gTasks[taskId].tState = 1;
         return;
     case 1:
@@ -159,27 +189,15 @@ static void EndDefogTask(u8 taskId)
         break;
     }
 
-    if (gTasks[taskId].tMode) // Haze
-    {
-        // Re-assert persisted weather through the normal weather API so the
-        // map update loop cannot immediately snap back to map-header weather.
-        SetWeather(WEATHER_FOG_HORIZONTAL);
-        DoCurrentWeather();
-        ApplyFogPalettesForTransition(min((gTimeOfDay + 1) * 3, 9));
-        UpdateShadowColor(RGB_GRAY);
-    }
-    else // Defog
-    {
-        // Reset weather state machine/palettes explicitly so custom fog modes
-        // are cleared immediately without requiring UI/map refresh.
-        ApplyFogPalettesForTransition(0);
-        ApplyWeatherColorMapIfIdle(0);
-        ApplyWeatherColorMapToPals(0, 32);
-        UpdateAltBgPalettes(PALETTES_BG);
-        UpdatePalettesWithTime(PALETTES_ALL);
-        Weather_SetBlendCoeffs(8, BASE_SHADOW_INTENSITY);
-        UpdateShadowColor(RGB_BLACK);
-    }
+    // Reset weather state machine/palettes explicitly so custom fog modes
+    // are cleared immediately without requiring UI/map refresh.
+    ApplyFogPalettesForTransition(0);
+    ApplyWeatherColorMapIfIdle(0);
+    ApplyWeatherColorMapToPals(0, 32);
+    UpdateAltBgPalettes(PALETTES_BG);
+    UpdatePalettesWithTime(PALETTES_ALL);
+    Weather_SetBlendCoeffs(8, BASE_SHADOW_INTENSITY);
+    UpdateShadowColor(RGB_BLACK);
 
     DestroyTask(taskId);
     ScriptContext_Enable();
