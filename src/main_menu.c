@@ -1358,15 +1358,17 @@ void CB2_NewGameBirchSpeech_FromNewMainMenu(void)
     DmaFill32(3, 0, OAM, OAM_SIZE);
     DmaFill16(3, 0, PLTT, PLTT_SIZE);
     ResetPaletteFade();
-    LZ77UnCompVram(sBirchSpeechShadowGfx, (u8 *)VRAM);
-    LZ77UnCompVram(sBirchSpeechBgMap, (u8 *)(BG_SCREEN_ADDR(7)));
+    DecompressDataWithHeaderVram(sBirchSpeechShadowGfx, (u8 *)VRAM);
+    DecompressDataWithHeaderVram(sBirchSpeechBgMap, (u8 *)(BG_SCREEN_ADDR(7)));
     LoadPalette(sBirchSpeechBgPals, BG_PLTT_ID(0), 2 * PLTT_SIZE_4BPP);
+    // Match the vanilla birch-speech init palette setup to avoid first-scene background corruption.
+    LoadPalette(&sBirchSpeechBgGradientPal[8], BG_PLTT_ID(0) + 1, PLTT_SIZEOF(8));
     ResetTasks();
     taskId = CreateTask(Task_NewGameBirchSpeech_WaitToShowBirch, 0);
     gTasks[taskId].tBG1HOFS = 0;
     gTasks[taskId].tPlayerSpriteId = SPRITE_NONE;
     gTasks[taskId].data[3] = 0xFF;
-    gTasks[taskId].tTimer = 0;
+    gTasks[taskId].tTimer = 0xD8;
     ScanlineEffect_Stop();
     ResetSpriteData();
     FreeAllSpritePalettes();
@@ -1383,6 +1385,10 @@ void CB2_NewGameBirchSpeech_FromNewMainMenu(void)
     SetGpuReg(REG_OFFSET_BLDY, 0);
     ShowBg(0);
     ShowBg(1);
+    // Coming from the custom main menu, BG2/BG3 may still be enabled (scroll background layer).
+    // Force them hidden so Birch speech starts with only its intended layers.
+    HideBg(2);
+    HideBg(3);
     SetVBlankCallback(VBlankCB_MainMenu);
     SetMainCallback2(CB2_MainMenu);
     InitWindows(sNewGameBirchSpeechTextWindows);
