@@ -273,6 +273,25 @@ BattleFrontier_BattleFactoryLobby_EventScript_FatMan::
 	msgbox BattleFrontier_BattleFactoryLobby_Text_CantFigureOutStaffHints, MSGBOX_NPC
 	end
 
+BattleFrontier_BattleFactoryLobby_EventScript_PokeballVendor::
+	lock
+	faceplayer
+	message BattleFrontier_BattleFactoryLobby_Text_PokeballVendor_Greet
+	waitmessage
+	pokemart BattleFrontier_BattleFactoryLobby_Pokemart_Pokeballs
+	msgbox BattleFrontier_BattleFactoryLobby_Text_PokeballVendor_Bye, MSGBOX_DEFAULT
+	release
+	end
+
+BattleFrontier_BattleFactoryLobby_EventScript_Healer::
+	lock
+	faceplayer
+	msgbox BattleFrontier_BattleFactoryLobby_Text_Healer_Greet, MSGBOX_DEFAULT
+	special HealPlayerParty
+	msgbox BattleFrontier_BattleFactoryLobby_Text_Healer_Done, MSGBOX_DEFAULT
+	release
+	end
+
 BattleFrontier_BattleFactoryLobby_EventScript_RulesBoard::
 	lockall
 	msgbox BattleFrontier_BattleFactoryLobby_Text_RulesAreListed, MSGBOX_DEFAULT
@@ -549,3 +568,20 @@ BattleFrontier_BattleFactoryLobby_Text_ExplainOpenLvRules:
 	.string "In the Open Level, the rental POKéMON\n"
 	.string "and the opposing TRAINERS' POKéMON\l"
 	.string "are all Level 100.$"
+
+BattleFrontier_BattleFactoryLobby_Text_PokeballVendor_Greet:
+	.string "Solo vendo Poké Balls.\n¿Cuántas quieres?$"
+
+BattleFrontier_BattleFactoryLobby_Text_PokeballVendor_Bye:
+	.string "¡Vuelve cuando quieras!$"
+
+BattleFrontier_BattleFactoryLobby_Text_Healer_Greet:
+	.string "¿Quieres que cure a tu equipo?$"
+
+BattleFrontier_BattleFactoryLobby_Text_Healer_Done:
+	.string "¡Tus POKéMON están al 100%!$"
+
+	.align 2
+BattleFrontier_BattleFactoryLobby_Pokemart_Pokeballs:
+	.2byte ITEM_POKE_BALL
+	pokemartlistend
