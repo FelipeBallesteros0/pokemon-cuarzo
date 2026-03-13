@@ -37,7 +37,7 @@ Objetivo: reconstruir gradualmente sobre base limpia (`rebuild/from-upstream-cle
 - [x] Comportamiento correcto por columnas en reordenamiento
 
 ## Bloque 6 - Menus extra
-- [ ] Port `original_tx_registered_items_menu`
+- [x] Port `original_tx_registered_items_menu`
 - [ ] Verificacion completa de flujo de objetos registrados
 
 ## Bloque 7 - Pesca y minijuego

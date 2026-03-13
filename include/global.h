@@ -675,6 +675,11 @@ struct ItemSlot
     u16 quantity;
 };
 
+struct RegisteredItemSlot
+{
+    u16 itemId;
+};
+
 struct Pokeblock
 {
     u8 color;
@@ -1196,6 +1201,12 @@ struct SaveBlock1
     /*0x3???*/ struct TrainerHillSave trainerHill;
 #endif //FREE_TRAINER_HILL
     /*0x3???*/ struct WaldaPhrase waldaPhrase;
+    /*0x3???*/ u8 registeredItemLastSelected:4;
+    /*0x3???*/ u8 registeredItemListCount:4;
+    /*0x3???*/ struct RegisteredItemSlot registeredItems[REGISTERED_ITEMS_MAX];
+    /*0x3???*/ u16 rechargeableRepelSteps;
+    /*0x3???*/ u16 electricBikeCharge;
+    /*0x3???*/ u16 electricBikeActive;
 #if FREE_TRAINER_TOWER == FALSE && IS_FRLG
     u32 towerChallengeId;
     struct TrainerTower trainerTower[NUM_TOWER_CHALLENGE_TYPES];
