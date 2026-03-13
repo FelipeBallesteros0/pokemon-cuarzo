@@ -5783,3 +5783,24 @@ u16 Special_SetTimeOfDayFromVar8004(void)
     SetTimeOfDay(gSpecialVar_0x8004);
     return TRUE;
 }
+
+u16 Special_SyncClockToRtc(void)
+{
+    struct SiiRtcInfo rtc;
+
+    if (RtcGetErrorStatus() & RTC_ERR_FLAG_MASK)
+        return FALSE;
+
+    RtcGetInfo(&rtc);
+    RtcCalcLocalTimeOffset(0,
+                           ConvertBcdToBinary(rtc.hour),
+                           ConvertBcdToBinary(rtc.minute),
+                           ConvertBcdToBinary(rtc.second));
+    SetTimeOfDay(0); // clear temporary override
+    UpdateTimeOfDay();
+    // Force an immediate palette refresh (weather color map + DNS tint) without opening Start.
+    ApplyWeatherColorMapToPals(0, NUM_PALS_TOTAL);
+    UpdateAltBgPalettes(PALETTES_BG);
+    UpdatePalettesWithTime(PALETTES_ALL);
+    return TRUE;
+}

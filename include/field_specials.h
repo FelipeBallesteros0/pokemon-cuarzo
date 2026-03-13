@@ -39,5 +39,6 @@ bool32 CheckPartyHasSpecies(u32);
 bool8 CutMoveRuinValleyCheck(void);
 void CutMoveOpenDottedHoleDoor(void);
 u16 Special_SetTimeOfDayFromVar8004(void);
+u16 Special_SyncClockToRtc(void);
 
 #endif // GUARD_FIELD_SPECIALS_H

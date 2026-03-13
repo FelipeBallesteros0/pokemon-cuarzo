@@ -125,6 +125,27 @@ TestIsland_EventScript_FollowerNpc_End:
 	release
 	end
 
+TestIsland_EventScript_RtcSyncNpc::
+	lock
+	faceplayer
+	msgbox TestIsland_Text_RtcSyncNpc_Ask, MSGBOX_YESNO
+	goto_if_eq VAR_RESULT, NO, TestIsland_EventScript_RtcSyncNpc_Cancel
+	special Special_SyncClockToRtc
+	goto_if_eq VAR_RESULT, FALSE, TestIsland_EventScript_RtcSyncNpc_Error
+	dotimebasedevents
+	msgbox TestIsland_Text_RtcSyncNpc_Done, MSGBOX_DEFAULT
+	release
+	end
+
+TestIsland_EventScript_RtcSyncNpc_Error:
+	msgbox TestIsland_Text_RtcSyncNpc_Error, MSGBOX_DEFAULT
+	release
+	end
+
+TestIsland_EventScript_RtcSyncNpc_Cancel:
+	release
+	end
+
 TestIsland_Text_WarpToPuebloCiendra:
 	.string "quieres ir a Pueblo Ciendra?$"
 
@@ -179,3 +200,14 @@ TestIsland_Text_FollowerNpc_Stay:
 
 TestIsland_Text_FollowerNpc_Disabled:
 	.string "listo, dejo de seguirte.$"
+
+TestIsland_Text_RtcSyncNpc_Ask:
+	.string "quieres sincronizar la hora del juego\n"
+	.string "con el RTC del emulador?$"
+
+TestIsland_Text_RtcSyncNpc_Done:
+	.string "listo, hora sincronizada con RTC.$"
+
+TestIsland_Text_RtcSyncNpc_Error:
+	.string "no pude leer el RTC.\n"
+	.string "revisa la config del emulador.$"
