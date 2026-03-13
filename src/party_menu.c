@@ -2935,7 +2935,8 @@ static void SetPartyMonFieldSelectionActions(struct Pokemon *mons, u8 slotId)
      && GetMonData(&mons[slotId], MON_DATA_SPECIES)
      && CanBoxMonRelearnAnyMove(&mons[slotId].box))
     {
-        AppendToList(sPartyMenuInternal->actions, &sPartyMenuInternal->numActions, MENU_SUB_MOVES);
+        if (sPartyMenuInternal->numActions < ARRAY_COUNT(sPartyMenuInternal->actions))
+            AppendToList(sPartyMenuInternal->actions, &sPartyMenuInternal->numActions, MENU_SUB_MOVES);
     }
 
     // Add field moves to action list
@@ -2945,7 +2946,8 @@ static void SetPartyMonFieldSelectionActions(struct Pokemon *mons, u8 slotId)
         {
             if (GetMonData(&mons[slotId], i + MON_DATA_MOVE1) == FieldMove_GetMoveId(j))
             {
-                AppendToList(sPartyMenuInternal->actions, &sPartyMenuInternal->numActions, j + MENU_FIELD_MOVES);
+                if (sPartyMenuInternal->numActions < ARRAY_COUNT(sPartyMenuInternal->actions))
+                    AppendToList(sPartyMenuInternal->actions, &sPartyMenuInternal->numActions, j + MENU_FIELD_MOVES);
                 break;
             }
         }
@@ -2954,30 +2956,53 @@ static void SetPartyMonFieldSelectionActions(struct Pokemon *mons, u8 slotId)
     if (!InBattlePike())
     {
         if (GetMonData(&mons[1], MON_DATA_SPECIES) != SPECIES_NONE)
-            AppendToList(sPartyMenuInternal->actions, &sPartyMenuInternal->numActions, MENU_SWITCH);
+        {
+            if (sPartyMenuInternal->numActions < ARRAY_COUNT(sPartyMenuInternal->actions))
+                AppendToList(sPartyMenuInternal->actions, &sPartyMenuInternal->numActions, MENU_SWITCH);
+        }
         if (ItemIsMail(GetMonData(&mons[slotId], MON_DATA_HELD_ITEM)))
-            AppendToList(sPartyMenuInternal->actions, &sPartyMenuInternal->numActions, MENU_MAIL);
+        {
+            if (sPartyMenuInternal->numActions < ARRAY_COUNT(sPartyMenuInternal->actions))
+                AppendToList(sPartyMenuInternal->actions, &sPartyMenuInternal->numActions, MENU_MAIL);
+        }
         else
-            AppendToList(sPartyMenuInternal->actions, &sPartyMenuInternal->numActions, MENU_ITEM);
+        {
+            if (sPartyMenuInternal->numActions < ARRAY_COUNT(sPartyMenuInternal->actions))
+                AppendToList(sPartyMenuInternal->actions, &sPartyMenuInternal->numActions, MENU_ITEM);
+        }
     }
-    AppendToList(sPartyMenuInternal->actions, &sPartyMenuInternal->numActions, MENU_CANCEL1);
+    if (sPartyMenuInternal->numActions < ARRAY_COUNT(sPartyMenuInternal->actions))
+        AppendToList(sPartyMenuInternal->actions, &sPartyMenuInternal->numActions, MENU_CANCEL1);
 }
 
 static void SetPartyMonLearnMoveSelectionActions(struct Pokemon *mons, u8 slotId)
 {
     if (CanBoxMonRelearnMoves(&mons[slotId].box, MOVE_RELEARNER_LEVEL_UP_MOVES))
-        AppendToList(sPartyMenuInternal->actions, &sPartyMenuInternal->numActions, MENU_LEVEL_UP_MOVES);
+    {
+        if (sPartyMenuInternal->numActions < ARRAY_COUNT(sPartyMenuInternal->actions))
+            AppendToList(sPartyMenuInternal->actions, &sPartyMenuInternal->numActions, MENU_LEVEL_UP_MOVES);
+    }
 
     if (CanBoxMonRelearnMoves(&mons[slotId].box, MOVE_RELEARNER_EGG_MOVES))
-        AppendToList(sPartyMenuInternal->actions, &sPartyMenuInternal->numActions, MENU_EGG_MOVES);
+    {
+        if (sPartyMenuInternal->numActions < ARRAY_COUNT(sPartyMenuInternal->actions))
+            AppendToList(sPartyMenuInternal->actions, &sPartyMenuInternal->numActions, MENU_EGG_MOVES);
+    }
 
     if (CanBoxMonRelearnMoves(&mons[slotId].box, MOVE_RELEARNER_TM_MOVES))
-        AppendToList(sPartyMenuInternal->actions, &sPartyMenuInternal->numActions, MENU_TM_MOVES);
+    {
+        if (sPartyMenuInternal->numActions < ARRAY_COUNT(sPartyMenuInternal->actions))
+            AppendToList(sPartyMenuInternal->actions, &sPartyMenuInternal->numActions, MENU_TM_MOVES);
+    }
 
     if (CanBoxMonRelearnMoves(&mons[slotId].box, MOVE_RELEARNER_TUTOR_MOVES))
-        AppendToList(sPartyMenuInternal->actions, &sPartyMenuInternal->numActions, MENU_TUTOR_MOVES);
+    {
+        if (sPartyMenuInternal->numActions < ARRAY_COUNT(sPartyMenuInternal->actions))
+            AppendToList(sPartyMenuInternal->actions, &sPartyMenuInternal->numActions, MENU_TUTOR_MOVES);
+    }
 
-    AppendToList(sPartyMenuInternal->actions, &sPartyMenuInternal->numActions, MENU_CANCEL1);
+    if (sPartyMenuInternal->numActions < ARRAY_COUNT(sPartyMenuInternal->actions))
+        AppendToList(sPartyMenuInternal->actions, &sPartyMenuInternal->numActions, MENU_CANCEL1);
 }
 
 static u8 GetPartyMenuActionsType(struct Pokemon *mon)

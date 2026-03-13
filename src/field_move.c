@@ -114,6 +114,23 @@ static bool32 IsFieldMoveUnlocked_Haze(void)
 }
 #endif
 
+#if OW_WEATHER_MOVES_FIELD_MOVE == TRUE
+static bool32 IsFieldMoveUnlocked_SunnyDay(void)
+{
+    return TRUE;
+}
+
+static bool32 IsFieldMoveUnlocked_RainDance(void)
+{
+    return TRUE;
+}
+
+static bool32 IsFieldMoveUnlocked_Hail(void)
+{
+    return TRUE;
+}
+#endif
+
 const struct FieldMoveInfo gFieldMoveInfo[FIELD_MOVES_COUNT] =
 {
     [FIELD_MOVE_CUT] =
@@ -251,6 +268,29 @@ const struct FieldMoveInfo gFieldMoveInfo[FIELD_MOVES_COUNT] =
         .fieldMoveFunc = SetUpFieldMove_Haze,
         .isUnlockedFunc = IsFieldMoveUnlocked_Haze,
         .moveID = MOVE_HAZE,
+        .partyMsgID = PARTY_MSG_CANT_USE_HERE,
+    },
+#endif
+#if OW_WEATHER_MOVES_FIELD_MOVE == TRUE
+    [FIELD_MOVE_SUNNY_DAY] =
+    {
+        .fieldMoveFunc = SetUpFieldMove_SunnyDay,
+        .isUnlockedFunc = IsFieldMoveUnlocked_SunnyDay,
+        .moveID = MOVE_SUNNY_DAY,
+        .partyMsgID = PARTY_MSG_CANT_USE_HERE,
+    },
+    [FIELD_MOVE_RAIN_DANCE] =
+    {
+        .fieldMoveFunc = SetUpFieldMove_RainDance,
+        .isUnlockedFunc = IsFieldMoveUnlocked_RainDance,
+        .moveID = MOVE_RAIN_DANCE,
+        .partyMsgID = PARTY_MSG_CANT_USE_HERE,
+    },
+    [FIELD_MOVE_HAIL] =
+    {
+        .fieldMoveFunc = SetUpFieldMove_Hail,
+        .isUnlockedFunc = IsFieldMoveUnlocked_Hail,
+        .moveID = MOVE_HAIL,
         .partyMsgID = PARTY_MSG_CANT_USE_HERE,
     },
 #endif

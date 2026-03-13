@@ -55,5 +55,8 @@ bool8 FldEff_UseRockSmash(void);
 bool32 SetUpFieldMove_Defog(void);
 bool8 FldEff_Defog(void);
 bool32 SetUpFieldMove_Haze(void);
+bool32 SetUpFieldMove_SunnyDay(void);
+bool32 SetUpFieldMove_RainDance(void);
+bool32 SetUpFieldMove_Hail(void);
 
 #endif // GUARD_FLDEFF_H
