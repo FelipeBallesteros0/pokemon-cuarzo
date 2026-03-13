@@ -25,11 +25,11 @@ Objetivo: reconstruir gradualmente sobre base limpia (`rebuild/from-upstream-cle
 - [x] Reloj en barra superior
 
 ## Bloque 4 - Followers
-- [ ] Follower NPC activable/desactivable hablando
-- [ ] Follower NPC con combates dobles junto al jugador
-- [ ] Surf montado jugador + seguidor (sin blob)
+- [x] Follower NPC activable/desactivable hablando
+- [x] Follower NPC con combates dobles junto al jugador
+- [x] Surf montado jugador + seguidor (sin blob)
 - [ ] Animaciones de surf/field move completas y estables
-- [ ] OW_FOLLOWERS_WEATHER_FORMS
+- [x] OW_FOLLOWERS_WEATHER_FORMS
 
 ## Bloque 5 - Party Menu
 - [x] Port gen5ish party menu

@@ -729,6 +729,8 @@ static void Task_BindSurfBlobToFollowerNPC(u8 taskId)
 static void Task_FollowerSurfFieldMovePose(u8 taskId)
 {
     struct ObjectEvent *follower;
+    u16 fieldMoveGraphicsId;
+    u16 surfGraphicsId;
 
     if (!PlayerHasFollowerNPC())
     {
@@ -745,14 +747,40 @@ static void Task_FollowerSurfFieldMovePose(u8 taskId)
         return;
     }
 
-    // Deterministic pre-jump window.
-    if (++gTasks[taskId].data[0] < 16)
-        return;
+    switch (gTasks[taskId].data[0])
+    {
+    case 0:
+        // Show the same field-move pose sequence the player uses before surf jump.
+        fieldMoveGraphicsId = GetFollowerNPCFieldMoveSprite();
+        if (follower->graphicsId != fieldMoveGraphicsId)
+            ObjectEventSetGraphicsId(follower, fieldMoveGraphicsId);
 
-    // Ensure jump starts from proper surf graphics every time.
-    SetFollowerNPCSprite(FOLLOWER_NPC_SPRITE_INDEX_SURF);
-    SetSurfJump();
-    DestroyTask(taskId);
+        ObjectEventTurn(follower, follower->facingDirection);
+        StartSpriteAnim(&gSprites[follower->spriteId], ANIM_FIELD_MOVE);
+        follower->disableAnim = FALSE;
+        follower->enableAnim = FALSE;
+        gSprites[follower->spriteId].animPaused = FALSE;
+        ObjectEventSetHeldMovement(follower, MOVEMENT_ACTION_START_ANIM_IN_DIRECTION);
+        gTasks[taskId].data[1] = 0;
+        gTasks[taskId].data[0]++;
+        return;
+    case 1:
+        // Some follower field-move graphics can report movement as unfinished forever.
+        // Continue after a short timeout so surf flow never gets stuck.
+        if (!ObjectEventClearHeldMovementIfFinished(follower) && ++gTasks[taskId].data[1] < 24)
+            return;
+
+        // Return to surf graphics, then perform the surf jump/mount.
+        SetFollowerNPCSprite(FOLLOWER_NPC_SPRITE_INDEX_SURF);
+        follower = &gObjectEvents[GetFollowerNPCObjectId()];
+        surfGraphicsId = GetFollowerNPCSprite();
+        if (follower->graphicsId != surfGraphicsId)
+            ObjectEventSetGraphicsId(follower, surfGraphicsId);
+        ObjectEventTurn(follower, follower->facingDirection);
+        SetSurfJump();
+        DestroyTask(taskId);
+        return;
+    }
 }
 
 static void Task_CreateFollowerSurfMountAfterJump(u8 taskId)

@@ -2066,6 +2066,8 @@ void CB2_ContinueSavedGame(void)
     u8 trainerHillMapId;
 
     FieldClearVBlankHBlankCallbacks();
+    // Ensure temporary script-driven time override never persists across save reloads.
+    sHoursOverride = 0;
     StopMapMusic();
     ResetSafariZoneFlag_();
     if (gSaveFileStatus == SAVE_STATUS_ERROR)
