@@ -19,6 +19,7 @@ enum {
     TAG_ROTATING_BALL_GFX,
     TAG_ITEM_ICON,
     TAG_ITEM_ICON_ALT,
+    TAG_BAG_FEMALE_GFX,
 };
 #define TAG_BERRY_CHECK_CIRCLE_GFX 10000
 #define TAG_BERRY_PIC_PAL 30020
@@ -137,7 +138,7 @@ const struct CompressedSpriteSheet gBagMaleSpriteSheet =
 
 const struct CompressedSpriteSheet gBagFemaleSpriteSheet =
 {
-    gBagFemaleTiles, 0x3000, TAG_BAG_GFX
+    gBagFemaleTiles, 0x3000, TAG_BAG_FEMALE_GFX
 };
 
 const struct SpritePalette gBagPaletteTable =
@@ -145,10 +146,24 @@ const struct SpritePalette gBagPaletteTable =
     gBagPalette, TAG_BAG_GFX
 };
 
+const struct SpritePalette gBagFemalePaletteTable =
+{
+    gBagFemalePalette, TAG_BAG_FEMALE_GFX
+};
+
 static const struct SpriteTemplate sBagSpriteTemplate =
 {
     .tileTag = TAG_BAG_GFX,
     .paletteTag = TAG_BAG_GFX,
+    .oam = &sBagOamData,
+    .anims = sBagSpriteAnimTable,
+    .affineAnims = sBagAffineAnimCmds,
+};
+
+static const struct SpriteTemplate sBagFemaleSpriteTemplate =
+{
+    .tileTag = TAG_BAG_FEMALE_GFX,
+    .paletteTag = TAG_BAG_FEMALE_GFX,
     .oam = &sBagOamData,
     .anims = sBagSpriteAnimTable,
     .affineAnims = sBagAffineAnimCmds,
@@ -439,7 +454,9 @@ void RemoveBagSprite(u8 id)
     if (*spriteId != SPRITE_NONE)
     {
         FreeSpriteTilesByTag(id + TAG_BAG_GFX);
+        FreeSpriteTilesByTag(id + TAG_BAG_FEMALE_GFX);
         FreeSpritePaletteByTag(id + TAG_BAG_GFX);
+        FreeSpritePaletteByTag(id + TAG_BAG_FEMALE_GFX);
         FreeSpriteOamMatrix(&gSprites[*spriteId]);
         DestroySprite(&gSprites[*spriteId]);
         *spriteId = SPRITE_NONE;
@@ -449,7 +466,10 @@ void RemoveBagSprite(u8 id)
 void AddBagVisualSprite(u8 bagPocketId)
 {
     u8 *spriteId = &gBagMenu->spriteIds[ITEMMENUSPRITE_BAG];
-    *spriteId = CreateSprite(&sBagSpriteTemplate, 68, 66, 0);
+    if (gSaveBlock2Ptr->playerGender == FEMALE)
+        *spriteId = CreateSprite(&sBagFemaleSpriteTemplate, 68, 66, 0);
+    else
+        *spriteId = CreateSprite(&sBagSpriteTemplate, 68, 66, 0);
     SetBagVisualPocketId(bagPocketId, FALSE);
 }
 
