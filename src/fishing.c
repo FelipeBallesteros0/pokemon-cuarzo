@@ -1,4 +1,6 @@
 #include "global.h"
+#include "bg.h"
+#include "field_camera.h"
 #include "main.h"
 #include "event_object_movement.h"
 #include "fieldmap.h"

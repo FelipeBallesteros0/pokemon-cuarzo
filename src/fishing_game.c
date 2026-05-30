@@ -109,6 +109,19 @@ static const u32 gFishingGameOWBG_Tilemap[] = INCBIN_U32("graphics/fishing_game/
 static const u32 gFishingGameOWBGEnd_Tilemap[] = INCBIN_U32("graphics/fishing_game/fishing_bg_ow_end.bin.lz");
 static const u32 gScoreMeterOWBehind_Gfx[] = INCBIN_U32("graphics/fishing_game/score_meter_ow_behind.4bpp.lz");
 
+// Holds the decompressed OW fishing background tiles until the DMA copy to VRAM is confirmed done.
+// Must be freed via FreeFishingOWTilemapBuffer() after the minigame ends.
+static void *sFishingOWTilemapBuffer = NULL;
+
+static void FreeFishingOWTilemapBuffer(void)
+{
+    if (sFishingOWTilemapBuffer != NULL)
+    {
+        Free(sFishingOWTilemapBuffer);
+        sFishingOWTilemapBuffer = NULL;
+    }
+}
+
 static const u8 gText_Tutorial[] = _("Hold {A_BUTTON} to make the bar go right.\nRelease {A_BUTTON} to make the bar go left.\p");
 static const u8 gText_Tutorial2[] = _("Try to keep the POKéMON inside the bar\nuntil the score fills up.\p");
 static const u8 gText_Tutorial3[] = _("If the score runs out,\nthe POKéMON will escape.\p");
@@ -813,8 +826,6 @@ void CB2_InitFishingMinigame(void)
 
 void Task_InitOWFishingMinigame(u8 taskId)
 {
-    void *tilemapBuffer;
-    
     LoadSpritePalettes(sSpritePalettes_FishingGame);
 
     // If the sprite palettes couldn't be loaded, do the minigame on a separate screen.
@@ -826,12 +837,14 @@ void Task_InitOWFishingMinigame(u8 taskId)
         return;
     }
 
-    tilemapBuffer = AllocZeroed(GetDecompressedDataSize(gFishingGameOWBG_Gfx));
-    DecompressDataWithHeaderWram(gFishingGameOWBG_Gfx, tilemapBuffer);
+    FreeFishingOWTilemapBuffer(); // Free any leftover buffer from a previous session.
+    sFishingOWTilemapBuffer = AllocZeroed(GetDecompressedDataSize(gFishingGameOWBG_Gfx));
+    DecompressDataWithHeaderWram(gFishingGameOWBG_Gfx, sFishingOWTilemapBuffer);
     CopyToBgTilemapBuffer(0, gFishingGameOWBG_Tilemap, 0, 0);
     CopyBgTilemapBufferToVram(0);
     LoadPalette(gFishingGameOWBG_Pal, BG_PLTT_ID(13), PLTT_SIZE_4BPP);
-    LoadBgTiles(0, tilemapBuffer, GetDecompressedDataSize(gFishingGameOWBG_Gfx), 0);
+    LoadBgTiles(0, sFishingOWTilemapBuffer, GetDecompressedDataSize(gFishingGameOWBG_Gfx), 0);
+    // sFishingOWTilemapBuffer freed in Task_QuitFishing (fail/quit) or CB2_FishingBattleTransition (success)
     LoadMessageBoxAndFrameGfx(0, TRUE);
     LoadFishingSpritesheets();
 
@@ -1285,12 +1298,17 @@ static void Task_HandleConfirmQuitInput(u8 taskId)
     switch (Menu_ProcessInputNoWrapClearOnChoose())
     {
     case 0:  // YES
-        if (taskData.tGameStateBits & FG_SEPARATE_SCREEN)
-            BeginNormalPaletteFade(PALETTES_ALL, 0, 0, 16, RGB_BLACK); // Fade the screen to black.
-        else
-            ClearDialogWindowAndFrame(0, TRUE);
         PlaySE(SE_FLEE);
-        taskData.func = Task_QuitFishing;
+        if (taskData.tGameStateBits & FG_SEPARATE_SCREEN)
+        {
+            BeginNormalPaletteFade(PALETTES_ALL, 0, 0, 16, RGB_BLACK); // Fade the screen to black.
+            taskData.func = Task_QuitFishing;
+        }
+        else
+        {
+            // Call directly so sprite/BG cleanup happens this frame with no visible gap.
+            Task_QuitFishing(taskId);
+        }
         break;
     case 1:  // NO
     case MENU_B_PRESSED:
@@ -1363,10 +1381,15 @@ static void Task_FishGotAway(u8 taskId)
         if (!IsTextPrinterActiveOnWindow(0)) // If a button was pressed.
         {
             if (taskData.tGameStateBits & FG_SEPARATE_SCREEN)
+            {
                 BeginNormalPaletteFade(PALETTES_ALL, 0, 0, 16, RGB_BLACK); // Fade the screen to black.
+                taskData.func = Task_QuitFishing;
+            }
             else
-                ClearDialogWindowAndFrame(0, TRUE);
-            taskData.func = Task_QuitFishing;
+            {
+                // Call directly so sprite/BG cleanup happens this frame with no visible gap.
+                Task_QuitFishing(taskId);
+            }
         }
     }
 }
@@ -1379,10 +1402,41 @@ static void Task_QuitFishing(u8 taskId)
         gFieldCallback2 = NULL;
         if (!(taskData.tGameStateBits & FG_SEPARATE_SCREEN))
         {
+            u8 i;
+
+            // Free the OW background tile buffer (DMA copy completed long ago during gameplay)
+            FreeFishingOWTilemapBuffer();
+
+            // Destroy all sprites belonging to the fishing minigame (identified by their stored taskId)
+            for (i = 0; i < MAX_SPRITES; i++)
+            {
+                if (gSprites[i].inUse && gSprites[i].data[0] == taskId)
+                    DestroySprite(&gSprites[i]);
+            }
+
+            // Free sprite tile sheets and palette loaded by the minigame
+            FreeSpriteTilesByTag(TAG_FISHING_BAR);
+            FreeSpriteTilesByTag(TAG_FISHING_BAR_RIGHT);
+            FreeSpriteTilesByTag(TAG_SCORE_METER);
+            FreeSpriteTilesByTag(TAG_PERFECT);
+            FreeSpriteTilesByTag(TAG_QUESTION_MARK);
+            FreeSpriteTilesByTag(TAG_VAGUE_FISH);
+            FreeSpriteTilesByTag(TAG_SCORE_BACKING);
+            FreeSpritePaletteByTag(TAG_FISHING_BAR);
+            FreeMonIconPalettes();
+
             taskData.data[8] = TRUE; // Don't show any more text boxes.
             taskData.data[0] = 15; // Set Task_Fishing to run Fishing_GotAway.
-            CopyToBgTilemapBuffer(0, gFishingGameOWBGEnd_Tilemap, 0, 0);
-            CopyBgTilemapBufferToVram(0);
+
+            // Restore BG 0: blank tile 0, clear tilemap, reload window borders, redraw map
+            {
+                static const u8 sBlankTile[32] = {0};
+                LoadBgTiles(0, sBlankTile, 32, 0);
+                FillBgTilemapBufferRect(0, 0, 0, 0, 32, 32, 0);
+                CopyBgTilemapBufferToVram(0);
+                LoadMessageBoxAndBorderGfx();
+                DrawWholeMapView();
+            }
             taskData.tGameStateBits |= FG_GAME_ENDED;
             taskData.func = Task_Fishing;
         }
@@ -2176,6 +2230,7 @@ static bool32 TreasureIsInsideBar(u8 taskId)
 
 static void CB2_FishingBattleTransition(void)
 {
+    FreeFishingOWTilemapBuffer(); // Success path: free OW tile buffer before going to battle.
     FreeMonIconPalettes();
     gBattleTypeFlags = 0;
     PlayBattleBGM(); // Play the battle music.
