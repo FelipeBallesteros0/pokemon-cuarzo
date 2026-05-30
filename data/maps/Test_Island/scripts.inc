@@ -15,6 +15,8 @@ Test_Island_EventScript_DebugBerryNPC::
 	goto_if_eq VAR_RESULT, FALSE, Common_EventScript_ShowBagIsFull
 	giveitem ITEM_ASPEAR_BERRY
 	goto_if_eq VAR_RESULT, FALSE, Common_EventScript_ShowBagIsFull
+	giveitem ITEM_HM03
+	goto_if_eq VAR_RESULT, FALSE, Common_EventScript_ShowBagIsFull
 	setflag FLAG_UNUSED_0x863
 	release
 	end
@@ -25,4 +27,4 @@ Test_Island_EventScript_DebugBerryNPC_Done::
 	end
 
 Test_Island_Text_BerryNPC_Done:
-	.string "Ya te di las bayas.$"
+	.string "Ya te di las bayas y la MO.$"
