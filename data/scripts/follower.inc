@@ -17,8 +17,23 @@ EventScript_Follower::
 	getfolloweraction
 EventScript_FollowerEnd::
 	waitfieldeffect FLDEFF_EMOTE
+	msgbox FollowerPetText_Question, MSGBOX_YESNO
+	goto_if_eq VAR_RESULT, FALSE, EventScript_FollowerRelease
+	callnative PetFollower
+	goto_if_eq VAR_RESULT, FALSE, EventScript_FollowerPetDone
+	applymovement OBJ_EVENT_ID_FOLLOWER, ContestHall_Movement_Heart
+	waitmovement OBJ_EVENT_ID_FOLLOWER
+EventScript_FollowerPetDone::
+	msgbox FollowerPetText_Done, MSGBOX_DEFAULT
+EventScript_FollowerRelease::
 	release
 	end
+
+FollowerPetText_Question:
+	.string "¿Acariciar a {STR_VAR_1}?$"
+
+FollowerPetText_Done:
+	.string "Acariciaste a {STR_VAR_1}.$"
 
 EventScript_FollowerLovesYou::
 	applymovement OBJ_EVENT_ID_FOLLOWER, ContestHall_Movement_Heart

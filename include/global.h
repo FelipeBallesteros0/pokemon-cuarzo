@@ -270,6 +270,10 @@ struct SaveBlock3
 #if APRICORN_TREE_COUNT > 0
     u8 apricornTrees[NUM_APRICORN_TREE_BYTES];
 #endif
+#if OW_FOLLOWERS_ENABLED
+    u32 followerPetPersonality;
+    u16 followerPetCooldown;
+#endif
 }; /* max size 1624 bytes */
 
 extern struct SaveBlock3 *gSaveBlock3Ptr;

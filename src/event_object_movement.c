@@ -2567,6 +2567,30 @@ bool32 CheckMsgInfo(const struct FollowerMsgInfoExtended *info, struct Pokemon *
     }
 }
 
+void PetFollower(struct ScriptContext *ctx)
+{
+    struct Pokemon *mon = &gPlayerParty[0];
+    u32 personality = GetMonData(mon, MON_DATA_PERSONALITY, NULL);
+
+    if (gSaveBlock3Ptr->followerPetPersonality == personality
+        && gSaveBlock3Ptr->followerPetCooldown > 0)
+    {
+        gSpecialVar_Result = FALSE;
+    }
+    else
+    {
+        u8 friendship = GetMonData(mon, MON_DATA_FRIENDSHIP, NULL);
+        if (friendship < MAX_FRIENDSHIP)
+        {
+            friendship++;
+            SetMonData(mon, MON_DATA_FRIENDSHIP, &friendship);
+        }
+        gSaveBlock3Ptr->followerPetPersonality = personality;
+        gSaveBlock3Ptr->followerPetCooldown = 300;
+        gSpecialVar_Result = TRUE;
+    }
+}
+
 // Call an applicable follower message script
 void GetFollowerAction(struct ScriptContext *ctx) // Essentially a big switch for follower messages
 {

@@ -848,6 +848,10 @@ static void UpdateFollowerStepCounter(void)
 {
     if (gPlayerPartyCount > 0 && gFollowerSteps < (u16)-1)
         gFollowerSteps++;
+#if OW_FOLLOWERS_ENABLED
+    if (gSaveBlock3Ptr->followerPetCooldown > 0)
+        gSaveBlock3Ptr->followerPetCooldown--;
+#endif
 }
 
 void ClearPoisonStepCounter(void)
