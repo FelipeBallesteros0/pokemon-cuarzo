@@ -1881,6 +1881,7 @@ void CB2_NewGame(void)
     StopMapMusic();
     ResetSafariZoneFlag_();
     NewGameInitData();
+    InitTimeBasedEvents();
     ResetInitialPlayerAvatarState();
     PlayTimeCounter_Start();
     ScriptContext_Init();
@@ -2077,6 +2078,8 @@ void CB2_ContinueSavedGame(void)
         LoadSaveblockObjEventScripts();
 
     UnfreezeObjectEvents();
+    if (!FlagGet(FLAG_SYS_CLOCK_SET))
+        InitTimeBasedEvents();
     DoTimeBasedEvents();
     UpdateMiscOverworldStates();
     if (gMapHeader.mapLayoutId == LAYOUT_BATTLE_FRONTIER_BATTLE_PYRAMID_FLOOR)
