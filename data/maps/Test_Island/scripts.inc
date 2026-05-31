@@ -19,6 +19,8 @@ Test_Island_EventScript_DebugBerryNPC::
 	goto_if_eq VAR_RESULT, FALSE, Common_EventScript_ShowBagIsFull
 	giveitem ITEM_OLD_ROD
 	goto_if_eq VAR_RESULT, FALSE, Common_EventScript_ShowBagIsFull
+	setflag FLAG_UNUSED_0x021 @ DN_FLAG_DEXNAV_GET
+	setflag FLAG_UNUSED_0x022 @ DN_FLAG_DETECTOR_MODE
 	setflag FLAG_UNUSED_0x863
 	release
 	end
@@ -29,4 +31,4 @@ Test_Island_EventScript_DebugBerryNPC_Done::
 	end
 
 Test_Island_Text_BerryNPC_Done:
-	.string "Ya te di las bayas, la MO\ny la caña.$"
+	.string "Ya te di las bayas, la MO,\nla caña y el DexNav.$"

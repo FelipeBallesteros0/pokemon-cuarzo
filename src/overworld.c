@@ -1882,6 +1882,8 @@ void CB2_NewGame(void)
     ResetSafariZoneFlag_();
     NewGameInitData();
     InitTimeBasedEvents();
+    FlagSet(DN_FLAG_DEXNAV_GET);
+    FlagSet(DN_FLAG_DETECTOR_MODE);
     ResetInitialPlayerAvatarState();
     PlayTimeCounter_Start();
     ScriptContext_Init();
