@@ -39,6 +39,7 @@
 #include "title_screen.h"
 #include "window.h"
 #include "mystery_gift_menu.h"
+#include "ui_main_menu.h"
 
 /*
  * Main menu state machine
@@ -890,7 +891,7 @@ static void Task_DisplayMainMenu(u8 taskId)
             }
             break;
         }
-        gTasks[taskId].func = Task_HighlightSelectedMainMenuItem;
+        gTasks[taskId].func = Task_OpenMainMenu;
     }
 }
 
@@ -2310,3 +2311,25 @@ static void Task_NewGameBirchSpeech_ReturnFromNamingScreenShowTextbox(u8 taskId)
 }
 
 #undef tTimer
+
+void CB2_NewGameFromUI(void)
+{
+    u8 taskId;
+    SetGpuReg(REG_OFFSET_DISPCNT, 0);
+    SetGpuReg(REG_OFFSET_DISPCNT, DISPCNT_OBJ_ON | DISPCNT_OBJ_1D_MAP);
+    ResetBgsAndClearDma3BusyFlags(0);
+    InitBgsFromTemplates(0, sMainMenuBgTemplates, ARRAY_COUNT(sMainMenuBgTemplates));
+    InitBgFromTemplate(&sBirchBgTemplate);
+    SetVBlankCallback(NULL);
+    DmaFill16(3, 0, (void *)VRAM, VRAM_SIZE);
+    DmaFill32(3, 0, (void *)OAM, OAM_SIZE);
+    DmaFill16(3, 0, (void *)(PLTT + 2), PLTT_SIZE - 2);
+    ResetPaletteFade();
+    ScanlineEffect_Stop();
+    ResetTasks();
+    ResetSpriteData();
+    FreeAllSpritePalettes();
+    SetMainCallback2(CB2_MainMenu);
+    SetVBlankCallback(VBlankCB_MainMenu);
+    taskId = CreateTask(Task_NewGameBirchSpeech_Init, 0);
+}
