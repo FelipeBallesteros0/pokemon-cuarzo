@@ -37,6 +37,7 @@
 #include "script.h"
 #include "sound.h"
 #include "start_menu.h"
+#include "ui_start_menu.h"
 #include "strings.h"
 #include "string_util.h"
 #include "task.h"
@@ -259,7 +260,6 @@ static void BuildMultiPartnerRoomStartMenu(void);
 static void ShowSafariBallsWindow(void);
 static void ShowPyramidFloorWindow(void);
 static void RemoveExtraStartMenuWindows(void);
-static bool32 PrintStartMenuActions(s8 *pIndex, u32 count);
 static bool32 InitStartMenuStep(void);
 static void InitStartMenu(void);
 static void CreateStartMenuTask(TaskFunc followupFunc);
@@ -474,6 +474,7 @@ static void ShowPyramidFloorWindow(void)
 
 static void RemoveExtraStartMenuWindows(void)
 {
+    UIStartMenu_Free();
     if (GetSafariZoneFlag())
     {
         ClearStdWindowAndFrameToTransparent(sSafariBallsWindowId, FALSE);
@@ -487,36 +488,6 @@ static void RemoveExtraStartMenuWindows(void)
     }
 }
 
-static bool32 PrintStartMenuActions(s8 *pIndex, u32 count)
-{
-    s8 index = *pIndex;
-
-    do
-    {
-        if (sStartMenuItems[sCurrentStartMenuActions[index]].func.u8_void == StartMenuPlayerNameCallback)
-        {
-            PrintPlayerNameOnWindow(GetStartMenuWindowId(), sStartMenuItems[sCurrentStartMenuActions[index]].text, 8, (index << 4) + 9);
-        }
-        else
-        {
-            StringExpandPlaceholders(gStringVar4, sStartMenuItems[sCurrentStartMenuActions[index]].text);
-            AddTextPrinterParameterized(GetStartMenuWindowId(), FONT_NORMAL, gStringVar4, 8, (index << 4) + 9, TEXT_SKIP_DRAW, NULL);
-        }
-
-        index++;
-        if (index >= sNumStartMenuActions)
-        {
-            *pIndex = index;
-            return TRUE;
-        }
-
-        count--;
-    }
-    while (count != 0);
-
-    *pIndex = index;
-    return FALSE;
-}
 
 static bool32 InitStartMenuStep(void)
 {
@@ -532,9 +503,7 @@ static bool32 InitStartMenuStep(void)
         sInitStartMenuData[0]++;
         break;
     case 2:
-        LoadMessageBoxAndBorderGfx();
-        DrawStdWindowFrame(AddStartMenuWindow(sNumStartMenuActions), FALSE);
-        sInitStartMenuData[1] = 0;
+        UIStartMenu_Load(sNumStartMenuActions);
         sInitStartMenuData[0]++;
         break;
     case 3:
@@ -545,12 +514,19 @@ static bool32 InitStartMenuStep(void)
         sInitStartMenuData[0]++;
         break;
     case 4:
-        if (PrintStartMenuActions(&sInitStartMenuData[1], 2))
-            sInitStartMenuData[0]++;
+    {
+        u8 i;
+        for (i = 0; i < sNumStartMenuActions; i++)
+        {
+            StringExpandPlaceholders(gStringVar4, sStartMenuItems[sCurrentStartMenuActions[i]].text);
+            UIStartMenu_AddButton(i, gStringVar4);
+        }
+        UIStartMenu_Finalize();
+        UIStartMenu_MoveCursor(sStartMenuCursorPos);
+        sInitStartMenuData[0]++;
         break;
+    }
     case 5:
-        sStartMenuCursorPos = InitMenuNormal(GetStartMenuWindowId(), FONT_NORMAL, 0, 9, 16, sNumStartMenuActions, sStartMenuCursorPos);
-        CopyWindowToVram(GetStartMenuWindowId(), COPYWIN_MAP);
         return TRUE;
     }
 
@@ -633,16 +609,23 @@ void ShowStartMenu(void)
 
 static bool8 HandleStartMenuInput(void)
 {
-    if (JOY_NEW(DPAD_UP))
-    {
-        PlaySE(SE_SELECT);
-        sStartMenuCursorPos = Menu_MoveCursor(-1);
-    }
+    u8 prevPos = sStartMenuCursorPos;
 
-    if (JOY_NEW(DPAD_DOWN))
+    UIStartMenu_ScrollBg();
+
+    if (JOY_NEW(DPAD_RIGHT))
+        sStartMenuCursorPos = UIStartMenu_Navigate(sStartMenuCursorPos, +1, 0, sNumStartMenuActions);
+    else if (JOY_NEW(DPAD_LEFT))
+        sStartMenuCursorPos = UIStartMenu_Navigate(sStartMenuCursorPos, -1, 0, sNumStartMenuActions);
+    else if (JOY_NEW(DPAD_DOWN))
+        sStartMenuCursorPos = UIStartMenu_Navigate(sStartMenuCursorPos, 0, +1, sNumStartMenuActions);
+    else if (JOY_NEW(DPAD_UP))
+        sStartMenuCursorPos = UIStartMenu_Navigate(sStartMenuCursorPos, 0, -1, sNumStartMenuActions);
+
+    if (sStartMenuCursorPos != prevPos)
     {
+        UIStartMenu_MoveCursor(sStartMenuCursorPos);
         PlaySE(SE_SELECT);
-        sStartMenuCursorPos = Menu_MoveCursor(1);
     }
 
     if (JOY_NEW(A_BUTTON))
@@ -1487,8 +1470,7 @@ void SaveForBattleTowerLink(void)
 
 static void HideStartMenuWindow(void)
 {
-    ClearStdWindowAndFrame(GetStartMenuWindowId(), TRUE);
-    RemoveStartMenuWindow();
+    UIStartMenu_Free();
     ScriptUnfreezeObjectEvents();
     UnlockPlayerFieldControls();
 }
