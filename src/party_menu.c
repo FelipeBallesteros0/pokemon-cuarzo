@@ -3250,17 +3250,26 @@ static void SlidePartyMenuBoxOneStep(u8 taskId)
 static void Task_SlideSelectedSlotsOffscreen(u8 taskId)
 {
     s16 *data = gTasks[taskId].data;
-    u16 slidingSlotPositions[2];
+    s16 slot1Pos, slot2Pos;
+    bool8 slot1Offscreen, slot2Offscreen;
 
     SlidePartyMenuBoxOneStep(taskId);
     SlidePartyMenuBoxSpritesOneStep(taskId);
     tSlot1Offset += tSlot1SlideDir;
     tSlot2Offset += tSlot2SlideDir;
-    slidingSlotPositions[0] = tSlot1Left + tSlot1Offset;
-    slidingSlotPositions[1] = tSlot2Left + tSlot2Offset;
+    slot1Pos = tSlot1Left + tSlot1Offset;
+    slot2Pos = tSlot2Left + tSlot2Offset;
+
+    // A slot is fully offscreen when it has slid past the right edge (sliding
+    // right) or past the left edge (sliding left). The signed left-side check
+    // is required: in the equal-column layout two left-column slots both slide
+    // left, and an unsigned position underflows past 33 almost immediately,
+    // cutting the swap animation short.
+    slot1Offscreen = (tSlot1SlideDir > 0) ? (slot1Pos > 33) : (slot1Pos + tSlot1Width < 0);
+    slot2Offscreen = (tSlot2SlideDir > 0) ? (slot2Pos > 33) : (slot2Pos + tSlot2Width < 0);
 
     // Both slots have slid offscreen
-    if (slidingSlotPositions[0] > 33 && slidingSlotPositions[1] > 33)
+    if (slot1Offscreen && slot2Offscreen)
     {
         tSlot1SlideDir *= -1;
         tSlot2SlideDir *= -1;
