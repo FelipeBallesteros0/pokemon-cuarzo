@@ -748,8 +748,12 @@ static bool8 StartMenuPlayerNameCallback(void)
 
 static bool8 StartMenuSaveCallback(void)
 {
-    if (CurrentBattlePyramidLocation() != PYRAMID_LOCATION_NONE)
-        RemoveExtraStartMenuWindows();
+    // The custom 3x3 start menu uses OBJ sprites + a scroll BG and hides the
+    // overworld sprites. Like every other start menu option, dismiss it before
+    // showing the save dialog: this frees its sprites/palettes (otherwise the
+    // overworld sprites stay corrupted after saving), avoids drawing the dialog
+    // over the grid, and prevents duplicated sprites if the save is canceled.
+    RemoveExtraStartMenuWindows();
 
     gMenuCallback = SaveStartCallback; // Display save menu
 
