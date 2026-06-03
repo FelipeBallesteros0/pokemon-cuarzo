@@ -42,6 +42,7 @@ EWRAM_DATA static bool8 sLoaded;
 EWRAM_DATA static void *sSavedBg3TilemapBuf;
 EWRAM_DATA static u8    sGridY;      // vertical origin, tile-aligned, computed from count
 EWRAM_DATA static u8    sGridRows;   // number of rows in the active grid
+EWRAM_DATA static u16   sPrevVisibleMask; // bit i set = object event i was visible before the menu hid it
 
 // ─── Graphics data ─────────────────────────────────────────────────────────
 static const u32 sScroll_Gfx[] = INCGFX_U32("graphics/start_menu/scroll_tile.png", ".4bpp");
@@ -87,19 +88,39 @@ static const struct SpriteTemplate sSpriteTemplate_Cursor =
 
 // ─── Overworld sprite helpers ──────────────────────────────────────────────
 
+// Hides every overworld sprite while the menu is open, then restores ONLY the
+// ones that were visible before. Forcing everything visible on restore would
+// reveal objects that were intentionally invisible — e.g. a follower Pokémon
+// hidden on the player's tile waiting for the first step, or NPCs hidden by a
+// script — making them pop onto the player's square when closing the menu.
 static void SetOverworldSpritesInvisible(bool8 invisible)
 {
     u8 i;
+
+    if (invisible)
+        sPrevVisibleMask = 0;
+
     for (i = 0; i < OBJECT_EVENTS_COUNT; i++)
     {
-        if (gObjectEvents[i].active)
+        if (!gObjectEvents[i].active)
+            continue;
+
+        if (invisible)
         {
-            // Must set objectEvent->invisible too: UpdateObjectEventSpriteVisibility
-            // runs each frame and first resets sprite->invisible=FALSE, then reads
-            // objectEvent->invisible to decide if it should stay invisible.
-            gObjectEvents[i].invisible = invisible;
-            gSprites[gObjectEvents[i].spriteId].invisible = invisible;
+            if (!gObjectEvents[i].invisible)
+                sPrevVisibleMask |= (1 << i);
         }
+        else if (!(sPrevVisibleMask & (1 << i)))
+        {
+            // Was already invisible before the menu opened: leave it hidden.
+            continue;
+        }
+
+        // Must set objectEvent->invisible too: UpdateObjectEventSpriteVisibility
+        // runs each frame and first resets sprite->invisible=FALSE, then reads
+        // objectEvent->invisible to decide if it should stay invisible.
+        gObjectEvents[i].invisible = invisible;
+        gSprites[gObjectEvents[i].spriteId].invisible = invisible;
     }
 }
 
