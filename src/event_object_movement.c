@@ -204,6 +204,8 @@ static void ObjectEventSetGraphics(struct ObjectEvent *, const struct ObjectEven
 static void SpriteCB_VirtualObject(struct Sprite *);
 static void DoShadowFieldEffect(struct ObjectEvent *);
 static void SetJumpSpriteData(struct Sprite *, enum Direction, u8, u8);
+static s16 GetJumpY(s16, u8);
+static void Step2(struct Sprite *, enum Direction);
 static void SetWalkSlowSpriteData(struct Sprite *, enum Direction);
 static bool8 UpdateWalkSlowAnim(struct Sprite *);
 static bool8 UpdateWalkSlowStairs(struct ObjectEvent *objectEvent, struct Sprite *sprite);
@@ -576,6 +578,7 @@ static const struct SpritePalette sObjectEventSpritePalettes[] = {
     {gObjectEventPaletteLight2,             OBJ_EVENT_PAL_TAG_LIGHT_2},
     {gObjectEventPaletteEmotes,             OBJ_EVENT_PAL_TAG_EMOTES},
     {gObjectEventPaletteNeonLight,          OBJ_EVENT_PAL_TAG_NEON_LIGHT},
+    {gObjectEventPal_HighBoulder,           OBJ_EVENT_PAL_TAG_HIGH_BOULDER},
 #ifdef BUGFIX
     {NULL,                                  OBJ_EVENT_PAL_TAG_NONE},
 #else
@@ -7604,6 +7607,88 @@ bool8 MovementAction_Jump2Right_Step1(struct ObjectEvent *objectEvent, struct Sp
     return FALSE;
 }
 
+// --- Bounce field move: a single continuous arc over a high-rock formation ---
+// Distance (in tiles) of the next bounce; set by the bounce field effect right
+// before the BOUNCE_JUMP movement action runs on the player.
+static u8 sBounceJumpTiles;
+
+void SetBounceJumpTiles(u8 tiles)
+{
+    sBounceJumpTiles = (tiles == 0) ? 1 : tiles;
+}
+
+// data[2]=sActionFuncId and data[3]=sDirection are owned by the action framework,
+// so the bounce frame counter lives in data[4].
+#define sBounceTimer data[4]
+
+// Arc apex (px) = max |sJumpY_High| (12) * this multiplier. Higher = taller hop.
+#define BOUNCE_ARC_HEIGHT_MUL 4
+
+u8 MovementAction_BounceJump_Step1(struct ObjectEvent *objectEvent, struct Sprite *sprite)
+{
+    s16 totalFrames = sBounceJumpTiles * 8; // Step2 = 2px/frame, a 16px tile = 8 frames
+    s16 x = 0, y = 0;
+    s16 t;
+    u8 arcIdx;
+
+    Step2(sprite, objectEvent->movementDirection); // visual travel; camera tracks the sprite
+
+    // Sample the engine's native jump curve across the whole flight for a smooth arc.
+    arcIdx = (sprite->sBounceTimer * 16) / totalFrames;
+    if (arcIdx > 15)
+        arcIdx = 15;
+    sprite->y2 = GetJumpY(arcIdx, JUMP_TYPE_HIGH) * BOUNCE_ARC_HEIGHT_MUL;
+
+    sprite->sBounceTimer++;
+    t = sprite->sBounceTimer;
+
+    // Advance the logical tile in two halves so total logical travel (N tiles) matches
+    // total visual travel (Step2 over N*8 frames = N tiles). Collision is not re-checked
+    // mid-action, so passing the logical coord over the rocks is harmless.
+    if (t == totalFrames / 2)
+    {
+        u8 secondHalf = sBounceJumpTiles - sBounceJumpTiles / 2;
+        MoveCoordsInDirection(objectEvent->movementDirection, &x, &y, secondHalf, secondHalf);
+        ShiftObjectEventCoords(objectEvent, objectEvent->currentCoords.x + x, objectEvent->currentCoords.y + y);
+    }
+
+    if (t >= totalFrames)
+    {
+        ShiftStillObjectEventCoords(objectEvent);
+        objectEvent->triggerGroundEffectsOnStop = TRUE;
+        objectEvent->landingJump = TRUE;
+        sprite->y2 = 0;
+        sprite->animPaused = TRUE;
+        sprite->sActionFuncId = 2;
+        return TRUE;
+    }
+    return FALSE;
+}
+
+u8 MovementAction_BounceJump_Step0(struct ObjectEvent *objectEvent, struct Sprite *sprite)
+{
+    u8 firstHalf = sBounceJumpTiles / 2;
+    s16 x = 0, y = 0;
+
+    SetObjectEventDirection(objectEvent, objectEvent->facingDirection);
+    sprite->sBounceTimer = 0;
+    sprite->animPaused = FALSE;
+    SetStepAnimHandleAlternation(objectEvent, sprite, GetMoveDirectionAnimNum(objectEvent->facingDirection));
+    // Apply the first half of the logical travel up-front (engine jump convention).
+    if (firstHalf != 0)
+    {
+        MoveCoordsInDirection(objectEvent->movementDirection, &x, &y, firstHalf, firstHalf);
+        ShiftObjectEventCoords(objectEvent, objectEvent->currentCoords.x + x, objectEvent->currentCoords.y + y);
+    }
+    objectEvent->triggerGroundEffectsOnMove = TRUE;
+    objectEvent->disableCoveringGroundEffects = TRUE;
+    sprite->sActionFuncId = 1;
+    return MovementAction_BounceJump_Step1(objectEvent, sprite);
+}
+
+#undef sBounceTimer
+#undef BOUNCE_ARC_HEIGHT_MUL
+
 static void InitMovementDelay(struct Sprite *sprite, u16 duration)
 {
     sprite->sActionFuncId = 1;
@@ -9636,6 +9721,18 @@ static void TryEnableObjectEventAnim(struct ObjectEvent *objectEvent, struct Spr
 
 static void UpdateObjectEventVisibility(struct ObjectEvent *objectEvent, struct Sprite *sprite)
 {
+    // Tall Bounce rocks sit at the edge of the view and rely on the global camera
+    // pixel offset (gSpriteCoordOffset) to stay positioned. Some events (e.g. spawning
+    // the follower when you receive a mon next to them) leave that offset out of sync,
+    // rendering the rock off-screen so it appears to vanish. Re-derive its sprite
+    // position from its fixed map coords every frame so it always renders where it
+    // logically is, independent of the camera offset.
+    if (objectEvent->graphicsId == OBJ_EVENT_GFX_HIGH_BOULDER)
+    {
+        SetSpritePosToMapCoords(objectEvent->currentCoords.x, objectEvent->currentCoords.y, &sprite->x, &sprite->y);
+        sprite->x += 8;
+        sprite->y += 16 + sprite->centerToCornerVecY;
+    }
     UpdateObjectEventOffscreen(objectEvent, sprite);
     UpdateObjectEventSpriteVisibility(objectEvent, sprite);
 }

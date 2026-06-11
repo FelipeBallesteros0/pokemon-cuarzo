@@ -638,3 +638,7 @@ gSpecials::
 	def_special UpdateTrainerCardPhotoIcons
 	def_special StickerManGetBragFlags
 	def_special CheckAddCoins
+	def_special Special_GetFirstBounceMonIndex
+	def_special Special_CanBounceHere
+	def_special Special_StartBounceJump
+	def_special Special_TeachLastMonBounce

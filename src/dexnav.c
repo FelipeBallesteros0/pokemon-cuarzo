@@ -549,7 +549,10 @@ static void RemoveDexNavWindowAndGfx(void)
     FreeSpriteTilesByTag(HIDDEN_MON_ICON_TAG);
     FreeSpriteTilesByTag(LIT_STAR_TILE_TAG);
     FreeSpritePaletteByTag(HELD_ITEM_TAG);
-    SafeFreeMonIconPalette(sDexNavSearchDataPtr->species);
+    // Guard against an uninitialized/garbage search species (DexNav is an
+    // incomplete feature); SafeFreeMonIconPalette asserts on invalid species.
+    if (sDexNavSearchDataPtr->species < NUM_SPECIES)
+        SafeFreeMonIconPalette(sDexNavSearchDataPtr->species);
 
     // remove window
     ClearStdWindowAndFrameToTransparent(sDexNavSearchDataPtr->windowId, FALSE);
@@ -970,6 +973,14 @@ void EndDexNavSearch(void)
 {
     if (!FlagGet(DN_FLAG_SEARCHING))
         return;
+    // If the flag is set but no search data exists (e.g. DN_FLAG_SEARCHING was
+    // set by something other than a real search), bail out instead of reading
+    // garbage sprite ids through the NULL pointer and destroying random sprites.
+    if (sDexNavSearchDataPtr == NULL)
+    {
+        FlagClear(DN_FLAG_SEARCHING);
+        return;
+    }
     RemoveDexNavWindowAndGfx();
     FieldEffectStop(&gSprites[sDexNavSearchDataPtr->fldEffSpriteId], sDexNavSearchDataPtr->fldEffId);
     FREE_AND_SET_NULL(sDexNavSearchDataPtr);

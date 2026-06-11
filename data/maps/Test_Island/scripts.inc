@@ -32,3 +32,63 @@ Test_Island_EventScript_DebugBerryNPC_Done::
 
 Test_Island_Text_BerryNPC_Done:
 	.string "Ya te di las bayas, la MO,\nla caña y el DexNav.$"
+
+@ ---- Ponyta NPC: da un PONYTA que sabe REBOTE (una sola vez) ----
+Test_Island_EventScript_PonytaNPC::
+	lock
+	faceplayer
+	@ OJO: 0x020-0x022 NO estan libres, los reserva DexNav (config/dexnav.h)
+	goto_if_set FLAG_UNUSED_0x023, Test_Island_EventScript_PonytaNPC_Done
+	msgbox Test_Island_Text_PonytaNPC_Intro, MSGBOX_DEFAULT
+	givemon SPECIES_PONYTA, 20
+	special Special_TeachLastMonBounce
+	setflag FLAG_UNUSED_0x023
+	msgbox Test_Island_Text_PonytaNPC_Given, MSGBOX_DEFAULT
+	release
+	end
+
+Test_Island_EventScript_PonytaNPC_Done::
+	msgbox Test_Island_Text_PonytaNPC_Done, MSGBOX_DEFAULT
+	release
+	end
+
+@ ---- Roca alta: activador A del Rebote (interacción) ----
+Test_Island_EventScript_BounceRock::
+	lockall
+	specialvar VAR_RESULT, Special_CanBounceHere
+	goto_if_eq VAR_RESULT, FALSE, Test_Island_EventScript_BounceRock_Cant
+	msgbox Test_Island_Text_BouncePrompt, MSGBOX_YESNO
+	goto_if_eq VAR_RESULT, NO, Test_Island_EventScript_BounceRock_Done
+	special Special_StartBounceJump
+	waitstate
+	releaseall
+	end
+
+Test_Island_EventScript_BounceRock_Cant:
+	msgbox Test_Island_Text_BounceCant, MSGBOX_DEFAULT
+	releaseall
+	end
+
+Test_Island_EventScript_BounceRock_Done:
+	releaseall
+	end
+
+Test_Island_Text_PonytaNPC_Intro:
+	.string "¡Toma este PONYTA!\p"
+	.string "Sabe REBOTE: puede saltar por encima\n"
+	.string "de las rocas altas.$"
+
+Test_Island_Text_PonytaNPC_Given:
+	.string "Párate frente a una roca alta y usa\n"
+	.string "REBOTE para saltar al otro lado.$"
+
+Test_Island_Text_PonytaNPC_Done:
+	.string "¿Ya probaste REBOTE en las\nrocas altas?$"
+
+Test_Island_Text_BouncePrompt:
+	.string "Una roca alta.\n"
+	.string "¿Usar REBOTE para saltarla?$"
+
+Test_Island_Text_BounceCant:
+	.string "Una roca alta. Quizás un POKéMON\n"
+	.string "podría saltar al otro lado.$"

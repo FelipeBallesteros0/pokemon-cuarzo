@@ -32,6 +32,9 @@ bool8 GetMapPairFadeFromType(u8 _fromType, u8 _toType);
 bool32 SetUpFieldMove_Strength(void);
 bool8 FldEff_UseStrength(void);
 
+// bounce (custom field move)
+bool32 SetUpFieldMove_Bounce(void);
+
 // sweet scent
 bool32 SetUpFieldMove_SweetScent(void);
 bool8 FldEff_SweetScent(void);

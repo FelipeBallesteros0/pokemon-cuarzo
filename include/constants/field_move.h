@@ -24,6 +24,7 @@ enum FieldMove
 #if OW_DEFOG_FIELD_MOVE == TRUE
     FIELD_MOVE_DEFOG,
 #endif
+    FIELD_MOVE_BOUNCE, // custom: jump over high rocks (see fldeff_bounce.c)
     FIELD_MOVES_COUNT
 };
 
