@@ -73,6 +73,24 @@ Test_Island_EventScript_BounceRock_Done:
 	releaseall
 	end
 
+@ ---- Vendedor: tienda de POKé BALLS ----
+Test_Island_EventScript_BallVendor::
+	lock
+	faceplayer
+	message Test_Island_Text_BallVendor_Greet
+	waitmessage
+	pokemart Test_Island_Pokemart_Balls
+	msgbox Test_Island_Text_BallVendor_Bye, MSGBOX_DEFAULT
+	release
+	end
+
+	.align 2
+Test_Island_Pokemart_Balls:
+	.2byte ITEM_POKE_BALL
+	.2byte ITEM_GREAT_BALL
+	.2byte ITEM_ULTRA_BALL
+	pokemartlistend
+
 Test_Island_Text_PonytaNPC_Intro:
 	.string "¡Toma este PONYTA!\p"
 	.string "Sabe REBOTE: puede saltar por encima\n"
@@ -92,3 +110,10 @@ Test_Island_Text_BouncePrompt:
 Test_Island_Text_BounceCant:
 	.string "Una roca alta. Quizás un POKéMON\n"
 	.string "podría saltar al otro lado.$"
+
+Test_Island_Text_BallVendor_Greet:
+	.string "¡Bienvenido! Vendo POKé BALLS,\n"
+	.string "SUPER BALLS y ULTRA BALLS.$"
+
+Test_Island_Text_BallVendor_Bye:
+	.string "¡Gracias! ¡Vuelve cuando quieras!$"
