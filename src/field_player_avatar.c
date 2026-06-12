@@ -1162,6 +1162,24 @@ static void PlayerAvatarTransition_AcroBike(struct ObjectEvent *objEvent)
     Bike_HandleBumpySlopeJump();
 }
 
+// Party index of the first non-egg mon that knows Surf, or PARTY_SIZE.
+// Used to pick the surf mount when the blob is recreated (e.g. on map load
+// while surfing), where the original Surf user is no longer known.
+static u8 GetFirstSurfMonIndex(void)
+{
+    u8 i;
+
+    for (i = 0; i < PARTY_SIZE; i++)
+    {
+        if (GetMonData(&gPlayerParty[i], MON_DATA_SPECIES) == SPECIES_NONE)
+            break;
+        if (!GetMonData(&gPlayerParty[i], MON_DATA_IS_EGG, NULL)
+         && MonKnowsMove(&gPlayerParty[i], MOVE_SURF))
+            return i;
+    }
+    return PARTY_SIZE;
+}
+
 static void PlayerAvatarTransition_Surfing(struct ObjectEvent *objEvent)
 {
     u8 spriteId;
@@ -1172,6 +1190,7 @@ static void PlayerAvatarTransition_Surfing(struct ObjectEvent *objEvent)
     gFieldEffectArguments[0] = objEvent->currentCoords.x;
     gFieldEffectArguments[1] = objEvent->currentCoords.y;
     gFieldEffectArguments[2] = gPlayerAvatar.objectEventId;
+    gFieldEffectArguments[3] = GetFirstSurfMonIndex();
     spriteId = FieldEffectStart(FLDEFF_SURF_BLOB);
     objEvent->fieldEffectSpriteId = spriteId;
     SetSurfBlob_BobState(spriteId, BOB_PLAYER_AND_MON);

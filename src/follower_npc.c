@@ -540,6 +540,7 @@ static void SetUpSurfBlobFieldEffect(struct ObjectEvent *npc)
     gFieldEffectArguments[0] = npc->currentCoords.x;                 // effect_x
     gFieldEffectArguments[1] = npc->currentCoords.y;                 // effect_y
     gFieldEffectArguments[2] = GetFollowerNPCData(FNPC_DATA_OBJ_ID); // objId
+    gFieldEffectArguments[3] = PARTY_SIZE; // NPC followers keep the regular blob
 }
 
 #define tSpriteId       data[0]
