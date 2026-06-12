@@ -56,3 +56,20 @@ Party Size: 0
 
 Wynaut
 
+=== PARTNER_MAY ===
+Name: AURA
+Class: Rival
+Pic: May
+Gender: Female
+Music: Female
+Back Pic: May
+AI: Basic Trainer
+
+Gyarados
+Adamant Nature
+Level: 30
+IVs: 31 HP / 31 Atk / 31 Def / 31 SpA / 31 SpD / 31 Spe
+- Surf
+- Aqua Tail
+- Bite
+- Ice Fang

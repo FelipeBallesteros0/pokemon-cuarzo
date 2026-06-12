@@ -94,6 +94,38 @@ Test_Island_Pokemart_Balls:
 	.2byte ITEM_ULTRA_BALL
 	pokemartlistend
 
+@ ---- AURA (May): NPC seguidora con combates en pareja ----
+Test_Island_EventScript_MayFollower::
+	lock
+	faceplayer
+	checkfollowernpc
+	goto_if_eq VAR_RESULT, TRUE, Test_Island_EventScript_MayFollower_AskStop
+	msgbox Test_Island_Text_MayFollow_Ask, MSGBOX_YESNO
+	goto_if_eq VAR_RESULT, NO, Test_Island_EventScript_MayFollower_Declined
+	msgbox Test_Island_Text_MayFollow_Yes, MSGBOX_DEFAULT
+	setfollowernpc 6, FNPC_ALL, Test_Island_EventScript_MayFollower, PARTNER_MAY
+	release
+	end
+
+Test_Island_EventScript_MayFollower_AskStop::
+	facefollowernpc
+	msgbox Test_Island_Text_MayFollow_AskStop, MSGBOX_YESNO
+	goto_if_eq VAR_RESULT, NO, Test_Island_EventScript_MayFollower_KeepGoing
+	msgbox Test_Island_Text_MayFollow_Bye, MSGBOX_DEFAULT
+	destroyfollowernpc
+	release
+	end
+
+Test_Island_EventScript_MayFollower_KeepGoing::
+	msgbox Test_Island_Text_MayFollow_Keep, MSGBOX_DEFAULT
+	release
+	end
+
+Test_Island_EventScript_MayFollower_Declined::
+	msgbox Test_Island_Text_MayFollow_No, MSGBOX_DEFAULT
+	release
+	end
+
 Test_Island_Text_PonytaNPC_Intro:
 	.string "¡Toma este PONYTA!\p"
 	.string "Sabe REBOTE: puede saltar por encima\n"
@@ -120,3 +152,25 @@ Test_Island_Text_BallVendor_Greet:
 
 Test_Island_Text_BallVendor_Bye:
 	.string "¡Gracias! ¡Vuelve cuando quieras!$"
+
+Test_Island_Text_MayFollow_Ask:
+	.string "¡Hola! Soy AURA.\p"
+	.string "¿Quieres que te acompañe en tu\n"
+	.string "aventura?$"
+
+Test_Island_Text_MayFollow_Yes:
+	.string "¡Genial! Mi GYARADOS y yo te\n"
+	.string "cubrimos las espaldas.$"
+
+Test_Island_Text_MayFollow_No:
+	.string "Bueno, aquí estaré si cambias\n"
+	.string "de opinión.$"
+
+Test_Island_Text_MayFollow_AskStop:
+	.string "¿Quieres que deje de seguirte?$"
+
+Test_Island_Text_MayFollow_Keep:
+	.string "¡Sigamos entonces!$"
+
+Test_Island_Text_MayFollow_Bye:
+	.string "¡Fue divertido! ¡Nos vemos!$"

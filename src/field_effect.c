@@ -3396,6 +3396,7 @@ static void SurfFieldEffect_JumpOnSurfBlob(struct Task *task)
         gFieldEffectArguments[1] = task->tDestY;
         gFieldEffectArguments[2] = gPlayerAvatar.objectEventId;
         gFieldEffectArguments[3] = task->tMonId; // ride the actual Surf user
+        gFieldEffectArguments[4] = SPECIES_NONE; // no mount species override
         objectEvent->fieldEffectSpriteId = FieldEffectStart(FLDEFF_SURF_BLOB);
         task->tState++;
     }

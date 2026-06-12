@@ -1191,6 +1191,7 @@ static void PlayerAvatarTransition_Surfing(struct ObjectEvent *objEvent)
     gFieldEffectArguments[1] = objEvent->currentCoords.y;
     gFieldEffectArguments[2] = gPlayerAvatar.objectEventId;
     gFieldEffectArguments[3] = GetFirstSurfMonIndex();
+    gFieldEffectArguments[4] = SPECIES_NONE; // no mount species override
     spriteId = FieldEffectStart(FLDEFF_SURF_BLOB);
     objEvent->fieldEffectSpriteId = spriteId;
     SetSurfBlob_BobState(spriteId, BOB_PLAYER_AND_MON);

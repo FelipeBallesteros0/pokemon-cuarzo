@@ -1251,6 +1251,14 @@ u32 FldEff_SurfBlob(void)
             }
         }
     }
+    else if (gFieldEffectArguments[4] != SPECIES_NONE)
+    {
+        // Mount species override: used by NPC followers to ride their own Pokémon.
+        useSurfMonSprite = TryCreateSurfableSpeciesSprite(gFieldEffectArguments[4], FALSE, gFieldEffectArguments[2],
+                                                          gFieldEffectArguments[0], gFieldEffectArguments[1], 150, &spriteId);
+        if (!useSurfMonSprite)
+            spriteId = MAX_SPRITES;
+    }
     else
     {
         spriteId = MAX_SPRITES;

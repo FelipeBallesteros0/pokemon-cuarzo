@@ -5,6 +5,8 @@
 #include "battle_partner.h"
 #include "battle_setup.h"
 #include "battle_tower.h"
+#include "data.h"
+#include "difficulty.h"
 #include "bike.h"
 #include "event_data.h"
 #include "event_object_movement.h"
@@ -534,13 +536,40 @@ static void SetSurfJump(void)
     ObjectEventSetHeldMovement(follower, jumpState);
 }
 
+// Species the follower NPC rides while surfing: the first mon of its battle
+// partner's party that knows Surf (lead mon as fallback). SPECIES_NONE keeps
+// the regular surf blob.
+static u16 GetFollowerNPCSurfMountSpecies(void)
+{
+    u32 partnerId = GetFollowerNPCData(FNPC_DATA_BATTLE_PARTNER);
+    const struct Trainer *partner;
+    u32 i, j;
+
+    if (partnerId == PARTNER_NONE)
+        return SPECIES_NONE;
+
+    partner = &gBattlePartners[GetCurrentDifficultyLevel()][partnerId];
+    for (i = 0; i < partner->partySize; i++)
+    {
+        for (j = 0; j < MAX_MON_MOVES; j++)
+        {
+            if (partner->party[i].moves[j] == MOVE_SURF)
+                return partner->party[i].species;
+        }
+    }
+    if (partner->partySize > 0)
+        return partner->party[0].species;
+    return SPECIES_NONE;
+}
+
 static void SetUpSurfBlobFieldEffect(struct ObjectEvent *npc)
 {
     // Set up gFieldEffectArguments for execution.
     gFieldEffectArguments[0] = npc->currentCoords.x;                 // effect_x
     gFieldEffectArguments[1] = npc->currentCoords.y;                 // effect_y
     gFieldEffectArguments[2] = GetFollowerNPCData(FNPC_DATA_OBJ_ID); // objId
-    gFieldEffectArguments[3] = PARTY_SIZE; // NPC followers keep the regular blob
+    gFieldEffectArguments[3] = PARTY_SIZE; // not a player-party surf user
+    gFieldEffectArguments[4] = GetFollowerNPCSurfMountSpecies();     // ride its own mon
 }
 
 #define tSpriteId       data[0]

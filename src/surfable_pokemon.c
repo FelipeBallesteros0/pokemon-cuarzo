@@ -34,11 +34,11 @@ static u16 GetSurfableSpeciesIndex(u16 species)
     return 0xFFFF;
 }
 
-static void LoadSurfablePalette(struct Pokemon *mon, u16 surfIdx)
+static void LoadSurfablePalette(bool8 shiny, u16 surfIdx)
 {
     u8 palSlot;
 
-    if (IsMonShiny(mon))
+    if (shiny)
         palSlot = LoadSpritePalette(&sSurfablePokemonShinyPalettes[surfIdx]);
     else
         palSlot = LoadSpritePalette(&sSurfablePokemonPalettes[surfIdx]);
@@ -56,18 +56,14 @@ static void UpdateSurfMonOverlay(struct Sprite *sprite)
     DestroySprite(sprite);
 }
 
-bool8 TryCreateSurfablePokemonSprite(u8 partyIndex, u8 playerObjId, s16 x, s16 y, u8 subpriority, u8 *spriteIdOut)
+// Creates a surfable mount sprite for any species, bound to the object event
+// (player or NPC) whose id is `objId`. Returns FALSE if the species has no
+// dedicated surf sprite.
+bool8 TryCreateSurfableSpeciesSprite(u16 species, bool8 shiny, u8 objId, s16 x, s16 y, u8 subpriority, u8 *spriteIdOut)
 {
-    struct Pokemon *mon;
-    u16 species;
     u16 surfIdx;
     u8 spriteId;
 
-    if (partyIndex >= PARTY_SIZE)
-        return FALSE;
-
-    mon = &gPlayerParty[partyIndex];
-    species = GetMonData(mon, MON_DATA_SPECIES);
     if (species == SPECIES_NONE || species == SPECIES_EGG)
         return FALSE;
 
@@ -75,13 +71,13 @@ bool8 TryCreateSurfablePokemonSprite(u8 partyIndex, u8 playerObjId, s16 x, s16 y
     if (surfIdx == 0xFFFF)
         return FALSE;
 
-    LoadSurfablePalette(mon, surfIdx);
+    LoadSurfablePalette(shiny, surfIdx);
     spriteId = CreateSpriteAtEnd(&gSurfablePokemonOverworldSprites[surfIdx], x, y, subpriority);
     if (spriteId == MAX_SPRITES)
         return FALSE;
 
     gSprites[spriteId].coordOffsetEnabled = TRUE;
-    gSprites[spriteId].data[2] = playerObjId;
+    gSprites[spriteId].data[2] = objId;
     gSprites[spriteId].data[3] = -1;
     gSprites[spriteId].data[6] = -1;
     gSprites[spriteId].data[7] = -1;
@@ -90,4 +86,16 @@ bool8 TryCreateSurfablePokemonSprite(u8 partyIndex, u8 playerObjId, s16 x, s16 y
         *spriteIdOut = spriteId;
 
     return TRUE;
+}
+
+bool8 TryCreateSurfablePokemonSprite(u8 partyIndex, u8 playerObjId, s16 x, s16 y, u8 subpriority, u8 *spriteIdOut)
+{
+    struct Pokemon *mon;
+
+    if (partyIndex >= PARTY_SIZE)
+        return FALSE;
+
+    mon = &gPlayerParty[partyIndex];
+    return TryCreateSurfableSpeciesSprite(GetMonData(mon, MON_DATA_SPECIES), IsMonShiny(mon),
+                                          playerObjId, x, y, subpriority, spriteIdOut);
 }
