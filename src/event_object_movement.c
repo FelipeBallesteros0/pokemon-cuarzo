@@ -205,6 +205,7 @@ static void SpriteCB_VirtualObject(struct Sprite *);
 static void DoShadowFieldEffect(struct ObjectEvent *);
 static void SetJumpSpriteData(struct Sprite *, enum Direction, u8, u8);
 static s16 GetJumpY(s16, u8);
+static void Step1(struct Sprite *, enum Direction);
 static void Step2(struct Sprite *, enum Direction);
 static void SetWalkSlowSpriteData(struct Sprite *, enum Direction);
 static bool8 UpdateWalkSlowAnim(struct Sprite *);
@@ -7607,79 +7608,170 @@ bool8 MovementAction_Jump2Right_Step1(struct ObjectEvent *objectEvent, struct Sp
     return FALSE;
 }
 
-// --- Bounce field move: a single continuous arc over a high-rock formation ---
-// Distance (in tiles) of the next bounce; set by the bounce field effect right
-// before the BOUNCE_JUMP movement action runs on the player.
-static u8 sBounceJumpTiles;
+// --- Bounce field move: climb onto the rock, arc to the far rock, hop down ---
+// Parameters of the next bounce; set by the bounce field effect right before
+// the BOUNCE_JUMP movement action runs on the player.
+static u8 sBounceClimbDir;   // direction of the 1-tile hop onto the first rock
+static u8 sBounceJumpDir;    // direction of the rock-to-rock arc and the hop down
+static u8 sBounceCrossTiles; // tiles from the first rock to the last one (0 = single rock)
 
-void SetBounceJumpTiles(u8 tiles)
+void SetBounceJumpParams(u8 climbDir, u8 jumpDir, u8 crossTiles)
 {
-    sBounceJumpTiles = (tiles == 0) ? 1 : tiles;
+    sBounceClimbDir = climbDir;
+    sBounceJumpDir = jumpDir;
+    sBounceCrossTiles = crossTiles;
 }
 
 // data[2]=sActionFuncId and data[3]=sDirection are owned by the action framework,
-// so the bounce frame counter lives in data[4].
+// so the bounce state lives in data[4]/data[5].
 #define sBounceTimer data[4]
+#define sBouncePhase data[5]
 
-// Arc apex (px) = max |sJumpY_High| (12) * this multiplier. Higher = taller hop.
-#define BOUNCE_ARC_HEIGHT_MUL 4
+enum {
+    BOUNCE_PHASE_CLIMB,   // hop 1 tile onto the first rock
+    BOUNCE_PHASE_PAUSE_1, // stand on it and turn toward the crossing direction
+    BOUNCE_PHASE_CROSS,   // long arc to the last rock of the formation
+    BOUNCE_PHASE_PAUSE_2, // stand on the last rock
+    BOUNCE_PHASE_DESCEND, // hop 1 tile down to the landing tile
+};
+
+#define BOUNCE_LIFT           8  // px the player stays raised while on top of a rock
+#define BOUNCE_HOP_FRAMES     16 // Step1 = 1 px/frame, one 16px tile
+#define BOUNCE_PAUSE_FRAMES   12
+#define BOUNCE_ARC_HEIGHT_MUL 4  // arc apex (px) = max |sJumpY_High| (12) * this
+
+// Sample the engine's native jump curve at frame t of totalFrames.
+static s16 GetBounceArcY(s16 t, s16 totalFrames, u8 jumpType)
+{
+    s16 idx = (t * 16) / totalFrames;
+    if (idx > 15)
+        idx = 15;
+    return GetJumpY(idx, jumpType);
+}
 
 u8 MovementAction_BounceJump_Step1(struct ObjectEvent *objectEvent, struct Sprite *sprite)
 {
-    s16 totalFrames = sBounceJumpTiles * 8; // Step2 = 2px/frame, a 16px tile = 8 frames
     s16 x = 0, y = 0;
-    s16 t;
-    u8 arcIdx;
+    s16 t = sprite->sBounceTimer;
 
-    Step2(sprite, objectEvent->movementDirection); // visual travel; camera tracks the sprite
-
-    // Sample the engine's native jump curve across the whole flight for a smooth arc.
-    arcIdx = (sprite->sBounceTimer * 16) / totalFrames;
-    if (arcIdx > 15)
-        arcIdx = 15;
-    sprite->y2 = GetJumpY(arcIdx, JUMP_TYPE_HIGH) * BOUNCE_ARC_HEIGHT_MUL;
-
-    sprite->sBounceTimer++;
-    t = sprite->sBounceTimer;
-
-    // Advance the logical tile in two halves so total logical travel (N tiles) matches
-    // total visual travel (Step2 over N*8 frames = N tiles). Collision is not re-checked
-    // mid-action, so passing the logical coord over the rocks is harmless.
-    if (t == totalFrames / 2)
+    switch (sprite->sBouncePhase)
     {
-        u8 secondHalf = sBounceJumpTiles - sBounceJumpTiles / 2;
-        MoveCoordsInDirection(objectEvent->movementDirection, &x, &y, secondHalf, secondHalf);
-        ShiftObjectEventCoords(objectEvent, objectEvent->currentCoords.x + x, objectEvent->currentCoords.y + y);
+    case BOUNCE_PHASE_CLIMB:
+        // Rise linearly up to the rock-top lift, with a low hop arc on top.
+        Step1(sprite, sBounceClimbDir);
+        sprite->y2 = -(BOUNCE_LIFT * t) / BOUNCE_HOP_FRAMES + GetBounceArcY(t, BOUNCE_HOP_FRAMES, JUMP_TYPE_LOW);
+        if (++sprite->sBounceTimer >= BOUNCE_HOP_FRAMES)
+        {
+            sprite->y2 = -BOUNCE_LIFT;
+            ShiftStillObjectEventCoords(objectEvent);
+            sprite->animPaused = TRUE;
+            sprite->sBounceTimer = 0;
+            sprite->sBouncePhase = BOUNCE_PHASE_PAUSE_1;
+        }
+        break;
+    case BOUNCE_PHASE_PAUSE_1:
+        sprite->y2 = -BOUNCE_LIFT;
+        if (t == 0)
+        {
+            // Turn toward the crossing direction (may differ from the climb).
+            SetObjectEventDirection(objectEvent, sBounceJumpDir);
+            StartSpriteAnim(sprite, GetFaceDirectionAnimNum(sBounceJumpDir));
+        }
+        if (++sprite->sBounceTimer >= BOUNCE_PAUSE_FRAMES)
+        {
+            sprite->sBounceTimer = 0;
+            sprite->sBouncePhase = (sBounceCrossTiles != 0) ? BOUNCE_PHASE_CROSS : BOUNCE_PHASE_DESCEND;
+        }
+        break;
+    case BOUNCE_PHASE_CROSS:
+    {
+        s16 totalFrames = sBounceCrossTiles * 8; // Step2 = 2 px/frame, a 16px tile = 8 frames
+        if (t == 0)
+        {
+            u8 firstHalf = sBounceCrossTiles / 2;
+            sprite->animPaused = FALSE;
+            SetStepAnimHandleAlternation(objectEvent, sprite, GetMoveDirectionAnimNum(sBounceJumpDir));
+            PlaySE(SE_LEDGE);
+            // Advance the logical tile in two halves so total logical travel matches
+            // total visual travel. Collision is not re-checked mid-action, so passing
+            // the logical coord over the rocks is harmless.
+            if (firstHalf != 0)
+            {
+                MoveCoordsInDirection(sBounceJumpDir, &x, &y, firstHalf, firstHalf);
+                ShiftObjectEventCoords(objectEvent, objectEvent->currentCoords.x + x, objectEvent->currentCoords.y + y);
+            }
+        }
+        Step2(sprite, sBounceJumpDir);
+        sprite->y2 = -BOUNCE_LIFT + GetBounceArcY(t, totalFrames, JUMP_TYPE_HIGH) * BOUNCE_ARC_HEIGHT_MUL;
+        if (++sprite->sBounceTimer == totalFrames / 2)
+        {
+            u8 secondHalf = sBounceCrossTiles - sBounceCrossTiles / 2;
+            MoveCoordsInDirection(sBounceJumpDir, &x, &y, secondHalf, secondHalf);
+            ShiftObjectEventCoords(objectEvent, objectEvent->currentCoords.x + x, objectEvent->currentCoords.y + y);
+        }
+        if (sprite->sBounceTimer >= totalFrames)
+        {
+            sprite->y2 = -BOUNCE_LIFT;
+            ShiftStillObjectEventCoords(objectEvent);
+            sprite->animPaused = TRUE;
+            sprite->sBounceTimer = 0;
+            sprite->sBouncePhase = BOUNCE_PHASE_PAUSE_2;
+        }
+        break;
     }
-
-    if (t >= totalFrames)
-    {
-        ShiftStillObjectEventCoords(objectEvent);
-        objectEvent->triggerGroundEffectsOnStop = TRUE;
-        objectEvent->landingJump = TRUE;
-        sprite->y2 = 0;
-        sprite->animPaused = TRUE;
-        sprite->sActionFuncId = 2;
-        return TRUE;
+    case BOUNCE_PHASE_PAUSE_2:
+        sprite->y2 = -BOUNCE_LIFT;
+        if (++sprite->sBounceTimer >= BOUNCE_PAUSE_FRAMES)
+        {
+            sprite->sBounceTimer = 0;
+            sprite->sBouncePhase = BOUNCE_PHASE_DESCEND;
+        }
+        break;
+    case BOUNCE_PHASE_DESCEND:
+        if (t == 0)
+        {
+            sprite->animPaused = FALSE;
+            SetStepAnimHandleAlternation(objectEvent, sprite, GetMoveDirectionAnimNum(sBounceJumpDir));
+            PlaySE(SE_LEDGE);
+            MoveCoordsInDirection(sBounceJumpDir, &x, &y, 1, 1);
+            ShiftObjectEventCoords(objectEvent, objectEvent->currentCoords.x + x, objectEvent->currentCoords.y + y);
+        }
+        // Sink from the rock-top lift back to ground level, with a low hop arc.
+        Step1(sprite, sBounceJumpDir);
+        sprite->y2 = -BOUNCE_LIFT + (BOUNCE_LIFT * t) / BOUNCE_HOP_FRAMES + GetBounceArcY(t, BOUNCE_HOP_FRAMES, JUMP_TYPE_LOW);
+        if (++sprite->sBounceTimer >= BOUNCE_HOP_FRAMES)
+        {
+            ShiftStillObjectEventCoords(objectEvent);
+            objectEvent->triggerGroundEffectsOnStop = TRUE;
+            objectEvent->landingJump = TRUE;
+            objectEvent->fixedPriority = FALSE; // back to per-frame subpriority
+            sprite->y2 = 0;
+            sprite->animPaused = TRUE;
+            sprite->sActionFuncId = 2;
+            return TRUE;
+        }
+        break;
     }
     return FALSE;
 }
 
 u8 MovementAction_BounceJump_Step0(struct ObjectEvent *objectEvent, struct Sprite *sprite)
 {
-    u8 firstHalf = sBounceJumpTiles / 2;
     s16 x = 0, y = 0;
 
-    SetObjectEventDirection(objectEvent, objectEvent->facingDirection);
+    SetObjectEventDirection(objectEvent, sBounceClimbDir);
     sprite->sBounceTimer = 0;
+    sprite->sBouncePhase = BOUNCE_PHASE_CLIMB;
     sprite->animPaused = FALSE;
-    SetStepAnimHandleAlternation(objectEvent, sprite, GetMoveDirectionAnimNum(objectEvent->facingDirection));
-    // Apply the first half of the logical travel up-front (engine jump convention).
-    if (firstHalf != 0)
-    {
-        MoveCoordsInDirection(objectEvent->movementDirection, &x, &y, firstHalf, firstHalf);
-        ShiftObjectEventCoords(objectEvent, objectEvent->currentCoords.x + x, objectEvent->currentCoords.y + y);
-    }
+    SetStepAnimHandleAlternation(objectEvent, sprite, GetMoveDirectionAnimNum(sBounceClimbDir));
+    // Draw the player in front of the rocks (it shares their tile while on top);
+    // fixedPriority keeps the per-frame subpriority update from undoing this.
+    objectEvent->fixedPriority = TRUE;
+    sprite->subpriority = 1;
+    PlaySE(SE_LEDGE);
+    // The climb covers exactly one tile; shift the logical coord up-front (jump convention).
+    MoveCoordsInDirection(sBounceClimbDir, &x, &y, 1, 1);
+    ShiftObjectEventCoords(objectEvent, objectEvent->currentCoords.x + x, objectEvent->currentCoords.y + y);
     objectEvent->triggerGroundEffectsOnMove = TRUE;
     objectEvent->disableCoveringGroundEffects = TRUE;
     sprite->sActionFuncId = 1;
@@ -7687,6 +7779,10 @@ u8 MovementAction_BounceJump_Step0(struct ObjectEvent *objectEvent, struct Sprit
 }
 
 #undef sBounceTimer
+#undef sBouncePhase
+#undef BOUNCE_LIFT
+#undef BOUNCE_HOP_FRAMES
+#undef BOUNCE_PAUSE_FRAMES
 #undef BOUNCE_ARC_HEIGHT_MUL
 
 static void InitMovementDelay(struct Sprite *sprite, u16 duration)

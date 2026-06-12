@@ -18,15 +18,26 @@
 #include "constants/flags.h"
 #include "constants/songs.h"
 
-// Out-of-battle "Bounce" (Rebote): the player jumps over a formation of tall
-// "high rocks" in one continuous arc, landing on the far side. Two activators:
+// Out-of-battle "Bounce" (Rebote): the player climbs onto the high rock in
+// front, arcs over to the far rock of the formation and hops down one tile
+// past it. If the player faces the rock from a direction perpendicular to the
+// formation's axis, the crossing still runs along the axis. The follower
+// Pokémon is recalled into its ball (animated) before the jump.
+// Two activators:
 //   A) interacting with a rock (script specials), and
 //   B) the Bounce field move from the party menu (SetUpFieldMove_Bounce).
-// Both share the same generic landing detection and jump task below, so this is
-// not tied to any specific map coordinates.
 
 // How far ahead (tiles) to look for the far edge of a rock formation.
 #define BOUNCE_SCAN_RANGE 8
+
+// Route of one bounce: hop onto the first rock (climbDir), arc crossTiles to
+// the formation's last rock (jumpDir), then hop down 1 more tile in jumpDir.
+struct BounceRoute
+{
+    u8 climbDir;
+    u8 jumpDir;
+    u8 crossTiles; // 0 = isolated rock, no crossing
+};
 
 // Per-direction step, indexed by enum Direction (NONE=0, SOUTH, NORTH, WEST, EAST).
 static const s8 sBounceDeltaX[] = {
@@ -38,6 +49,11 @@ static const s8 sBounceDeltaY[] = {
 
 static const u8 sMovement_BounceJump[] = {
     MOVEMENT_ACTION_BOUNCE_JUMP,
+    MOVEMENT_ACTION_STEP_END,
+};
+
+static const u8 sMovement_FollowerRecall[] = {
+    MOVEMENT_ACTION_ENTER_POKEBALL,
     MOVEMENT_ACTION_STEP_END,
 };
 
@@ -53,75 +69,111 @@ static bool8 IsHighRockAt(s16 x, s16 y)
          && gObjectEvents[id].graphicsId == OBJ_EVENT_GFX_HIGH_BOULDER);
 }
 
-// If the player faces a high rock, find the landing tile just past the far edge
-// of the whole formation (scanning over consecutive rocks and any gaps between
-// them). Returns FALSE if there is no rock in front or no valid landing tile.
+// Try to resolve the crossing from the climbed rock in direction dir: find the
+// farthest rock within range (scanning over consecutive rocks and any gaps),
+// then validate the landing tile one step past it. With requireCross, fail if
+// there is no second rock to cross to in this direction.
 // Coords are in object-event space (map grid + MAP_OFFSET), same as the helpers.
-static bool8 GetBounceDestination(s16 *destX, s16 *destY)
+static bool8 TryBounceAxis(s16 rockX, s16 rockY, u8 dir, bool8 requireCross, struct BounceRoute *route)
 {
-    enum Direction dir = GetPlayerFacingDirection();
-    s16 x, y, lastRockX, lastRockY;
-    s8 dx, dy;
-    bool8 sawRock = FALSE;
+    s8 dx = sBounceDeltaX[dir];
+    s8 dy = sBounceDeltaY[dir];
+    s16 x = rockX + dx;
+    s16 y = rockY + dy;
+    s16 lastX = rockX, lastY = rockY;
+    u8 tiles = 0;
     u8 i;
 
-    if (dir != DIR_SOUTH && dir != DIR_NORTH && dir != DIR_WEST && dir != DIR_EAST)
-        return FALSE;
-
-    dx = sBounceDeltaX[dir];
-    dy = sBounceDeltaY[dir];
-
-    GetXYCoordsOneStepInFrontOfPlayer(&x, &y);
-    if (!IsHighRockAt(x, y))
-        return FALSE;
-
-    lastRockX = x;
-    lastRockY = y;
-    for (i = 0; i < BOUNCE_SCAN_RANGE; i++, x += dx, y += dy)
+    for (i = 1; i <= BOUNCE_SCAN_RANGE; i++, x += dx, y += dy)
     {
         if (IsHighRockAt(x, y))
         {
-            sawRock = TRUE;
-            lastRockX = x;
-            lastRockY = y;
+            lastX = x;
+            lastY = y;
+            tiles = i;
         }
     }
-    if (!sawRock)
+    if (requireCross && tiles == 0)
         return FALSE;
 
     // Landing is the first tile past the last rock; it must be walkable and empty.
-    x = lastRockX + dx;
-    y = lastRockY + dy;
+    x = lastX + dx;
+    y = lastY + dy;
     if (MapGridGetCollisionAt(x, y) != 0)
         return FALSE;
     if (GetObjectEventIdByXY(x, y) != OBJECT_EVENTS_COUNT)
         return FALSE;
 
-    *destX = x;
-    *destY = y;
+    route->jumpDir = dir;
+    route->crossTiles = tiles;
     return TRUE;
 }
 
-#define tState      data[0]
-#define tTiles      data[1]
-#define tFromScript data[2]
-
-// Drives one bounce: hide the follower, run the BOUNCE_JUMP movement action on the
-// player via the script-movement system (works even while frozen by lockall), then
-// restore the follower and unlock on landing.
-static void StartBounceJump(s16 destX, s16 destY, bool8 fromScript)
+// If the player faces a high rock, work out the full route. The crossing
+// direction is searched facing-first, then back over the player's head (so
+// using Bounce from inside a gap of the formation still crosses the whole
+// formation), then sideways (so approaching perpendicular to the axis works
+// too). Returns FALSE if there is no rock in front or no valid landing tile
+// in any candidate direction.
+static bool8 GetBounceRoute(struct BounceRoute *route)
 {
-    struct ObjectEvent *player = &gObjectEvents[gPlayerAvatar.objectEventId];
-    s16 dx = destX - player->currentCoords.x;
-    s16 dy = destY - player->currentCoords.y;
-    s16 tiles = (dx != 0) ? (dx < 0 ? -dx : dx) : (dy < 0 ? -dy : dy);
+    enum Direction dir = GetPlayerFacingDirection();
+    s16 x, y;
+    u8 i;
+    u8 candidates[4];
+
+    if (dir != DIR_SOUTH && dir != DIR_NORTH && dir != DIR_WEST && dir != DIR_EAST)
+        return FALSE;
+
+    GetXYCoordsOneStepInFrontOfPlayer(&x, &y);
+    if (!IsHighRockAt(x, y))
+        return FALSE;
+
+    route->climbDir = dir;
+    candidates[0] = dir;
+    candidates[1] = GetOppositeDirection(dir);
+    if (dir == DIR_EAST || dir == DIR_WEST)
+    {
+        candidates[2] = DIR_NORTH;
+        candidates[3] = DIR_SOUTH;
+    }
+    else
+    {
+        candidates[2] = DIR_WEST;
+        candidates[3] = DIR_EAST;
+    }
+
+    // Prefer an axis with a far rock to cross to...
+    for (i = 0; i < ARRAY_COUNT(candidates); i++)
+    {
+        if (TryBounceAxis(x, y, candidates[i], TRUE, route))
+            return TRUE;
+    }
+    // ...otherwise it's an isolated rock: a simple hop over it, facing forward.
+    return TryBounceAxis(x, y, dir, FALSE, route);
+}
+
+#define tState      data[0]
+#define tClimbDir   data[1]
+#define tJumpDir    data[2]
+#define tCrossTiles data[3]
+#define tFromScript data[4]
+
+static void StartBounceJump(const struct BounceRoute *route, bool8 fromScript)
+{
     u8 taskId = CreateTask(Task_BounceJump, 0);
 
     gTasks[taskId].tState = 0;
-    gTasks[taskId].tTiles = tiles;
+    gTasks[taskId].tClimbDir = route->climbDir;
+    gTasks[taskId].tJumpDir = route->jumpDir;
+    gTasks[taskId].tCrossTiles = route->crossTiles;
     gTasks[taskId].tFromScript = fromScript;
 }
 
+// Drives one bounce: recall the follower into its ball (animated), run the
+// multi-phase BOUNCE_JUMP movement action on the player via the script-movement
+// system (works even while frozen by lockall), then restore the follower and
+// unlock on landing.
 static void Task_BounceJump(u8 taskId)
 {
     s16 *data = gTasks[taskId].data;
@@ -130,23 +182,41 @@ static void Task_BounceJump(u8 taskId)
 
     switch (tState)
     {
-    case 0:
+    case 0: // if the follower is out, play its enter-ball animation first
+    {
+        struct ObjectEvent *follower = GetFollowerObject();
+
         LockPlayerFieldControls();
-        // Hide the follower for the flight; it would copy a broken short jump and
-        // could end up stranded on the wrong side of the rocks.
-        FlagSet(FLAG_TEMP_HIDE_FOLLOWER);
-        RemoveFollowingPokemon();
-        PlaySE(SE_LEDGE);
-        SetBounceJumpTiles(tTiles);
-        ScriptMovement_StartObjectMovementScript(LOCALID_PLAYER, mapNum, mapGroup, sMovement_BounceJump);
-        tState = 1;
+        if (follower != NULL && !follower->invisible)
+        {
+            PlaySE(SE_BALL);
+            ScriptMovement_StartObjectMovementScript(OBJ_EVENT_ID_FOLLOWER, mapNum, mapGroup, sMovement_FollowerRecall);
+            tState = 1;
+        }
+        else
+        {
+            tState = 2;
+        }
         break;
+    }
     case 1:
-        if (ScriptMovement_IsObjectMovementFinished(LOCALID_PLAYER, mapNum, mapGroup))
+        if (ScriptMovement_IsObjectMovementFinished(OBJ_EVENT_ID_FOLLOWER, mapNum, mapGroup))
             tState = 2;
         break;
-    case 2:
-        // Respawn the follower next to the player at the landing tile.
+    case 2: // follower stored away; launch the climb-cross-descend sequence
+        FlagSet(FLAG_TEMP_HIDE_FOLLOWER);
+        RemoveFollowingPokemon();
+        SetBounceJumpParams(tClimbDir, tJumpDir, tCrossTiles);
+        ScriptMovement_StartObjectMovementScript(LOCALID_PLAYER, mapNum, mapGroup, sMovement_BounceJump);
+        tState = 3;
+        break;
+    case 3:
+        if (ScriptMovement_IsObjectMovementFinished(LOCALID_PLAYER, mapNum, mapGroup))
+            tState = 4;
+        break;
+    case 4:
+        // Respawn the follower next to the player at the landing tile; it pops
+        // back out of its ball with the standard animation on the next step.
         FlagClear(FLAG_TEMP_HIDE_FOLLOWER);
         UpdateFollowingPokemon();
         UnlockPlayerFieldControls();
@@ -158,25 +228,27 @@ static void Task_BounceJump(u8 taskId)
 }
 
 #undef tState
-#undef tTiles
+#undef tClimbDir
+#undef tJumpDir
+#undef tCrossTiles
 #undef tFromScript
 
 // ---- Activator B: party-menu field move (mirrors Surf / Rock Climb) ----
 static void FieldCallback_Bounce(void)
 {
-    s16 destX, destY;
+    struct BounceRoute route;
 
-    if (GetBounceDestination(&destX, &destY))
-        StartBounceJump(destX, destY, FALSE);
+    if (GetBounceRoute(&route))
+        StartBounceJump(&route, FALSE);
     else
         ScriptContext_Enable();
 }
 
 bool32 SetUpFieldMove_Bounce(void)
 {
-    s16 destX, destY;
+    struct BounceRoute route;
 
-    if (GetBounceDestination(&destX, &destY))
+    if (GetBounceRoute(&route))
     {
         gFieldCallback2 = FieldCallback_PrepareFadeInFromMenu;
         gPostMenuFieldCallback = FieldCallback_Bounce;
@@ -202,18 +274,18 @@ u16 Special_GetFirstBounceMonIndex(void)
 
 bool8 Special_CanBounceHere(void)
 {
-    s16 destX, destY;
+    struct BounceRoute route;
 
     return (Special_GetFirstBounceMonIndex() != PARTY_SIZE)
-        && GetBounceDestination(&destX, &destY);
+        && GetBounceRoute(&route);
 }
 
 void Special_StartBounceJump(void)
 {
-    s16 destX, destY;
+    struct BounceRoute route;
 
-    if (GetBounceDestination(&destX, &destY))
-        StartBounceJump(destX, destY, TRUE);
+    if (GetBounceRoute(&route))
+        StartBounceJump(&route, TRUE);
     else
         ScriptContext_Enable(); // don't hang the script's waitstate
 }
