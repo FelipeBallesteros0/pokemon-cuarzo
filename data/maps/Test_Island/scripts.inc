@@ -20,6 +20,8 @@ Test_Island_EventScript_DebugBerryNPC::
 	giveitem ITEM_OLD_ROD
 	goto_if_eq VAR_RESULT, FALSE, Common_EventScript_ShowBagIsFull
 	givemon SPECIES_GYARADOS, 30, move1=MOVE_SURF @ para probar Surf con sprite real
+	givemon SPECIES_LAPRAS, 30, move1=MOVE_SURF
+	givemon SPECIES_BLASTOISE, 30, move1=MOVE_SURF
 	setflag FLAG_UNUSED_0x021 @ DN_FLAG_DEXNAV_GET
 	setflag FLAG_UNUSED_0x022 @ DN_FLAG_DETECTOR_MODE
 	setflag FLAG_UNUSED_0x863
