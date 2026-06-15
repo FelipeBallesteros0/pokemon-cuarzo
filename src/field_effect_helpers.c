@@ -1194,6 +1194,92 @@ static void UpdateAshFieldEffect_End(struct Sprite *sprite)
 #define sPrevX        data[6]
 #define sPrevY        data[7]
 
+// ---- Water reflection for surf mounts ----
+// Mounts are plain sprites, not object events, so the object-event reflection
+// system never covers them. This mirrors the mount sprite below the water,
+// gated by the rider object event's hasReflection state.
+#define sMountSpriteId   data[0]
+#define sMountObjEventId data[1]
+
+static void UpdateSurfMountReflectionSprite(struct Sprite *reflectionSprite)
+{
+    struct Sprite *mainSprite = &gSprites[reflectionSprite->sMountSpriteId];
+    struct ObjectEvent *objectEvent = &gObjectEvents[reflectionSprite->sMountObjEventId];
+
+    // The mount dies on dismount; follow it to the grave.
+    if (!objectEvent->active || !mainSprite->inUse
+     || objectEvent->fieldEffectSpriteId != reflectionSprite->sMountSpriteId)
+    {
+        reflectionSprite->inUse = FALSE;
+        FieldEffectFreePaletteIfUnused(reflectionSprite->oam.paletteNum);
+        return;
+    }
+
+    // Same dynamic filtered-palette scheme as UpdateObjectReflectionSprite,
+    // keyed by the mount's palette.
+    {
+        u16 baseTag = GetSpritePaletteTagByPaletteNum(mainSprite->oam.paletteNum);
+        u16 paletteTag = REFLECTION_PAL_TAG(baseTag, mainSprite->oam.paletteNum);
+        u8 paletteNum = IndexOfSpritePaletteTag(paletteTag);
+        if (paletteNum >= 16)
+        {
+            u16 filteredData[16];
+            struct SpritePalette filteredPal = {.tag = paletteTag, .data = filteredData};
+            reflectionSprite->inUse = FALSE;
+            FieldEffectFreePaletteIfUnused(reflectionSprite->oam.paletteNum);
+            reflectionSprite->inUse = TRUE;
+            ApplyPondFilter(mainSprite->oam.paletteNum, filteredData);
+            paletteNum = LoadSpritePalette(&filteredPal);
+            UpdateSpritePaletteWithWeather(paletteNum, TRUE);
+        }
+        reflectionSprite->oam.paletteNum = paletteNum;
+    }
+
+    reflectionSprite->oam.shape = mainSprite->oam.shape;
+    reflectionSprite->oam.size = mainSprite->oam.size;
+    reflectionSprite->oam.tileNum = mainSprite->oam.tileNum;
+    reflectionSprite->x = mainSprite->x;
+    // Mirror just below the mount: offset by the mount's own pixel height.
+    reflectionSprite->y = mainSprite->y + (-mainSprite->centerToCornerVecY * 2) - 2;
+    reflectionSprite->centerToCornerVecX = mainSprite->centerToCornerVecX;
+    reflectionSprite->centerToCornerVecY = mainSprite->centerToCornerVecY;
+    reflectionSprite->x2 = mainSprite->x2;
+    reflectionSprite->y2 = -mainSprite->y2; // bobbing, mirrored
+    reflectionSprite->coordOffsetEnabled = mainSprite->coordOffsetEnabled;
+    reflectionSprite->invisible = mainSprite->invisible
+                               || !objectEvent->hasReflection
+                               || objectEvent->hideReflection;
+    // Reflection affine matrices 0/1 are maintained globally (vflip / hflip+vflip).
+    reflectionSprite->oam.matrixNum = (mainSprite->oam.matrixNum & ST_OAM_HFLIP) ? 1 : 0;
+}
+
+static void CreateSurfMountReflection(u8 mountSpriteId, u8 objEventId)
+{
+    struct Sprite *mount = &gSprites[mountSpriteId];
+    u8 reflectionSpriteId = CreateCopySpriteAt(mount, mount->x, mount->y, 152);
+    struct Sprite *reflectionSprite;
+
+    if (reflectionSpriteId >= MAX_SPRITES)
+        return;
+    reflectionSprite = &gSprites[reflectionSpriteId];
+    reflectionSprite->callback = UpdateSurfMountReflectionSprite;
+    reflectionSprite->oam.priority = 3;
+    reflectionSprite->oam.objMode = ST_OAM_OBJ_BLEND;
+    reflectionSprite->oam.affineMode = ST_OAM_AFFINE_NORMAL;
+    reflectionSprite->usingSheet = TRUE; // never free the mount's tiles
+    reflectionSprite->anims = gDummySpriteAnimTable;
+    StartSpriteAnim(reflectionSprite, 0);
+    reflectionSprite->affineAnims = gDummySpriteAffineAnimTable;
+    reflectionSprite->affineAnimBeginning = TRUE;
+    reflectionSprite->subspriteMode = SUBSPRITES_OFF;
+    reflectionSprite->subspriteTables = NULL;
+    reflectionSprite->sMountSpriteId = mountSpriteId;
+    reflectionSprite->sMountObjEventId = objEventId;
+}
+
+#undef sMountSpriteId
+#undef sMountObjEventId
+
 // OW graphics id (with shiny/gender/weather-form variants) for the Surf user's
 // minisprite, used when the species has no dedicated surfable sprite.
 static u16 GetSurfUserGraphicsId(u8 partyIndex)
@@ -1280,6 +1366,8 @@ u32 FldEff_SurfBlob(void)
         sprite->sVelocity = -1;
         sprite->sPrevX = -1;
         sprite->sPrevY = -1;
+        if (useSurfMonSprite)
+            CreateSurfMountReflection(spriteId, gFieldEffectArguments[2]);
     }
     FieldEffectActiveListRemove(FLDEFF_SURF_BLOB);
     return spriteId;
@@ -1326,7 +1414,11 @@ void UpdateSurfBlobFieldEffect(struct Sprite *sprite)
     SynchronizeSurfAnim(playerObj, sprite);
     SynchronizeSurfPosition(playerObj, sprite);
     UpdateBobbingEffect(playerObj, playerSprite, sprite);
-    sprite->oam.priority = playerSprite->oam.priority;
+    // Overworld sprites render at priority 2. A follower NPC can momentarily
+    // report priority 3 (the OW system fixes that up for its own object-event
+    // sprite but not for this plain field-effect sprite), which would hide the
+    // surf blob/mount behind the water layer, so clamp it.
+    sprite->oam.priority = (playerSprite->oam.priority > 2) ? 2 : playerSprite->oam.priority;
     // Draw the mount in front of the player when facing the camera (south),
     // behind it otherwise, so large surf sprites layer correctly.
     if (playerObj->movementDirection == DIR_SOUTH)

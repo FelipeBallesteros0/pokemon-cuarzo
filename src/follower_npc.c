@@ -533,6 +533,16 @@ static void SetSurfJump(void)
     SetFollowerNPCSprite(FOLLOWER_NPC_SPRITE_INDEX_SURF);
 
     follower = &gObjectEvents[GetFollowerNPCObjectId()];
+    // SetFollowerNPCSprite destroys and re-spawns the follower object event, so the
+    // surf blob/mount's stored object id (data[2]) can be left pointing at the old,
+    // now-inactive slot (whose sprite is the 8x8 dummy), parking the mount off-screen.
+    // Re-point it at the live follower so it tracks the rendered sprite.
+    if (follower->fieldEffectSpriteId < MAX_SPRITES)
+    {
+        gSprites[follower->fieldEffectSpriteId].data[2] = GetFollowerNPCObjectId();
+        gSprites[follower->fieldEffectSpriteId].data[6] = -1; // sPrevX: force position resync
+        gSprites[follower->fieldEffectSpriteId].data[7] = -1; // sPrevY
+    }
     ObjectEventSetHeldMovement(follower, jumpState);
 }
 
