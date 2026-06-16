@@ -1493,8 +1493,15 @@ void AppendToList(u8 *list, u8 *pos, u8 newEntry)
 
 static bool8 StartMenuDexNavCallback(void)
 {
-    CreateTask(Task_OpenDexNavFromStartMenu, 0);
-    return TRUE;
+    if (!gPaletteFade.active)
+    {
+        PlayRainStoppingSoundEffect();
+        RemoveExtraStartMenuWindows(); // restores overworld sprite visibility (UIStartMenu_Free)
+        CreateTask(Task_OpenDexNavFromStartMenu, 0);
+        return TRUE;
+    }
+
+    return FALSE;
 }
 
 void Script_ForceSaveGame(struct ScriptContext *ctx)
