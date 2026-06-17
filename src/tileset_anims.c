@@ -14,6 +14,7 @@ static EWRAM_DATA struct {
 } sTilesetDMA3TransferBuffer[20] = {0};
 
 static u8 sTilesetDMA3TransferBufferSize;
+static bool8 sTilesetAnimsSuppressed; // pauses the VRAM transfer while a fullscreen overlay borrows the tileset charblock (e.g. the custom Start menu scroll BG)
 static u16 sPrimaryTilesetAnimCounter;
 static u16 sPrimaryTilesetAnimCounterMax;
 static u16 sSecondaryTilesetAnimCounter;
@@ -587,14 +588,31 @@ void TransferTilesetAnimsBuffer(void)
 {
     int i;
 
+    // While suppressed, skip the DMA so an overlay that borrowed the tileset
+    // charblock (Start menu scroll BG) isn't overwritten. Drop the queued
+    // entries so nothing stale flushes when transfers resume.
+    if (sTilesetAnimsSuppressed)
+    {
+        sTilesetDMA3TransferBufferSize = 0;
+        return;
+    }
+
     for (i = 0; i < sTilesetDMA3TransferBufferSize; i ++)
         DmaCopy16(3, sTilesetDMA3TransferBuffer[i].src, sTilesetDMA3TransferBuffer[i].dest, sTilesetDMA3TransferBuffer[i].size);
 
     sTilesetDMA3TransferBufferSize = 0;
 }
 
+// Pause/resume the per-frame tileset animation VRAM transfer. Used by overlays
+// that temporarily repurpose the tileset charblock (see TransferTilesetAnimsBuffer).
+void SetTilesetAnimsSuppressed(bool8 suppressed)
+{
+    sTilesetAnimsSuppressed = suppressed;
+}
+
 void InitTilesetAnimations(void)
 {
+    sTilesetAnimsSuppressed = FALSE; // safety net: every map load starts with anims running
     ResetTilesetAnimBuffer();
     _InitPrimaryTilesetAnimation();
     _InitSecondaryTilesetAnimation();

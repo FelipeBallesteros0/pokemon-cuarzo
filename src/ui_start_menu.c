@@ -8,6 +8,8 @@
 #include "sprite.h"
 #include "text.h"
 #include "window.h"
+#include "fieldmap.h"
+#include "tileset_anims.h"
 #include "constants/rgb.h"
 
 // ─── Grid layout constants ─────────────────────────────────────────────────
@@ -134,6 +136,11 @@ static void SetupScrollBg(void)
     sSavedBg3TilemapBuf = GetBgTilemapBuffer(3);
     UnsetBgTilemapBuffer(3);
 
+    // The scroll BG borrows the secondary tileset charblock (char base 1).
+    // Pause the field tileset animation so it can't DMA over our pattern while
+    // the menu is open (e.g. an animated water tileset whose frames land here).
+    SetTilesetAnimsSuppressed(TRUE);
+
     SetBgAttribute(3, BG_ATTR_CHARBASEINDEX, 1);
     CpuCopy16(sScroll_Gfx, (void *)(BG_VRAM + BG_CHAR_SIZE), SCROLL_TILES * 32);
     LoadPalette(sScroll_Pal, BG_PLTT_ID(SCROLL_PAL_SLOT), PLTT_SIZE_4BPP);
@@ -157,6 +164,13 @@ static void ClearScrollBg(void)
     SetBgTilemapBuffer(3, sSavedBg3TilemapBuf);
     if (sSavedBg3TilemapBuf != NULL)
         CopyBgTilemapBufferToVram(3);
+
+    // We overwrote the secondary tileset tiles (char base 1) with our scroll
+    // pattern; restore them synchronously so the field shows correct graphics,
+    // then re-enable the tileset animation.
+    if (gMapHeader.mapLayout != NULL)
+        CopySecondaryTilesetToVramUsingHeap(gMapHeader.mapLayout);
+    SetTilesetAnimsSuppressed(FALSE);
 }
 
 // ─── Public API ────────────────────────────────────────────────────────────

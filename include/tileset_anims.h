@@ -5,6 +5,7 @@ void InitTilesetAnimations(void);
 void InitSecondaryTilesetAnimation(void);
 void UpdateTilesetAnimations(void);
 void TransferTilesetAnimsBuffer(void);
+void SetTilesetAnimsSuppressed(bool8 suppressed);
 
 void InitTilesetAnim_General(void);
 void InitTilesetAnim_Petalburg(void);
