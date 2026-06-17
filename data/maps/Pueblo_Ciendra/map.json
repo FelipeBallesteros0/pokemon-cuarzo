@@ -3,7 +3,7 @@
   "name": "Pueblo_Ciendra",
   "layout": "LAYOUT_PUEBLO_CIENDRA",
   "music": "MUS_LITTLEROOT",
-  "region_map_section": "MAPSEC_PETALBURG_CITY",
+  "region_map_section": "MAPSEC_PUEBLO_CIENDRA",
   "requires_flash": false,
   "weather": "WEATHER_NONE",
   "map_type": "MAP_TYPE_TOWN",
@@ -12,7 +12,13 @@
   "allow_running": true,
   "show_map_name": true,
   "battle_scene": "MAP_BATTLE_SCENE_NORMAL",
-  "connections": null,
+  "connections": [
+    {
+      "map": "MAP_RUTA_1",
+      "offset": 10,
+      "direction": "up"
+    }
+  ],
   "object_events": [],
   "warp_events": [],
   "coord_events": [],

@@ -14,7 +14,7 @@
   "battle_scene": "MAP_BATTLE_SCENE_NORMAL",
   "connections": [
     {
-      "map": "MAP_PUEBLO_CIENDRA_2",
+      "map": "MAP_PUEBLO_CIENDRA",
       "offset": -10,
       "direction": "down"
     }

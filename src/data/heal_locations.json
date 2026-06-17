@@ -363,12 +363,6 @@
       "y": 18
     },
     {
-      "id": "HEAL_LOCATION_PUEBLO_CIENDRA_2",
-      "map": "MAP_PUEBLO_CIENDRA_2",
-      "x": 20,
-      "y": 18
-    },
-    {
       "id": "HEAL_LOCATION_TEST_ISLAND",
       "map": "MAP_TEST_ISLAND",
       "x": 20,

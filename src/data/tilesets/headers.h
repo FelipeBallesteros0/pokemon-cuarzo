@@ -52,15 +52,15 @@ const struct Tileset gTileset_Petalburg =
     .callback = InitTilesetAnim_Petalburg,
 };
 
-const struct Tileset gTileset_PuebloCiendra2 =
+const struct Tileset gTileset_PuebloCiendra =
 {
     .isCompressed = TRUE,
     .isSecondary = TRUE,
-    .tiles = gTilesetTiles_PuebloCiendra2,
-    .palettes = gTilesetPalettes_PuebloCiendra2,
-    .metatiles = gMetatiles_PuebloCiendra2,
-    .metatileAttributes = gMetatileAttributes_PuebloCiendra2,
-    .callback = InitTilesetAnim_PuebloCiendra2,
+    .tiles = gTilesetTiles_PuebloCiendra,
+    .palettes = gTilesetPalettes_PuebloCiendra,
+    .metatiles = gMetatiles_PuebloCiendra,
+    .metatileAttributes = gMetatileAttributes_PuebloCiendra,
+    .callback = InitTilesetAnim_PuebloCiendra,
 };
 
 const struct Tileset gTileset_Rustboro =

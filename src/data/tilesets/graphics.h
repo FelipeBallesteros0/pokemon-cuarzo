@@ -20,26 +20,26 @@ const u16 gTilesetPalettes_Petalburg[][16] =
     INCGFX_U16("data/tilesets/secondary/petalburg/palettes/15.pal", ".gbapal"),
 };
 
-const u32 gTilesetTiles_PuebloCiendra2[] = INCGFX_U32("data/tilesets/secondary/pueblo_ciendra_2/tiles.png", ".4bpp.fastSmol", "-num_tiles 63 -Wnum_tiles");
+const u32 gTilesetTiles_PuebloCiendra[] = INCGFX_U32("data/tilesets/secondary/pueblo_ciendra/tiles.png", ".4bpp.fastSmol", "-num_tiles 63 -Wnum_tiles");
 
-const u16 gTilesetPalettes_PuebloCiendra2[][16] =
+const u16 gTilesetPalettes_PuebloCiendra[][16] =
 {
-    INCGFX_U16("data/tilesets/secondary/pueblo_ciendra_2/palettes/00.pal", ".gbapal"),
-    INCGFX_U16("data/tilesets/secondary/pueblo_ciendra_2/palettes/01.pal", ".gbapal"),
-    INCGFX_U16("data/tilesets/secondary/pueblo_ciendra_2/palettes/02.pal", ".gbapal"),
-    INCGFX_U16("data/tilesets/secondary/pueblo_ciendra_2/palettes/03.pal", ".gbapal"),
-    INCGFX_U16("data/tilesets/secondary/pueblo_ciendra_2/palettes/04.pal", ".gbapal"),
-    INCGFX_U16("data/tilesets/secondary/pueblo_ciendra_2/palettes/05.pal", ".gbapal"),
-    INCGFX_U16("data/tilesets/secondary/pueblo_ciendra_2/palettes/06.pal", ".gbapal"),
-    INCGFX_U16("data/tilesets/secondary/pueblo_ciendra_2/palettes/07.pal", ".gbapal"),
-    INCGFX_U16("data/tilesets/secondary/pueblo_ciendra_2/palettes/08.pal", ".gbapal"),
-    INCGFX_U16("data/tilesets/secondary/pueblo_ciendra_2/palettes/09.pal", ".gbapal"),
-    INCGFX_U16("data/tilesets/secondary/pueblo_ciendra_2/palettes/10.pal", ".gbapal"),
-    INCGFX_U16("data/tilesets/secondary/pueblo_ciendra_2/palettes/11.pal", ".gbapal"),
-    INCGFX_U16("data/tilesets/secondary/pueblo_ciendra_2/palettes/12.pal", ".gbapal"),
-    INCGFX_U16("data/tilesets/secondary/pueblo_ciendra_2/palettes/13.pal", ".gbapal"),
-    INCGFX_U16("data/tilesets/secondary/pueblo_ciendra_2/palettes/14.pal", ".gbapal"),
-    INCGFX_U16("data/tilesets/secondary/pueblo_ciendra_2/palettes/15.pal", ".gbapal"),
+    INCGFX_U16("data/tilesets/secondary/pueblo_ciendra/palettes/00.pal", ".gbapal"),
+    INCGFX_U16("data/tilesets/secondary/pueblo_ciendra/palettes/01.pal", ".gbapal"),
+    INCGFX_U16("data/tilesets/secondary/pueblo_ciendra/palettes/02.pal", ".gbapal"),
+    INCGFX_U16("data/tilesets/secondary/pueblo_ciendra/palettes/03.pal", ".gbapal"),
+    INCGFX_U16("data/tilesets/secondary/pueblo_ciendra/palettes/04.pal", ".gbapal"),
+    INCGFX_U16("data/tilesets/secondary/pueblo_ciendra/palettes/05.pal", ".gbapal"),
+    INCGFX_U16("data/tilesets/secondary/pueblo_ciendra/palettes/06.pal", ".gbapal"),
+    INCGFX_U16("data/tilesets/secondary/pueblo_ciendra/palettes/07.pal", ".gbapal"),
+    INCGFX_U16("data/tilesets/secondary/pueblo_ciendra/palettes/08.pal", ".gbapal"),
+    INCGFX_U16("data/tilesets/secondary/pueblo_ciendra/palettes/09.pal", ".gbapal"),
+    INCGFX_U16("data/tilesets/secondary/pueblo_ciendra/palettes/10.pal", ".gbapal"),
+    INCGFX_U16("data/tilesets/secondary/pueblo_ciendra/palettes/11.pal", ".gbapal"),
+    INCGFX_U16("data/tilesets/secondary/pueblo_ciendra/palettes/12.pal", ".gbapal"),
+    INCGFX_U16("data/tilesets/secondary/pueblo_ciendra/palettes/13.pal", ".gbapal"),
+    INCGFX_U16("data/tilesets/secondary/pueblo_ciendra/palettes/14.pal", ".gbapal"),
+    INCGFX_U16("data/tilesets/secondary/pueblo_ciendra/palettes/15.pal", ".gbapal"),
 };
 
 const u32 gTilesetTiles_Rustboro[] = INCGFX_U32("data/tilesets/secondary/rustboro/tiles.png", ".4bpp.fastSmol", "-num_tiles 498 -Wnum_tiles");
