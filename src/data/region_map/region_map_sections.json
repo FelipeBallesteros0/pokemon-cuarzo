@@ -58,7 +58,7 @@
     },
     {
       "id": "MAPSEC_PETALBURG_CITY",
-      "name": "PETALBURG CITY",
+      "name": "PUEBLO_CIENDRA",
       "x": 1,
       "y": 9,
       "width": 1,
@@ -1626,6 +1626,14 @@
       "y": 4,
       "width": 1,
       "height": 1
+    },
+    {
+      "id": "MAPSEC_PUEBLO_CIENDRA",
+      "name": "PUEBLO CIENDRA"
+    },
+    {
+      "id": "MAPSEC_RUTA_1",
+      "name": "Ruta 1"
     }
   ]
 }

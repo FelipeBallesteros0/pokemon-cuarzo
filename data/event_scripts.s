@@ -1739,3 +1739,9 @@ EventScript_PalletTown_PlayersHouse_2F_TurnOnPC::
 	.include "data/scripts/apricorn_tree.inc"
 
 	.include "data/maps/Test_Island/scripts.inc"
+
+	.include "data/maps/Pueblo_Ciendra/scripts.inc"
+
+	.include "data/maps/Pueblo_Ciendra_2/scripts.inc"
+
+	.include "data/maps/RUTA_1/scripts.inc"

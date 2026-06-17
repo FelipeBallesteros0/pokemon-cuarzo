@@ -9333,6 +9333,36 @@
       "secondary_tileset": "gTileset_Petalburg",
       "border_filepath": "data/layouts/Test_Island/border.bin",
       "blockdata_filepath": "data/layouts/Test_Island/map.bin"
+    },
+    {
+      "id": "LAYOUT_PUEBLO_CIENDRA",
+      "name": "Pueblo_Ciendra_Layout",
+      "width": 40,
+      "height": 40,
+      "primary_tileset": "gTileset_General",
+      "secondary_tileset": "gTileset_Petalburg",
+      "border_filepath": "data/layouts/Pueblo_Ciendra/border.bin",
+      "blockdata_filepath": "data/layouts/Pueblo_Ciendra/map.bin"
+    },
+    {
+      "id": "LAYOUT_PUEBLO_CIENDRA_2",
+      "name": "Pueblo_Ciendra_2_Layout",
+      "width": 40,
+      "height": 40,
+      "primary_tileset": "gTileset_General",
+      "secondary_tileset": "gTileset_PuebloCiendra2",
+      "border_filepath": "data/layouts/Pueblo_Ciendra_2/border.bin",
+      "blockdata_filepath": "data/layouts/Pueblo_Ciendra_2/map.bin"
+    },
+    {
+      "id": "LAYOUT_RUTA_1",
+      "name": "RUTA_1_Layout",
+      "width": 20,
+      "height": 40,
+      "primary_tileset": "gTileset_General",
+      "secondary_tileset": "gTileset_PuebloCiendra2",
+      "border_filepath": "data/layouts/RUTA_1/border.bin",
+      "blockdata_filepath": "data/layouts/RUTA_1/map.bin"
     }
   ]
 }

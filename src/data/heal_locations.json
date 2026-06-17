@@ -355,6 +355,24 @@
       "map": "MAP_SAFARI_ZONE_NORTHWEST",
       "x": 16,
       "y": 28
+    },
+    {
+      "id": "HEAL_LOCATION_PUEBLO_CIENDRA",
+      "map": "MAP_PUEBLO_CIENDRA",
+      "x": 20,
+      "y": 18
+    },
+    {
+      "id": "HEAL_LOCATION_PUEBLO_CIENDRA_2",
+      "map": "MAP_PUEBLO_CIENDRA_2",
+      "x": 20,
+      "y": 18
+    },
+    {
+      "id": "HEAL_LOCATION_TEST_ISLAND",
+      "map": "MAP_TEST_ISLAND",
+      "x": 20,
+      "y": 28
     }
   ]
 }
