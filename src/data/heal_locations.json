@@ -360,7 +360,9 @@
       "id": "HEAL_LOCATION_PUEBLO_CIENDRA",
       "map": "MAP_PUEBLO_CIENDRA",
       "x": 20,
-      "y": 18
+      "y": 18,
+      "respawn_map": "MAP_PUEBLO_CIENDRA_POKEMON_CENTER_1F",
+      "respawn_npc": "LOCALID_PUEBLO_CIENDRA_NURSE"
     },
     {
       "id": "HEAL_LOCATION_TEST_ISLAND",
