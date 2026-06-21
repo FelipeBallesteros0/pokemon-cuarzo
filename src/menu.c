@@ -6,6 +6,7 @@
 #include "event_data.h"
 #include "field_name_box.h"
 #include "field_weather.h"
+#include "field_mugshot.h"
 #include "gpu_regs.h"
 #include "graphics.h"
 #include "main.h"
@@ -146,6 +147,7 @@ void InitStandardTextBoxWindows(void)
     sMapNamePopupWindowId = WINDOW_NONE;
     if (OW_POPUP_GENERATION == GEN_5)
         sSecondaryPopupWindowId = WINDOW_NONE;
+    SetFieldMugshotSpriteId(WINDOW_NONE); // same as SPRITE_NONE (0xFF)
 }
 
 void FreeAllOverworldWindowBuffers(void)

@@ -2855,3 +2855,24 @@
 	getbraillestringwidth \text
 	call EventScript_BrailleCursorWaitButton
 	.endm
+
+	@ Field mugshot (retrato de NPC junto al cuadro de texto)
+	@ example_usage:
+	@ 	createfieldmugshot MUGSHOT_TEST, EMOTE_NORMAL
+	@ 	msgbox test
+	@ 	removefieldmugshot
+	@ 	createfieldmugshot MUGSHOT_TEST, EMOTE_ALT
+	@ 	msgbox test2
+	@ 	removefieldmugshot
+
+	@ spawns a field mugshot sprite over the message box
+	.macro createfieldmugshot id:req, emote=0
+	callnative CreateFieldMugshot
+	.2byte \id
+	.2byte \emote
+	.endm
+
+	@ destroys the field mugshot, if there is one
+	.macro removefieldmugshot
+	callnative RemoveFieldMugshot
+	.endm

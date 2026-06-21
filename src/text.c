@@ -15,6 +15,7 @@
 #include "string_util.h"
 #include "text.h"
 #include "window.h"
+#include "field_mugshot.h"
 #include "constants/songs.h"
 #include "constants/speaker_names.h"
 
@@ -1532,6 +1533,18 @@ static u16 RenderText(struct TextPrinter *textPrinter)
 
                     return RENDER_REPEAT;
                 }
+            case EXT_CTRL_CODE_CREATE_MUGSHOT:
+                {
+                    u32 id = *textPrinter->printerTemplate.currentChar++;
+                    u32 emote = *textPrinter->printerTemplate.currentChar++;
+                    _CreateFieldMugshot(id, emote);
+                    if (IsFieldMugshotActive())
+                        gSprites[GetFieldMugshotSpriteId()].data[0] = TRUE;
+                }
+                return RENDER_REPEAT;
+            case EXT_CTRL_CODE_DESTROY_MUGSHOT:
+                RemoveFieldMugshot();
+                return RENDER_REPEAT;
             }
             break;
         case CHAR_PROMPT_CLEAR:
@@ -1730,6 +1743,7 @@ static u32 UNUSED GetStringWidthFixedWidthFont(const u8 *str, u8 fontId, u8 lett
             case EXT_CTRL_CODE_COLOR_HIGHLIGHT_SHADOW:
             case EXT_CTRL_CODE_TEXT_COLORS:
                 ++strPos;
+            case EXT_CTRL_CODE_CREATE_MUGSHOT:
             case EXT_CTRL_CODE_PLAY_BGM:
             case EXT_CTRL_CODE_PLAY_SE:
                 ++strPos;
@@ -1751,6 +1765,7 @@ static u32 UNUSED GetStringWidthFixedWidthFont(const u8 *str, u8 fontId, u8 lett
             case EXT_CTRL_CODE_SPEAKER:
                 ++strPos;
                 break;
+            case EXT_CTRL_CODE_DESTROY_MUGSHOT:
             case EXT_CTRL_CODE_RESET_FONT:
             case EXT_CTRL_CODE_PAUSE_UNTIL_PRESS:
             case EXT_CTRL_CODE_WAIT_SE:
