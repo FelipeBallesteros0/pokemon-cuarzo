@@ -82,6 +82,8 @@ struct ItemInfo
     u8 type;
     u8 battleUsage;
     u8 flingPower;
+    u16 coinPrice;
+    u16 bpPrice;
     const u32 *iconPic;
     const u16 *iconPalette;
 };
@@ -245,6 +247,8 @@ u32 GetItemFlingPower(enum Item itemId);
 u32 GetItemStatus1Mask(enum Item itemId);
 bool32 ItemHasVolatileFlag(enum Item itemId, enum Volatile volatile);
 u32 GetItemSellPrice(enum Item itemId);
+u32 GetItemCoinPrice(u16 itemId);
+u32 GetItemBpPrice(u16 itemId);
 bool32 IsHoldEffectChoice(enum HoldEffect holdEffect);
 
 #endif // GUARD_ITEM_H

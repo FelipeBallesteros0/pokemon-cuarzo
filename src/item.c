@@ -944,6 +944,16 @@ u32 GetItemSellPrice(enum Item itemId)
     return GetItemPrice(itemId) / ITEM_SELL_FACTOR;
 }
 
+u32 GetItemCoinPrice(u16 itemId)
+{
+    return gItemsInfo[SanitizeItemId(itemId)].coinPrice;
+}
+
+u32 GetItemBpPrice(u16 itemId)
+{
+    return gItemsInfo[SanitizeItemId(itemId)].bpPrice;
+}
+
 bool32 IsHoldEffectChoice(enum HoldEffect holdEffect)
 {
     return holdEffect == HOLD_EFFECT_CHOICE_BAND
