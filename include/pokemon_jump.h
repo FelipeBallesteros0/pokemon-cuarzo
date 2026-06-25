@@ -4,6 +4,7 @@
 #include "main.h"
 
 void StartPokemonJump(u16 partyId, MainCallback exitCallback);
+void SetPokemonJumpSoloMode(bool8 enable);
 bool32 IsSpeciesAllowedInPokemonJump(u16 species);
 void IsPokemonJumpSpeciesInParty(void);
 void ResetPokemonJumpRecords(void);

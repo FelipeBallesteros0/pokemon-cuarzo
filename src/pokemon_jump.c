@@ -408,6 +408,15 @@ static inline void TruncateToFirstWordOnly(u8 *);
 EWRAM_DATA static struct PokemonJump *sPokemonJump = NULL;
 EWRAM_DATA static struct PokemonJumpGfx *sPokemonJumpGfx = NULL;
 
+// When TRUE, Pokemon Jump runs as a single-player session with no real link
+// (used to test/preview the minigame on an emulator without a wireless adapter).
+static bool8 sPokeJumpSoloMode = FALSE;
+
+void SetPokemonJumpSoloMode(bool8 enable)
+{
+    sPokeJumpSoloMode = enable;
+}
+
 void StartPokemonJump(u16 partyId, MainCallback exitCallback)
 {
     u8 taskId;
@@ -422,7 +431,7 @@ void StartPokemonJump(u16 partyId, MainCallback exitCallback)
             sPokemonJump->mainState = 0;
             sPokemonJump->exitCallback = exitCallback;
             sPokemonJump->taskId = taskId;
-            sPokemonJump->multiplayerId = GetMultiplayerId();
+            sPokemonJump->multiplayerId = sPokeJumpSoloMode ? 0 : GetMultiplayerId();
             InitJumpMonInfo(&sPokemonJump->monInfo[sPokemonJump->multiplayerId], &gPlayerParty[partyId]);
             InitGame(sPokemonJump);
             SetWordTaskArg(taskId, 2, (u32)sPokemonJump);
@@ -439,11 +448,12 @@ static void FreePokemonJump(void)
 {
     FreeWindowsAndDigitObj();
     Free(sPokemonJump);
+    sPokeJumpSoloMode = FALSE;
 }
 
 static void InitGame(struct PokemonJump *jump)
 {
-    jump->numPlayers = GetLinkPlayerCount();
+    jump->numPlayers = sPokeJumpSoloMode ? 1 : GetLinkPlayerCount();
     jump->comm.funcId = FUNC_RESET_GAME;
     jump->comm.data = 0;
     InitPlayerAndJumpTypes();
@@ -461,7 +471,7 @@ static void ResetForNewGame(struct PokemonJump *jump)
     jump->vineTimer = 0;
     jump->vineSpeed = 0;
     jump->updateScore = FALSE;
-    jump->isLeader = GetMultiplayerId() == 0;
+    jump->isLeader = sPokeJumpSoloMode ? TRUE : (GetMultiplayerId() == 0);
     jump->mainState = 0;
     jump->helperState = 0;
     jump->excellentsInRow = 0;
@@ -1473,7 +1483,12 @@ static bool32 ClosePokeJumpLink(void)
     case 4:
         if (!gPaletteFade.active)
         {
-            SetCloseLinkCallback();
+            // In solo mode there is no real link callback to clear the flag,
+            // so clear it directly to avoid hanging on case 5.
+            if (sPokeJumpSoloMode)
+                gReceivedRemoteLinkPlayers = FALSE;
+            else
+                SetCloseLinkCallback();
             sPokemonJump->helperState++;
         }
         break;
@@ -2196,7 +2211,7 @@ static u16 GetQuantityLimitedByBag(enum Item item, u16 quantity)
 
 static u16 GetNumPokeJumpPlayers(void)
 {
-    return GetLinkPlayerCount();
+    return sPokeJumpSoloMode ? 1 : GetLinkPlayerCount();
 }
 
 static u16 GetPokeJumpMultiplayerId(void)
@@ -3516,6 +3531,9 @@ static const u8 sVenusaurStates[] = {
 static const struct CompressedSpriteSheet sSpriteSheet_Digits = {gMinigameDigits_Gfx, 0, TAG_DIGITS};
 static const struct SpritePalette sSpritePalette_Digits = {gMinigameDigits_Pal, TAG_DIGITS};
 
+static const u16 sPlayerNameWindowCoords_1Player[] = { // Solo mode: name window centered
+    11, 6
+};
 static const u16 sPlayerNameWindowCoords_2Players[] = {
      6, 8,
     16, 8
@@ -3547,6 +3565,7 @@ static const u16 *const sPlayerNameWindowCoords[MAX_RFU_PLAYERS - 1] =
     sPlayerNameWindowCoords_5Players,
 };
 
+static const s16 sMonXCoords_1Player[] = {120}; // Solo mode: single mon centered
 static const s16 sMonXCoords_2Players[] = {88, 152};
 static const s16 sMonXCoords_3Players[] = {88, 120, 152};
 static const s16 sMonXCoords_4Players[] = {56, 88, 152, 184};
@@ -3563,7 +3582,7 @@ static const s16 *const sMonXCoords[MAX_RFU_PLAYERS - 1] =
 static void CreateJumpMonSprites(void)
 {
     int i, y, playersCount = GetNumPokeJumpPlayers();
-    const s16 *xCoords = sMonXCoords[playersCount - 2];
+    const s16 *xCoords = (playersCount == 1) ? sMonXCoords_1Player : sMonXCoords[playersCount - 2];
 
     for (i = 0; i < playersCount; i++)
     {
@@ -3680,7 +3699,7 @@ static void AddPlayerNameWindows(void)
 {
     struct WindowTemplate window;
     int i, playersCount = GetNumPokeJumpPlayers();
-    const u16 *winCoords = sPlayerNameWindowCoords[playersCount - 2];
+    const u16 *winCoords = (playersCount == 1) ? sPlayerNameWindowCoords_1Player : sPlayerNameWindowCoords[playersCount - 2];
 
     window.bg = BG_INTERFACE;
     window.width = 8;
@@ -3791,8 +3810,18 @@ static void SendPacket_MonInfo(struct PokemonJump_MonInfo *monInfo)
     packet.isShiny = monInfo->isShiny,
     packet.species = monInfo->species,
     packet.otId = monInfo->otId,
-    packet.personality = monInfo->personality,
-    Rfu_SendPacket(&packet);
+    packet.personality = monInfo->personality;
+    // In solo mode there is no link, so loop the packet straight back into the
+    // local player's receive buffer so the MonInfo handshake completes.
+    if (sPokeJumpSoloMode)
+    {
+        gRecvCmds[0][0] = RFUCMD_SEND_PACKET;
+        memcpy(&gRecvCmds[0][1], &packet, sizeof(packet));
+    }
+    else
+    {
+        Rfu_SendPacket(&packet);
+    }
 }
 
 static bool32 RecvPacket_MonInfo(int multiplayerId, struct PokemonJump_MonInfo *monInfo)

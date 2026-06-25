@@ -22,6 +22,7 @@
 #include "item.h"
 #include "item_icon.h"
 #include "item_use.h"
+#include "link.h"
 #include "list_menu.h"
 #include "m4a.h"
 #include "main.h"
@@ -39,6 +40,7 @@
 #include "pokedex.h"
 #include "pokemon.h"
 #include "pokemon_icon.h"
+#include "pokemon_jump.h"
 #include "pokemon_storage_system.h"
 #include "random.h"
 #include "region_map.h"
@@ -268,6 +270,7 @@ static void DebugAction_Util_Weather(u8 taskId);
 static void DebugAction_Util_Weather_SelectId(u8 taskId);
 static void DebugAction_Util_WatchCredits(u8 taskId);
 static void DebugAction_Util_CheatStart(u8 taskId);
+static void DebugAction_Util_PokemonJump(u8 taskId);
 
 static void DebugAction_TimeMenu_ChangeTimeOfDay(u8 taskId);
 static void DebugAction_TimeMenu_ChangeWeekdays(u8 taskId);
@@ -574,6 +577,7 @@ static const struct DebugMenuOption sDebugMenu_Actions_Utilities[] =
     { COMPOUND_STRING("Follower NPC…"),     DebugAction_OpenSubMenu, sDebugMenu_Actions_FollowerNPCMenu },
     { COMPOUND_STRING("Wally Tutorial"),    DebugAction_ExecuteScript, Debug_EventScript_WallyTutorial },
     { COMPOUND_STRING("Steven Multi"),      DebugAction_ExecuteScript, Debug_EventScript_Steven_Multi },
+    { COMPOUND_STRING("Pokémon Jump (solo)"), DebugAction_Util_PokemonJump },
     { NULL }
 };
 
@@ -1744,6 +1748,18 @@ static void DebugAction_Util_WatchCredits(u8 taskId)
 {
     Debug_DestroyMenu_Full(taskId);
     SetMainCallback2(CB2_StartCreditsSequence);
+}
+
+// Launches Pokemon Jump in single-player solo mode (no link) so the minigame
+// can be played/tested on an emulator without a wireless adapter.
+static void DebugAction_Util_PokemonJump(u8 taskId)
+{
+    Debug_DestroyMenu_Full(taskId);
+    gWirelessCommType = 0;
+    gReceivedRemoteLinkPlayers = TRUE;
+    StringCopy(gLinkPlayers[0].name, gSaveBlock2Ptr->playerName);
+    SetPokemonJumpSoloMode(TRUE);
+    StartPokemonJump(0, CB2_ReturnToFieldContinueScript); // uses party slot 0
 }
 
 static void DebugAction_Player_Name(u8 taskId)
