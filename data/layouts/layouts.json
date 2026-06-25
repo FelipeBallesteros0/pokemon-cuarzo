@@ -9350,7 +9350,7 @@
       "width": 20,
       "height": 40,
       "primary_tileset": "gTileset_General",
-      "secondary_tileset": "gTileset_PuebloCiendra",
+      "secondary_tileset": "gTileset_Rustboro",
       "border_filepath": "data/layouts/RUTA_1/border.bin",
       "blockdata_filepath": "data/layouts/RUTA_1/map.bin"
     },
@@ -9373,6 +9373,16 @@
       "secondary_tileset": "gTileset_PokemonCenter",
       "border_filepath": "data/layouts/Pueblo_Ciendra_PokemonCenter_2F/border.bin",
       "blockdata_filepath": "data/layouts/Pueblo_Ciendra_PokemonCenter_2F/map.bin"
+    },
+    {
+      "id": "LAYOUT_CIUDAD_DIAMANTE",
+      "name": "CiudadDiamante_Layout",
+      "width": 60,
+      "height": 40,
+      "primary_tileset": "gTileset_General",
+      "secondary_tileset": "gTileset_Rustboro",
+      "border_filepath": "data/layouts/CiudadDiamante/border.bin",
+      "blockdata_filepath": "data/layouts/CiudadDiamante/map.bin"
     }
   ]
 }

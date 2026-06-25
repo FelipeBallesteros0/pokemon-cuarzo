@@ -1749,3 +1749,5 @@ EventScript_PalletTown_PlayersHouse_2F_TurnOnPC::
 	.include "data/maps/Pueblo_Ciendra_PokemonCenter_2F/scripts.inc"
 
 	.include "data/maps/Pueblo_Ciendra_PokemonCenter_1F/scripts.inc"
+
+	.include "data/maps/CiudadDiamante/scripts.inc"

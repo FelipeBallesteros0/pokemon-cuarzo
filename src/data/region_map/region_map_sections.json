@@ -1634,6 +1634,10 @@
     {
       "id": "MAPSEC_RUTA_1",
       "name": "Ruta 1"
+    },
+    {
+      "id": "MAPSEC_CIUDAD_DIAMANTE",
+      "name": "Ciudad Diamante"
     }
   ]
 }
