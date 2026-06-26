@@ -13,5 +13,5 @@ Pueblo_Ciendra_EventScript_Vendedora::
 Pueblo_Ciendra_Text_Vendedora:
 	.string "¡Bienvenido a Pueblo Ciendra!\n"
 	.string "Soy la dependienta del PokéMart.\p"
-	.string "¿A que es bonito poder verme\n"
+	.string "{CREATE_MUGSHOT MUGSHOT_MAID EMOTE_ALT}¿A que es bonito poder verme\n"
 	.string "la cara mientras charlamos?$"

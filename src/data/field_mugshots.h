@@ -4,6 +4,8 @@ static const u16 sFieldMugshotPal_TestNormal[] = INCBIN_U16("graphics/field_mugs
 static const u16 sFieldMugshotPal_TestAlt[] = INCBIN_U16("graphics/field_mugshots/test/alt.gbapal");
 static const u32 sFieldMugshotGfx_MaidNormal[] = INCBIN_U32("graphics/field_mugshots/maid/normal.4bpp.lz");
 static const u16 sFieldMugshotPal_MaidNormal[] = INCBIN_U16("graphics/field_mugshots/maid/normal.gbapal");
+static const u32 sFieldMugshotGfx_MaidAlt[] = INCBIN_U32("graphics/field_mugshots/maid/alt.4bpp.lz");
+static const u16 sFieldMugshotPal_MaidAlt[] = INCBIN_U16("graphics/field_mugshots/maid/alt.gbapal");
 
 struct MugshotGfx
 {
@@ -34,6 +36,12 @@ static const struct MugshotGfx sFieldMugshots[MUGSHOT_COUNT][EMOTE_COUNT] =
         {
             .gfx = sFieldMugshotGfx_MaidNormal,
             .pal = sFieldMugshotPal_MaidNormal,
+        },
+
+        [EMOTE_ALT] =
+        {
+            .gfx = sFieldMugshotGfx_MaidAlt,
+            .pal = sFieldMugshotPal_MaidAlt,
         },
     },
 };
