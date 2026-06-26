@@ -3,7 +3,7 @@
 
 void _CreateFieldMugshot(u32 id, u32 emote);
 void RemoveFieldMugshot(void);
-u8 GetFieldMugshotSpriteId(void);
+void SetFieldMugshotVisible(bool32 visible);
 u8 IsFieldMugshotActive(void);
 void SetFieldMugshotSpriteId(u32 value);
 

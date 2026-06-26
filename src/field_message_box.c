@@ -136,7 +136,7 @@ static void ExpandStringAndStartDrawFieldMessage(const u8 *str, bool32 allowSkip
     AddTextPrinterForMessage(allowSkippingDelayWithButtonPress);
     CreateTask_DrawFieldMessage();
     if (IsFieldMugshotActive())
-        gSprites[GetFieldMugshotSpriteId()].data[0] = TRUE;
+        SetFieldMugshotVisible(TRUE);
 }
 
 static void StartDrawFieldMessage(void)
@@ -153,7 +153,7 @@ void HideFieldMessageBox(void)
     sFieldMessageBoxMode = FIELD_MESSAGE_BOX_HIDDEN;
     if (IsFieldMugshotActive())
     {
-        gSprites[GetFieldMugshotSpriteId()].data[0] = FALSE;
+        SetFieldMugshotVisible(FALSE);
         RemoveFieldMugshot();
     }
 }

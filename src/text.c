@@ -1539,7 +1539,7 @@ static u16 RenderText(struct TextPrinter *textPrinter)
                     u32 emote = *textPrinter->printerTemplate.currentChar++;
                     _CreateFieldMugshot(id, emote);
                     if (IsFieldMugshotActive())
-                        gSprites[GetFieldMugshotSpriteId()].data[0] = TRUE;
+                        SetFieldMugshotVisible(TRUE);
                 }
                 return RENDER_REPEAT;
             case EXT_CTRL_CODE_DESTROY_MUGSHOT:
