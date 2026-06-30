@@ -411,6 +411,9 @@ EWRAM_DATA static struct PokemonJumpGfx *sPokemonJumpGfx = NULL;
 // When TRUE, Pokemon Jump runs as a single-player session with no real link
 // (used to test/preview the minigame on an emulator without a wireless adapter).
 static bool8 sPokeJumpSoloMode = FALSE;
+// In solo mode, pressing SELECT cycles the synchronized-jump bonus banners
+// (NICE/GOOD/GREAT/EXCELLENT) so bonuses.png can be previewed in-game.
+static u8 sPokeJumpBonusPreviewId = 0;
 
 void SetPokemonJumpSoloMode(bool8 enable)
 {
@@ -449,6 +452,7 @@ static void FreePokemonJump(void)
     FreeWindowsAndDigitObj();
     Free(sPokemonJump);
     sPokeJumpSoloMode = FALSE;
+    sPokeJumpBonusPreviewId = 0;
 }
 
 static void InitGame(struct PokemonJump *jump)
@@ -1764,6 +1768,14 @@ static const u16 sSoundEffects[MAX_RFU_PLAYERS - 1] = {SE_SHOP, SE_SHINY, SE_M_M
 
 static void UpdateGame(void)
 {
+    // Solo preview: cycle the bonus banners (NICE/GOOD/GREAT/EXCELLENT) with SELECT
+    // so bonuses.png can be checked in-game (the real bonus needs 2+ players).
+    if (sPokeJumpSoloMode && JOY_NEW(SELECT_BUTTON) && !FuncIsActiveTask(Task_UpdateBonus))
+    {
+        ShowBonus(sPokeJumpBonusPreviewId);
+        sPokeJumpBonusPreviewId = (sPokeJumpBonusPreviewId + 1) & 3;
+    }
+
     if (sPokemonJump->updateScore)
     {
         PrintScore(sPokemonJump->comm.jumpScore);
